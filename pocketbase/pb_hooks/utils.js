@@ -164,6 +164,15 @@ module.exports = {
     const sitzung = this.mitgliedAusSession(e)
     if (!sitzung) return { fehler: { status: 401, message: 'Keine gültige Sitzung.' } }
 
+    // R7 · 60 Schreibvorgänge pro Minute und Sitzung. Wer tippt, kommt da nie hin; ein Skript
+    // schon. Der Schlüssel ist die Sitzung, nicht die IP — eine Mannschaft sitzt oft hinter
+    // demselben Anschluss.
+    const limit = require(`${__hooks}/ratelimit.js`)
+    const takt = limit.pruefen(e.app, `put:${sitzung.session.id}`, 60, 60)
+    if (!takt.ok) {
+      return { fehler: { status: 429, message: `Zu viele Änderungen. Warte ${takt.wartenSekunden} Sekunden.` } }
+    }
+
     // R11 · Ohne passende Kopfzeile keine Änderung. Fremde Seiten können den Cookie-Wert nicht
     // lesen und die Kopfzeile deshalb nicht setzen.
     if (!this.csrfOk(e)) return { fehler: { status: 403, message: 'Ungültige Anfrage.' } }

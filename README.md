@@ -45,6 +45,27 @@ Produktionsnaher Schnelltest ohne Docker — alles same-origin auf `:8090`:
 cd app && npm run build      # baut nach ../pocketbase/pb_public/
 ```
 
+## Kapitänsansicht
+
+`/admin`, Anmeldung mit dem PocketBase-Superuser (derselbe Zugang wie für `/_/`). Dort werden
+Spieltage und Mitglieder gepflegt, Token neu ausgestellt und das Protokoll gelesen.
+
+Getrennt vom Mitgliederteil: eigener Cookie, eigene Sitzungstabelle, eigene Prüflogik (R5). Ohne
+Anmeldung antwortet `/admin/api` mit **404**, nicht mit 403 — kein Hinweis darauf, dass es hier
+etwas gibt (R6). Im Betrieb gehört `/admin` zusätzlich im Reverse Proxy auf VPN bzw. LAN
+beschränkt; das ist die wirksamste Einzelmaßnahme (R13).
+
+## Backup
+
+```bash
+PB_SUPERUSER_EMAIL=… PB_SUPERUSER_PASSWORD=… BACKUP_DIR=/backup GPG_EMPFAENGER=… \
+  ./scripts/backup.sh
+```
+
+Gehört in einen Cronjob auf einer **anderen** Maschine als dem Server. Ohne `GPG_EMPFAENGER`
+bleibt die Datei unverschlüsselt liegen — das Skript sagt es dann auch. Wiederherstellen über
+`POST /api/backups/<datei>/restore`; PocketBase startet dabei neu.
+
 ## Im Homelab
 
 Läuft als ein einziger Container (PocketBase mit dem gebauten Frontend in `pb_public`, Migrationen

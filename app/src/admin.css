@@ -1,0 +1,209 @@
+/* Kapitänsansicht. Dieselbe Papier-und-Tinte-Sprache wie der Abfahrtsplan, aber ruhiger:
+   Hier wird gearbeitet, nicht überflogen. Das Gelb bleibt dem Kopfbalken vorbehalten — würde
+   man hier mit Papierfarben codieren, verlöre die Codierung im Plan ihre Bedeutung. */
+
+.admin {
+  max-width: 52rem;
+  margin: 0 auto;
+  min-height: 100vh;
+  border-inline: var(--linie);
+  background: var(--papier);
+}
+
+.admin__kopf {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.6rem 0.9rem;
+  background: var(--gelb);
+  border-bottom: var(--linie);
+  font-family: var(--schrift-eng);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.admin__kopf h1 {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.admin__wer {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--grau-auf-gelb);
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: var(--schrift-mono);
+}
+
+.reiter {
+  display: flex;
+  border-bottom: var(--linie);
+}
+.reiter__knopf {
+  flex: 1 1 0;
+  min-height: 44px;
+  padding: 0.6rem 0.4rem;
+  background: none;
+  border: 0;
+  border-right: var(--linie);
+  font-family: var(--schrift-eng);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--grau);
+  cursor: pointer;
+}
+.reiter__knopf:last-child { border-right: 0; }
+.reiter__knopf[aria-current='true'] {
+  background: var(--tinte);
+  color: var(--papier);
+}
+
+.admin__inhalt { padding: 1rem 0.9rem 2rem; }
+
+.satz {
+  padding: 0.7rem 0;
+  border-bottom: var(--linie-innen);
+}
+.satz:last-child { border-bottom: 0; }
+.satz__kopf {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3rem 0.6rem;
+}
+.satz__name {
+  font-family: var(--schrift-eng);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.satz__zusatz {
+  font-family: var(--schrift-mono);
+  font-size: 0.78rem;
+  color: var(--grau);
+}
+.satz__aktionen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+/* Knöpfe bemessen sich am Wort, nicht am Fenster. Ohne das zog sich „Löschen" auf einem
+   1200-px-Schirm über 440 px Breite. */
+.satz__aktionen .knopf { flex: 0 0 auto; }
+
+/* Löschen nimmt Rückmeldungen und Fahrdienst mit. Rot ist in diesem Entwurf die Warnfarbe —
+   genau hier gehört sie hin, damit der Knopf nicht aussieht wie „Bearbeiten". */
+.knopf--gefahr {
+  border-color: var(--rot);
+  color: var(--rot);
+}
+.knopf--gefahr:hover:not(:disabled) {
+  background: var(--rot);
+  color: var(--papier);
+}
+
+.feldreihe {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.6rem;
+  margin: 0.6rem 0;
+}
+.feld { display: flex; flex-direction: column; gap: 0.2rem; }
+.feld > span {
+  font-family: var(--schrift-eng);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--grau);
+}
+.feld input,
+.feld select {
+  min-height: 44px;
+  padding: 0.4rem 0.55rem;
+  background: #fff;
+  border: 2px solid var(--tinte);
+  border-radius: 0;
+  color: var(--tinte);
+  font: inherit;
+}
+.feld input[type='checkbox'] {
+  min-height: 0;
+  width: 22px;
+  height: 22px;
+  align-self: start;
+  margin-top: 0.6rem;
+  accent-color: var(--tinte);
+}
+
+/* Das frisch ausgestellte Token — das einzige Mal, dass es sichtbar ist (R1). */
+.token {
+  margin: 0.6rem 0 0;
+  padding: 0.7rem 0.8rem;
+  border: 2px solid var(--stempel);
+  background: #fff;
+}
+.token__hinweis {
+  margin: 0 0 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--stempel);
+}
+.token__wert {
+  display: block;
+  font-family: var(--schrift-mono);
+  font-size: 0.85rem;
+  word-break: break-all;
+  user-select: all;
+}
+
+.protokoll {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--schrift-mono);
+  font-size: 0.78rem;
+}
+.protokoll th,
+.protokoll td {
+  padding: 0.35rem 0.5rem 0.35rem 0;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid color-mix(in srgb, var(--tinte) 20%, transparent);
+}
+.protokoll th {
+  font-family: var(--schrift-eng);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--grau);
+}
+.protokoll td:last-child { word-break: break-word; }
+
+/* Auf schmalen Geräten wird aus der Tabelle eine Liste — sonst quetscht sie sich unlesbar. */
+@media (max-width: 34rem) {
+  .protokoll thead { display: none; }
+  .protokoll tr {
+    display: block;
+    padding: 0.4rem 0;
+    border-bottom: var(--linie-innen);
+  }
+  .protokoll td {
+    display: block;
+    padding: 0;
+    border: 0;
+  }
+}
+
+.anmeldung {
+  max-width: 22rem;
+  margin: 3rem auto;
+  padding: 0 1rem;
+}

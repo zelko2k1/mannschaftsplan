@@ -32,6 +32,63 @@ jobs:
       - name: Shell-Skripte auf Syntaxfehler prüfen
         run: for f in scripts/*.sh; do bash -n "$f"; done
 
+  # Das Deployment ist EIN Image: PocketBase mit dem gebauten Frontend in pb_public, Migrationen
+  # und Hooks fest eingebacken. Auf dem Entwicklungsrechner läuft kein Docker — deshalb wird das
+  # hier gebaut UND angefahren. Ein Dockerfile, das nur im Repo liegt und nie gestartet wurde,
+  # ist eine Behauptung, kein Deployment.
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Compose-Datei prüfen
+        run: docker compose -f deploy/docker-compose.yaml config > /dev/null
+
+      - name: Image bauen
+        run: docker build -f deploy/Dockerfile -t mannschaftsplan:ci .
+
+      - name: Container starten
+        run: |
+          docker run -d --name mp -p 8090:8090 mannschaftsplan:ci \
+            serve --automigrate=0 --http=0.0.0.0:8090 --dir=/pb_data \
+            --hooksDir=/pb/hooks --migrationsDir=/pb/migrations --publicDir=/pb/pb_public
+          for _ in $(seq 1 60); do
+            curl -fsS --max-time 1 http://127.0.0.1:8090/api/health >/dev/null 2>&1 && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8090/api/health > /dev/null
+
+      - name: Steckt wirklich alles im Image?
+        run: |
+          set -euo pipefail
+          echo "— Frontend aus pb_public"
+          curl -fsS http://127.0.0.1:8090/ | grep -q 'id="root"'
+          echo "— robots.txt aus dem Image, nicht der SPA-Fallback (R9)"
+          curl -fsS http://127.0.0.1:8090/robots.txt | grep -q '^Disallow: /$'
+          echo "— Hooks geladen: die Einladungsseite kommt aus session.pb.js"
+          curl -fsS http://127.0.0.1:8090/j/beliebig | grep -q 'action="/api/session"'
+          echo "— Migrationen gelaufen und Collections gesperrt"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8090/api/collections/fixtures/records)" = 403
+          echo "— Sicherheitskopfzeilen auch ohne Caddy (R9)"
+          curl -sD - -o /dev/null http://127.0.0.1:8090/api/health | grep -qi '^x-robots-tag: noindex'
+          curl -sD - -o /dev/null http://127.0.0.1:8090/api/health | grep -qi '^content-security-policy:'
+
+      - name: Die Testfälle gegen den Container
+        env:
+          PB_SUPERUSER_EMAIL: ci@example.com
+          PB_SUPERUSER_PASSWORD: nur-fuer-die-ci-2026
+        run: |
+          docker exec mp /usr/local/bin/pocketbase superuser upsert \
+            "$PB_SUPERUSER_EMAIL" "$PB_SUPERUSER_PASSWORD" --dir=/pb_data
+          node scripts/api-tests.mjs
+
+      - name: Log des Containers
+        if: always()
+        run: docker logs mp
+
   api:
     runs-on: ubuntu-latest
     steps:

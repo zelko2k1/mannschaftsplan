@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, KeineSitzung, type Board, type Spieltag, type Status } from './api'
+import Admin from './Admin'
 import Zeile from './Zeile'
 import './abfahrtsplan.css'
 
@@ -34,17 +35,9 @@ function LinkUngueltig() {
 }
 
 export default function App() {
-  // Die Kapitänsansicht ist eine eigene Route mit eigenem Router und eigenem Cookie (R5) und
-  // kommt in Schritt 6. Bis dahin darf hier jedenfalls nicht der Mitgliederplan stehen.
-  if (window.location.pathname.startsWith('/admin')) {
-    return (
-      <div className="plan">
-        <div className="leer">
-          <p>Die Kapitänsansicht gibt es noch nicht.</p>
-        </div>
-      </div>
-    )
-  }
+  // Die Kapitänsansicht ist eine eigene Route mit eigenem Router, eigener Sitzungstabelle und
+  // eigenem Cookie (R5). Ein Router wäre für zwei Seiten übertrieben — der Pfad genügt.
+  if (window.location.pathname.startsWith('/admin')) return <Admin />
 
   return <Abfahrtsplan />
 }

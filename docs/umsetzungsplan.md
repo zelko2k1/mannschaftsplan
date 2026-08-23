@@ -140,6 +140,19 @@ Drei Eigenheiten von PocketBase, die beim Anlegen zu beachten sind:
 | `ride` | relation → rides, cascade | in welchem Auto — die Kapazität wird **pro Fahrer** geprüft, nicht gegen einen gemeinsamen Topf |
 | **Index** | UNIQUE(`fixture`, `member`) | ein Mitglied sitzt pro Spieltag in genau einem Auto |
 
+### `admin_sessions`
+Eigene Tabelle, nicht `sessions` mit einem Sonderfall. R5 verlangt getrennte Router; getrennte
+Router mit gemeinsamer Sitzungstabelle wären eine halbe Trennung. Dazu kommt ein handfester
+Grund: `sessions.member` ist eine Pflicht-Relation — eine Sitzung ohne Mitglied passt dort nicht
+hinein.
+
+| Feld | Typ | Anmerkung |
+|---|---|---|
+| `sid_hash` | text, unique, indexed | SHA-256 hex der Sitzungs-ID |
+| `email` | text, required | Superuser-Adresse, steht so auch im Protokoll |
+| `created` | autodate | die 12 Stunden aus R13 werden dagegen geprüft |
+| `last_seen` | date | |
+
 ### `audit_log`
 | Feld | Typ |
 |---|---|
@@ -194,13 +207,22 @@ Ungültiges Token → immer dieselbe Seite, HTTP 200, keine Unterscheidung zwisc
 nicht" und „ist inaktiv". Kein Endpunkt listet Mitglieder oder Spieltage ohne gültige Session.
 
 ### R7 · Rate Limits
-| Route | Limit |
-|---|---|
-| `GET /j/:token` | 10 / min / IP |
-| `PUT /api/*` | 60 / min / Session |
-| `POST /admin/api/login` | 5 / min / IP, danach 15 min Sperre |
+| Route | Limit | gezählt wird |
+|---|---|---|
+| `POST /api/session` | 10 / min / IP | **nur Fehlversuche** |
+| `PUT /api/*` | 60 / min / Session | jede Anfrage |
+| `POST /admin/api/login` | 5 / min / IP, danach 15 min Sperre | jede Anfrage, Erfolg setzt zurück |
 
-Umsetzung primär in Caddy, zusätzlich ein einfacher In-Memory-Zähler im Hook als zweite Linie.
+**Beim Einlösen dürfen nicht Anfragen gezählt werden, sondern nur Fehlversuche.** Eine Mannschaft
+sitzt im Vereinsheim hinter EINER öffentlichen IP. Verschickt der Kapitän die Links und tippen
+acht Leute im selben WLAN darauf, wären die letzten sonst ausgesperrt — an ihrem eigenen,
+gültigen Link. Wer ein gültiges Token hat, rät nicht; ein Treffer setzt den Zähler zurück.
+
+Umsetzung im Hook (`pb_hooks/ratelimit.js`), nicht in Caddy: das dortige Rate Limiting braucht
+das `caddy-ratelimit`-Plugin, das in keinem Standard-Image steckt, und im Entwicklungsbetrieb
+steht überhaupt kein Caddy davor. Der Zähler liegt im Arbeitsspeicher — nach einem Neustart sind
+alle Sperren weg, und die Zahl der Einträge ist begrenzt, damit niemand den Prozess mit vielen
+IP-Adressen vollschreibt.
 
 ### R8 · Token nicht in Logs
 Caddy: für den Matcher `path /j/*` das URI-Feld aus dem Log entfernen. Die Anwendung loggt
@@ -241,8 +263,15 @@ Admin-Aktion „Neues Token" pro Mitglied:
 
 ### R13 · Admin-Zugang
 - Login gegen PocketBase-Superuser (`_superusers`) — kein selbstgebautes Passwort-Handling.
-  Der Hook nimmt das Ergebnis entgegen und legt es in ein HttpOnly-Cookie `dz_admin`
-  (`Path=/admin`, Laufzeit 12 h). Der Token landet **nicht** in `localStorage`.
+  Der Hook legt eine eigene Sitzung in `admin_sessions` an und setzt ein HttpOnly-Cookie
+  `dz_admin` (`Path=/admin`, Laufzeit 12 h) sowie das lesbare `dz_admin_csrf` für R11. Der
+  PocketBase-Token landet **nirgends** im Browser, weder im Cookie noch in `localStorage`.
+  Die 12 Stunden werden serverseitig gegen `admin_sessions.created` geprüft, nicht nur über die
+  Cookie-Lebensdauer — ein abgegriffener Cookie-Wert wäre sonst unbegrenzt gültig.
+- **Was das Modell hier nicht leistet:** die Antwortzeit verrät, ob eine Superuser-Adresse
+  existiert (bei bekannter Adresse läuft eine bcrypt-Prüfung, bei unbekannter nicht). Das
+  schließt erst die Sperre oben: fünf Versuche, dann eine Viertelstunde Ruhe. Zusammen mit der
+  Netzsperre unten ist das der Punkt, an dem sich weiterer Aufwand nicht mehr lohnt.
 - **MFA für den Superuser aktivieren.**
 - `/admin` und `/_/` sind im Reverse Proxy **nicht öffentlich erreichbar** — nur über
   WireGuard/Tailscale oder eine IP-Allowlist. Das ist die wirksamste Einzelmaßnahme:
@@ -498,10 +527,25 @@ Linie dazu. Beim Bau gegen die tatsächlich installierte PocketBase-Version prü
 - `unattended-upgrades` für Systempakete; PocketBase-Releases manuell verfolgen
 
 ### 7.4 Backup
-- Nächtlich: PocketBase-Backup erzeugen, verschlüsseln, **außerhalb des Servers** ablegen
-  (Hetzner Storage Box oder ins Homelab)
-- Aufbewahrung 30 Tage
-- **Restore einmal vollständig testen.** Ein ungetestetes Backup ist kein Backup.
+`scripts/backup.sh` erledigt das: lässt PocketBase ein Backup erzeugen, holt es, prüft dass es
+wirklich ein ZIP ist, verschlüsselt es mit GPG und räumt Stände älter als 30 Tage weg. Gehört in
+einen Cronjob auf einer **anderen** Maschine als dem Server — ein Backup neben der Datenbank ist
+keins.
+
+```
+0 3 * * *  PB_URL=https://dart.example.de PB_SUPERUSER_EMAIL=… PB_SUPERUSER_PASSWORD=… \
+           BACKUP_DIR=/backup/mannschaftsplan GPG_EMPFAENGER=… /pfad/zu/backup.sh
+```
+
+**Restore einmal vollständig testen.** Ein ungetestetes Backup ist kein Backup. Der Weg:
+
+```
+POST /api/backups/<datei>/restore    (Superuser-Token)
+```
+
+PocketBase startet dabei neu. Danach prüfen, ob der erwartete Datenstand da ist **und** ob die
+Anwendung weiterläuft — Hooks, Migrationen und die Auslieferung aus `pb_public` müssen den
+Neustart überstehen.
 
 ---
 
@@ -568,7 +612,14 @@ Spielplan-PDF importieren, Tokens erzeugen, per Einzelchat verteilen.
 
 ## 11. Testfälle
 
-Vor „fertig" alle durchlaufen.
+Vor „fertig" alle durchlaufen. Was mit **automatisiert** markiert ist, steckt in
+`scripts/api-tests.mjs` und läuft in der CI — sowohl gegen ein nacktes PocketBase als auch gegen
+das gebaute Container-Image. Der Rest bleibt Handarbeit, weil er einen Proxy, einen echten
+Messenger oder ein Auge braucht.
+
+**Reihenfolge beachten:** T9 sperrt den Login für diese IP eine Viertelstunde. Der Testlauf legt
+ihn deshalb ans Ende, und ein zweiter Lauf braucht einen PocketBase-Neustart — der Zähler liegt
+nur im Arbeitsspeicher.
 
 | # | Prüfung | Erwartung |
 |---|---|---|
@@ -579,8 +630,10 @@ Vor „fertig" alle durchlaufen.
 | T5 | `PUT /api/response/:id` mit fremdem `member` im Body | eigener Datensatz geändert, fremder unverändert |
 | T6 | `PUT` mit `status: "vielleicht"` oder `seats: 99` | 400, nichts gespeichert |
 | T7 | `PUT` auf `locked`-Spieltag | 403 |
-| T8 | `/admin` von außerhalb des VPN | 404 |
-| T9 | 6× falsches Admin-Passwort | gesperrt, konstante Antwortzeit, kein Hinweis auf Existenz |
+| T8a | `/admin/api` ohne Kapitänssitzung | 404, nicht 401 oder 403 (R6) — **automatisiert** |
+| T8b | `/admin/api` mit einer MITGLIEDER-Sitzung | 404 (R5) — **automatisiert** |
+| T8c | `/admin` von außerhalb des VPN bzw. LAN | 404 — Aussage über den Proxy, **Handprüfung** |
+| T9 | 6× falsches Admin-Passwort | gesperrt, auch für das richtige Passwort; kein Hinweis auf Existenz |
 | T10 | Access-Log nach `/j/`-Aufruf durchsuchen | kein Token im Klartext |
 | T11 | Link in WhatsApp einfügen | Vorschau „Dartzentrale — Termine", nichts Personalisiertes |
 | T12 | Backup einspielen | Datenstand vollständig wiederhergestellt |

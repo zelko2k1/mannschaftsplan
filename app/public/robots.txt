@@ -1,0 +1,4 @@
+# R9 · Diese Anwendung gehört in keinen Suchindex. Die Kopfzeile X-Robots-Tag sagt dasselbe
+# noch einmal für Crawler, die diese Datei ignorieren.
+User-agent: *
+Disallow: /

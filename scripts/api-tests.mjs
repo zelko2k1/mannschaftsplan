@@ -569,6 +569,214 @@ await pruefe('F4', 'Fahrt zurückziehen nimmt die Mitfahrer mit', async () => {
   gleich(uebrig.totalItems, 0, 'übrige Mitfahrer')
 })
 
+// ── Kapitänsansicht ────────────────────────────────────────────────────────────────────────
+// Anmerkung zu T8: „/admin von außerhalb des VPN → 404" ist eine Aussage über den Reverse Proxy
+// und bleibt eine Handprüfung. Hier steht die Hälfte, die die Anwendung selbst verantwortet:
+// ohne Kapitänssitzung antwortet /admin/api mit 404, nicht mit 401 oder 403 (R6).
+
+const ADMIN_ROUTEN = ['/admin/api/me', '/admin/api/fixtures', '/admin/api/members', '/admin/api/audit']
+
+async function adminAnmelden(passwort = PASSWORT) {
+  const antwort = await roh('/admin/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: EMAIL, password: passwort }),
+  })
+  return { antwort, ...kekse(antwort) }
+}
+
+function alsKapitaen(jar) {
+  return (pfad, optionen = {}) =>
+    roh(pfad, {
+      ...optionen,
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: alsHeader(jar),
+        'X-CSRF-Token': jar.dz_admin_csrf,
+        ...optionen.headers,
+      },
+    })
+}
+
+await pruefe('T8a', '/admin/api ohne Kapitänssitzung → 404, nicht 401/403 (R6)', async () => {
+  for (const pfad of ADMIN_ROUTEN) {
+    gleich((await roh(pfad)).status, 404, pfad)
+  }
+  // Auch schreibend darf nichts durchkommen.
+  gleich(
+    (await roh('/admin/api/members', { method: 'POST', body: '{"name":"Eindringling"}' })).status,
+    404,
+    'POST /admin/api/members',
+  )
+})
+
+await pruefe('T8b', 'Eine Mitgliedersitzung öffnet die Kapitänsansicht nicht (R5)', async () => {
+  const { klartext } = await testMitglied('kein-kapitaen')
+  const { jar } = await anmelden(klartext)
+  for (const pfad of ADMIN_ROUTEN) {
+    gleich((await roh(pfad, { headers: { Cookie: alsHeader(jar) } })).status, 404, pfad)
+  }
+})
+
+await pruefe('A1', 'Anmelden setzt zwei Cookies mit Path=/admin', async () => {
+  const { antwort, jar, roh: zeilen } = await adminAnmelden()
+  gleich(antwort.status, 200, 'Status')
+  if (!jar.dz_admin) throw new Error('dz_admin fehlt')
+  if (!jar.dz_admin_csrf) throw new Error('dz_admin_csrf fehlt')
+
+  const sid = zeilen.find((z) => z.startsWith('dz_admin='))
+  for (const teil of ['Path=/admin', 'HttpOnly', 'Secure', 'SameSite=Lax']) {
+    if (!sid.includes(teil)) throw new Error(`dz_admin ohne ${teil}: ${sid}`)
+  }
+  // Path=/admin heißt: der Browser schickt diesen Cookie bei /api/* gar nicht erst mit.
+  if (zeilen.find((z) => z.startsWith('dz_admin_csrf=')).includes('HttpOnly')) {
+    throw new Error('dz_admin_csrf ist HttpOnly, Double-Submit unmöglich')
+  }
+})
+
+await pruefe('A2', 'Falsches Passwort und unbekannte Adresse sind ununterscheidbar (R6)', async () => {
+  const falsch = await adminAnmelden('ganz-sicher-falsch')
+  const unbekannt = await roh('/admin/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'gibtsnicht@example.com', password: 'ganz-sicher-falsch' }),
+  })
+  gleich(falsch.antwort.status, 401, 'Status falsches Passwort')
+  gleich(unbekannt.status, 401, 'Status unbekannte Adresse')
+  gleich(await falsch.antwort.text(), await unbekannt.text(), 'Antwortkörper')
+  gleich(falsch.anzahl, 0, 'Anzahl Set-Cookie')
+})
+
+await pruefe('A3', 'Schreiben ohne CSRF-Kopfzeile → 403 (R11)', async () => {
+  const { jar } = await adminAnmelden()
+  const ohne = await roh('/admin/api/members', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: alsHeader(jar) },
+    body: JSON.stringify({ name: 'test-ohne-csrf' }),
+  })
+  gleich(ohne.status, 403, 'Status')
+  // Lesen darf weiterhin gehen — die Kopfzeile schützt Änderungen, nicht Abfragen.
+  gleich((await roh('/admin/api/members', { headers: { Cookie: alsHeader(jar) } })).status, 200, 'GET')
+})
+
+await pruefe('A4', 'Der Token-Hash verlässt den Server nie (R1)', async () => {
+  await testMitglied('hash-check')
+  const { jar } = await adminAnmelden()
+  const koerper = await (await alsKapitaen(jar)('/admin/api/members')).text()
+  if (koerper.includes('token_hash')) throw new Error('token_hash steht in der Antwort')
+  const liste = JSON.parse(koerper).items
+  if (!liste.some((m) => 'hat_token' in m)) throw new Error('hat_token fehlt')
+})
+
+await pruefe('A5', '„Neues Token" tötet alten Link und alle Geräte (R12)', async () => {
+  const { klartext, satz } = await testMitglied('rotate-admin')
+  const mitglied = await anmelden(klartext)
+  gleich((await roh('/api/me', { headers: { Cookie: alsHeader(mitglied.jar) } })).status, 200, 'vorher')
+
+  const { jar } = await adminAnmelden()
+  const antwort = await alsKapitaen(jar)(`/admin/api/members/${satz.id}/rotate-token`, { method: 'POST' })
+  gleich(antwort.status, 200, 'Status')
+  const { token: neu, sitzungen_beendet } = await antwort.json()
+  if (!neu || neu.length !== 22) throw new Error(`Token hat ${neu?.length} Zeichen statt 22`)
+  gleich(sitzungen_beendet, 1, 'beendete Sitzungen')
+
+  gleich((await anmelden(klartext)).antwort.status, 200, 'alter Link liefert die Ungültig-Seite')
+  gleich((await roh('/api/me', { headers: { Cookie: alsHeader(mitglied.jar) } })).status, 401, 'alte Sitzung')
+  gleich((await anmelden(neu)).antwort.status, 302, 'neuer Link')
+})
+
+await pruefe('A6', 'Deaktivieren wirft das Mitglied sofort von allen Geräten', async () => {
+  const { klartext, satz } = await testMitglied('deaktivieren')
+  const mitglied = await anmelden(klartext)
+  gleich((await roh('/api/me', { headers: { Cookie: alsHeader(mitglied.jar) } })).status, 200, 'vorher')
+
+  const { jar } = await adminAnmelden()
+  gleich(
+    (
+      await alsKapitaen(jar)(`/admin/api/members/${satz.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ active: false }),
+      })
+    ).status,
+    200,
+    'PATCH',
+  )
+  gleich((await roh('/api/me', { headers: { Cookie: alsHeader(mitglied.jar) } })).status, 401, 'nachher')
+  gleich((await anmelden(klartext)).antwort.status, 200, 'Link liefert die Ungültig-Seite')
+})
+
+await pruefe('A7', 'Der Kapitän darf auch abgeschlossene Spieltage korrigieren', async () => {
+  const { satz } = await testMitglied('korrektur')
+  const spieltag = await testSpieltag({ locked: true })
+  const { jar } = await adminAnmelden()
+
+  gleich(
+    (
+      await alsKapitaen(jar)(`/admin/api/response/${spieltag.id}/${satz.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'yes' }),
+      })
+    ).status,
+    200,
+    'Status',
+  )
+  const treffer = await pb(
+    `/api/collections/responses/records?filter=${encodeURIComponent(`fixture="${spieltag.id}"`)}`,
+  )
+  gleich(treffer.totalItems, 1, 'Anzahl')
+  gleich(treffer.items[0].status, 'yes', 'Status im Datensatz')
+})
+
+await pruefe('A8', 'Spieltag anlegen, ändern und löschen', async () => {
+  const { jar } = await adminAnmelden()
+  const ruf = alsKapitaen(jar)
+
+  const angelegt = await ruf('/admin/api/fixtures', {
+    method: 'POST',
+    body: JSON.stringify({
+      date: '2026-11-14 19:30:00',
+      opponent_town: 'test-Neustadt',
+      opponent_club: 'test-Club',
+      is_home: false,
+      km: 40,
+    }),
+  })
+  gleich(angelegt.status, 200, 'anlegen')
+  const { id } = await angelegt.json()
+
+  gleich(
+    (await ruf(`/admin/api/fixtures/${id}`, { method: 'PATCH', body: JSON.stringify({ km: 55 }) })).status,
+    200,
+    'ändern',
+  )
+  const liste = await (await ruf('/admin/api/fixtures')).json()
+  gleich(liste.items.find((s) => s.id === id).km, 55, 'km nach dem Ändern')
+
+  // R4 · Unsinn wird abgewiesen.
+  gleich(
+    (await ruf(`/admin/api/fixtures/${id}`, { method: 'PATCH', body: JSON.stringify({ km: -5 }) })).status,
+    400,
+    'negative Entfernung',
+  )
+
+  gleich((await ruf(`/admin/api/fixtures/${id}`, { method: 'DELETE' })).status, 200, 'löschen')
+})
+
+// ── T9 · MUSS ALS LETZTES LAUFEN ───────────────────────────────────────────────────────────
+// Die Sperre gilt 15 Minuten für diese IP und würde jede weitere Anmeldung blockieren. Der
+// Zähler liegt im Arbeitsspeicher: ein Neustart von PocketBase räumt ihn weg.
+await pruefe('T9', '6× falsches Passwort → gesperrt, auch für das richtige', async () => {
+  let letzter = null
+  for (let i = 0; i < 6; i++) letzter = (await adminAnmelden('immer-falsch')).antwort
+  gleich(letzter.status, 429, 'Status nach dem sechsten Versuch')
+
+  // Der entscheidende Teil: mit dem RICHTIGEN Passwort kommt man jetzt auch nicht mehr rein.
+  // Eine Sperre, die sich durch einen Treffer aufheben ließe, wäre keine.
+  const mitRichtigem = await adminAnmelden()
+  gleich(mitRichtigem.antwort.status, 429, 'Status mit richtigem Passwort')
+  gleich(mitRichtigem.anzahl, 0, 'Anzahl Set-Cookie')
+})
+
 // ── Aufräumen ──────────────────────────────────────────────────────────────────────────────
 // Rückwärts, damit abhängige Datensätze vor ihren Bezugspunkten verschwinden.
 for (const [collection, id] of aufraeumen.reverse()) {
@@ -579,5 +787,9 @@ for (const [collection, id] of aufraeumen.reverse()) {
   }
 }
 
-console.log(`\n${bestanden} bestanden, ${durchgefallen.length} durchgefallen\n`)
+console.log(`\n${bestanden} bestanden, ${durchgefallen.length} durchgefallen`)
+console.log(
+  'Hinweis: T9 hat den Login für diese IP 15 Minuten gesperrt. Vor dem nächsten Lauf\n' +
+    '         PocketBase neu starten — der Zähler liegt nur im Arbeitsspeicher.\n',
+)
 if (durchgefallen.length) process.exit(1)

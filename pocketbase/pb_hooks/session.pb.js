@@ -27,13 +27,31 @@ routerAdd('GET', '/j/{token}', (e) => {
 routerAdd('POST', '/api/session', (e) => {
   const u = require(`${__hooks}/utils.js`)
   const seiten = require(`${__hooks}/seiten.js`)
+  const limit = require(`${__hooks}/ratelimit.js`)
+
+  // R7 · Begrenzt werden FEHLVERSUCHE, nicht Einlösungen — 10 pro Minute und IP.
+  //
+  // Anfragen zu zählen wäre hier falsch, und zwar nicht nur ein bisschen: eine Mannschaft sitzt
+  // im Vereinsheim hinter EINER öffentlichen IP. Verschickt der Kapitän die Links und tippen
+  // acht Leute im selben WLAN darauf, wären die letzten ausgesperrt — an ihrem eigenen,
+  // gültigen Link. Wer ein gültiges Token hat, rät nicht; gezählt gehört also nur, wer danebentippt.
+  const sperre = limit.istGesperrt(e.app, `session:${e.realIP()}`)
+  if (sperre.gesperrt) {
+    // Auch hier keine Auskunft, die ein gültiges von einem ungültigen Token unterscheidbar
+    // machen würde (R6) — nur der Hinweis, dass es zu schnell ging.
+    return e.json(429, { message: `Zu viele Versuche. Warte ${sperre.wartenSekunden} Sekunden.` })
+  }
 
   const koerper = e.requestInfo().body || {}
   const token = String(koerper.token || '')
 
   // R6 · Ab hier führt jeder Fehlschlag zur exakt gleichen Antwort: HTTP 200, generische Seite,
   // kein Cookie. Ob das Token unbekannt ist oder das Mitglied deaktiviert, bleibt ununterscheidbar.
-  const abweisen = () => e.blob(200, 'text/html; charset=utf-8', seiten.ungueltig())
+  // Jeder Fehlschlag zählt gegen die Grenze oben.
+  const abweisen = () => {
+    limit.pruefen(e.app, `session:${e.realIP()}`, 10, 60)
+    return e.blob(200, 'text/html; charset=utf-8', seiten.ungueltig())
+  }
 
   if (!token) return abweisen()
 
@@ -45,8 +63,14 @@ routerAdd('POST', '/api/session', (e) => {
   }
   if (!mitglied || !mitglied.getBool('active')) return abweisen()
 
+  // Treffer: der Zähler dieser IP wird zurückgesetzt. Ein Tippfehler von gestern soll niemanden
+  // daran hindern, heute hereinzukommen.
+  limit.zuruecksetzen(e.app, `session:${e.realIP()}`)
+
   u.sessionStarten(e, mitglied)
-  u.protokollieren(e.app, `member:${mitglied.id}`, 'session.start', mitglied.id, '', '')
+  // Kein Ziel: der Handelnde IST das Mitglied, sonst stünde im Protokoll „Marco · Link
+  // geöffnet · Marco".
+  u.protokollieren(e.app, `member:${mitglied.id}`, 'session.start', '', '', '')
 
   // 302 nach GET / — der Browser wechselt dabei auf GET, das Token verschwindet aus der Adresszeile.
   return e.redirect(302, '/')
