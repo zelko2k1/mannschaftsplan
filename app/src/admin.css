@@ -116,6 +116,13 @@
   margin: 0.6rem 0;
 }
 .feld { display: flex; flex-direction: column; gap: 0.2rem; }
+/* Datum und Uhrzeit stehen in einer eigenen Zeile über dem Rest: sie sind die wichtigste Angabe
+   am Spieltag, und der Browser schreibt sie in der Systemschreibweise — im 12-Stunden-Format
+   „08/29/2026, 07:30 PM" plus Kalendersymbol, was in einer 11rem-Spalte abgeschnitten wurde. */
+.feld--datum { grid-column: 1 / -1; }
+/* Die Zeile gehört ihm allein, das Feld selbst braucht die Breite aber nicht — sonst zieht sich
+   ein Datum über den halben Bildschirm. */
+.feld--datum input { max-width: 22rem; }
 .feld > span {
   font-family: var(--schrift-eng);
   font-size: 0.75rem;

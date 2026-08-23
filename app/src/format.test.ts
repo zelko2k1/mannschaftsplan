@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { ausISO, plaetze, tag, uhrzeit, wannUngefaehr } from './format'
+import {
+  ausEingabe,
+  ausISO,
+  fuerEingabe,
+  plaetze,
+  systemDatum,
+  systemDatumZeit,
+  tag,
+  uhrzeit,
+  wannUngefaehr,
+} from './format'
 
 // Die Tests rechnen in lokaler Zeit — genau wie die Anzeige. Deshalb werden die Erwartungswerte
 // aus demselben Date-Objekt abgeleitet statt fest hingeschrieben; sonst schlägt die Suite in
@@ -84,5 +94,57 @@ describe('plaetze', () => {
   it('sagt bei null Plätzen etwas Lesbares statt „0 Plätze"', () => {
     expect(plaetze(0)).toBe('keine Plätze frei')
     expect(plaetze(-1)).toBe('keine Plätze frei')
+  })
+})
+
+describe('fuerEingabe / ausEingabe', () => {
+  // Der Fehler, den das verhindert: PocketBase liefert UTC, das Feld zeigt Ortszeit. Wer die
+  // Zeichenkette einfach durchreicht, verschiebt jeden Anwurf um den Zonenversatz — im Sommer
+  // um zwei Stunden, und zwar bei jedem Speichern erneut.
+  it('rechnet UTC in Ortszeit fürs Eingabefeld um', () => {
+    const utc = '2026-08-29 17:30:00.000Z'
+    const d = new Date('2026-08-29T17:30:00Z')
+    const zwei = (n: number) => String(n).padStart(2, '0')
+    const erwartet =
+      `${d.getFullYear()}-${zwei(d.getMonth() + 1)}-${zwei(d.getDate())}` +
+      `T${zwei(d.getHours())}:${zwei(d.getMinutes())}`
+    expect(fuerEingabe(utc)).toBe(erwartet)
+  })
+
+  it('legt den Zeitpunkt bei Hin und Rück nicht um', () => {
+    const utc = '2026-08-29 17:30:00.000Z'
+    expect(ausEingabe(fuerEingabe(utc))).toBe('2026-08-29 17:30:00')
+  })
+
+  it('liest das Feld als Ortszeit, nicht als UTC', () => {
+    const eingegeben = '2026-08-29T19:30'
+    expect(ausEingabe(eingegeben)).toBe(
+      new Date(eingegeben).toISOString().replace('T', ' ').slice(0, 19),
+    )
+  })
+
+  it('macht aus Unsinn eine leere Angabe statt eines kaputten Datums', () => {
+    for (const unsinn of ['', null, undefined, 'nächsten Dienstag']) {
+      expect(ausEingabe(unsinn)).toBe('')
+      expect(fuerEingabe(unsinn)).toBe('')
+    }
+  })
+})
+
+describe('systemDatumZeit / systemDatum', () => {
+  it('schreibt so, wie das System es vorgibt', () => {
+    const utc = '2026-08-29 17:30:00.000Z'
+    const d = new Date('2026-08-29T17:30:00Z')
+    expect(systemDatumZeit(utc)).toBe(
+      new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(d),
+    )
+    expect(systemDatum(utc)).toBe(
+      new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(d),
+    )
+  })
+
+  it('zeigt bei fehlendem Wert nichts an', () => {
+    expect(systemDatumZeit(null)).toBe('')
+    expect(systemDatum('')).toBe('')
   })
 })

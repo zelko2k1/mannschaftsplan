@@ -103,10 +103,17 @@ export default function Zeile({
             </span>
           </span>
 
-          <span className="zeile__ziel">{spieltag.opponent_town}</span>
+          {/* Groß steht der Gegner — danach wird gesucht. Ohne Vereinsnamen tritt der Ort
+              an die Stelle, damit die Zeile nie ohne Kopf dasteht. */}
+          <span className="zeile__ziel">{spieltag.opponent_club || spieltag.opponent_town}</span>
 
           <span className="zeile__ort">
-            {[spieltag.opponent_club, spieltag.venue].filter(Boolean).join(' · ') || '—'}
+            {[
+              spieltag.opponent_club ? spieltag.opponent_town : '',
+              spieltag.venue,
+            ]
+              .filter(Boolean)
+              .join(' · ') || '—'}
           </span>
 
           <span className="zeile__stand">

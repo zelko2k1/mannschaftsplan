@@ -55,3 +55,47 @@ export function plaetze(frei: number): string {
   if (frei <= 0) return 'keine Plätze frei'
   return frei === 1 ? '1 Platz frei' : `${frei} Plätze frei`
 }
+
+// ── Kapitänsansicht ─────────────────────────────────────────────────────────────────────────
+// Dort gilt das Gegenteil der Regel oben: der Aushang soll überall gleich aussehen, die
+// Verwaltung dagegen so, wie der Rechner des Kapitäns Datum und Uhrzeit schreibt. Reihenfolge,
+// Trenner und 12-/24-Stunden-Zählung kommen deshalb aus den Systemeinstellungen (`undefined`
+// als Sprache = die des Browsers), die Zeitzone ebenfalls.
+
+/** „29. Aug. 2026, 19:30" — oder was das System daraus macht. */
+export function systemDatumZeit(wert: string | null | undefined): string {
+  const d = ausISO(wert)
+  if (!d) return ''
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(d)
+}
+
+/** Nur der Tag — für Angaben, bei denen die Uhrzeit nichts beiträgt („Link seit …"). */
+export function systemDatum(wert: string | null | undefined): string {
+  const d = ausISO(wert)
+  if (!d) return ''
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(d)
+}
+
+/**
+ * PocketBase speichert UTC, `<input type="datetime-local">` erwartet Ortszeit ohne Zone.
+ * Ohne diese Umrechnung stünde im Formular die UTC-Zeit — im Sommer zwei Stunden zu früh.
+ */
+export function fuerEingabe(wert: string | null | undefined): string {
+  const d = ausISO(wert)
+  if (!d) return ''
+  const zwei = (n: number) => String(n).padStart(2, '0')
+  return (
+    `${d.getFullYear()}-${zwei(d.getMonth() + 1)}-${zwei(d.getDate())}` +
+    `T${zwei(d.getHours())}:${zwei(d.getMinutes())}`
+  )
+}
+
+/**
+ * Der Rückweg: „2026-08-29T19:30" aus dem Feld ist ORTSZEIT — als „2026-08-29 19:30:00"
+ * weitergereicht liest PocketBase daraus UTC und der Anwurf wandert. Also hier umrechnen.
+ */
+export function ausEingabe(wert: string | null | undefined): string {
+  if (!wert) return ''
+  const d = new Date(String(wert)) // ohne Zonenangabe: Ortszeit, so will es die Spezifikation
+  return isNaN(d.getTime()) ? '' : d.toISOString().replace('T', ' ').slice(0, 19)
+}

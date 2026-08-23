@@ -6,7 +6,7 @@ import {
   type AdminSpieltag,
   type Protokollzeile,
 } from './adminApi'
-import { tag, uhrzeit } from './format'
+import { ausEingabe, fuerEingabe, systemDatum, systemDatumZeit } from './format'
 import './admin.css'
 
 type Reiter = 'spieltage' | 'mitglieder' | 'protokoll'
@@ -193,8 +193,8 @@ function Spieltage({ abgemeldet }: { abgemeldet: () => void }) {
   const speichern = async () => {
     if (!entwurf) return
     try {
-      // Das Datum-Feld liefert "2026-08-29T19:30"; PocketBase will "YYYY-MM-DD HH:MM:SS".
-      const daten = { ...entwurf, date: String(entwurf.date || '').replace('T', ' ') + ':00' }
+      // Das Feld liefert Ortszeit ("2026-08-29T19:30"), PocketBase speichert UTC.
+      const daten = { ...entwurf, date: ausEingabe(entwurf.date) }
       if (entwurf.id) await adminApi.spieltagAendern(entwurf.id, daten)
       else await adminApi.spieltagAnlegen(daten)
       setEntwurf(null)
@@ -233,9 +233,10 @@ function Spieltage({ abgemeldet }: { abgemeldet: () => void }) {
       {items.map((s) => (
         <div key={s.id} className="satz">
           <div className="satz__kopf">
-            <span className="satz__name">{s.opponent_town}</span>
+            <span className="satz__name">{s.opponent_club || s.opponent_town}</span>
             <span className="satz__zusatz">
-              {tag(s.date)} {uhrzeit(s.date)} · {s.is_home ? 'Heim' : `Auswärts, ${s.km} km`}
+              {systemDatumZeit(s.date)} · {s.opponent_town} ·{' '}
+              {s.is_home ? 'Heim' : `Auswärts, ${s.km} km`}
               {s.locked ? ' · abgeschlossen' : ''}
             </span>
           </div>
@@ -244,8 +245,8 @@ function Spieltage({ abgemeldet }: { abgemeldet: () => void }) {
               type="button"
               className="knopf"
               onClick={() =>
-                // Für das datetime-local-Feld zurück ins "YYYY-MM-DDTHH:MM"-Format.
-                setEntwurf({ ...s, date: s.date.replace(' ', 'T').slice(0, 16) })
+                // Das Feld will Ortszeit im Format "YYYY-MM-DDTHH:MM".
+                setEntwurf({ ...s, date: fuerEingabe(s.date) })
               }
             >
               Bearbeiten
@@ -271,7 +272,8 @@ function Spieltage({ abgemeldet }: { abgemeldet: () => void }) {
                 // Löschen nimmt Rückmeldungen und Fahrdienst mit — das muss dastehen.
                 if (
                   !window.confirm(
-                    `„${s.opponent_town}" löschen? Rückmeldungen und Fahrdienst verschwinden mit.`,
+                    `„${s.opponent_club || s.opponent_town}" löschen? ` +
+                      'Rückmeldungen und Fahrdienst verschwinden mit.',
                   )
                 ) {
                   return
@@ -314,7 +316,7 @@ function Spieltagformular({
       }}
     >
       <div className="feldreihe">
-        <label className="feld">
+        <label className="feld feld--datum">
           <span>Datum und Anwurf</span>
           <input
             type="datetime-local"
@@ -324,18 +326,18 @@ function Spieltagformular({
           />
         </label>
         <label className="feld">
-          <span>Ort (groß in der Zeile)</span>
+          <span>Gegner (groß in der Zeile)</span>
+          <input
+            value={entwurf.opponent_club || ''}
+            onChange={(x) => setze('opponent_club', x.target.value)}
+          />
+        </label>
+        <label className="feld">
+          <span>Ort</span>
           <input
             required
             value={entwurf.opponent_town || ''}
             onChange={(x) => setze('opponent_town', x.target.value)}
-          />
-        </label>
-        <label className="feld">
-          <span>Gegner</span>
-          <input
-            value={entwurf.opponent_club || ''}
-            onChange={(x) => setze('opponent_club', x.target.value)}
           />
         </label>
         <label className="feld">
@@ -442,7 +444,7 @@ function Mitglieder({ abgemeldet }: { abgemeldet: () => void }) {
             <span className="satz__name">{m.name}</span>
             <span className="satz__zusatz">
               {m.active ? 'aktiv' : 'inaktiv'} ·{' '}
-              {m.hat_token ? `Link seit ${tag(m.token_issued_at)}` : 'noch kein Link'} · {m.geraete}{' '}
+              {m.hat_token ? `Link seit ${systemDatum(m.token_issued_at)}` : 'noch kein Link'} · {m.geraete}{' '}
               {m.geraete === 1 ? 'Gerät' : 'Geräte'}
             </span>
           </div>
@@ -542,7 +544,7 @@ function Protokoll({ abgemeldet }: { abgemeldet: () => void }) {
         {items.map((z: Protokollzeile, i: number) => (
           <tr key={i}>
             <td>
-              {tag(z.at)} {uhrzeit(z.at)}
+              {systemDatumZeit(z.at)}
             </td>
             <td>
               {z.actor}

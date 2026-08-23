@@ -107,8 +107,8 @@ Drei Eigenheiten von PocketBase, die beim Anlegen zu beachten sind:
 | Feld | Typ | Anmerkung |
 |---|---|---|
 | `date` | date, required | Datum + Anwurfzeit |
-| `opponent_club` | text | „Bulls Eye" |
-| `opponent_town` | text, required | „Celle" — steht groß in der Zielspalte |
+| `opponent_club` | text | „Bulls Eye" — steht groß in der Zeile; fehlt er, rückt der Ort nach |
+| `opponent_town` | text, required | „Celle" — steht klein unter dem Gegner |
 | `is_home` | bool | |
 | `venue` | text | „Sportsbar Celle" |
 | `km` | number, default 0 | einfache Strecke |
@@ -417,11 +417,11 @@ Bei Heimspielen entfällt die Abfahrt; die linke Spalte zeigt dann den Anwurf mi
 
 ```
 ┌────────────────────────────────────────┐
-│ ABFAHRT              Bezirksliga 26/27 │  Kopfbalken, tinte auf gelb
+│ SPIELTAGE            Bezirksliga 26/27 │  Kopfbalken, tinte auf gelb
 ├────────────────────────────────────────┤
 │ 17:55 │ Sa 29.08.        52 km         │  ← Zeitspalte 96 px, 2 px Trennlinie
-│ ABFAHR│ CELLE                          │
-│       │ Bulls Eye · Sportsbar Celle    │
+│ ABFAHR│ BULLS EYE                      │  ← der Gegner, danach wird gesucht
+│       │ Celle · Sportsbar Celle        │
 │       │ 4/4 zugesagt · 2 Plätze frei   │
 │       │                    [KOMPLETT]  │  ← Stempel, −7°, nur wenn vollzählig
 ├───────┴────────────────────────────────┤
@@ -435,6 +435,8 @@ Bei Heimspielen entfällt die Abfahrt; die linke Spalte zeigt dann den Anwurf mi
 └────────────────────────────────────────┘
 ```
 
+- Groß steht der **Gegner**; der Ort rückt in die Nebenzeile. Ohne Vereinsnamen tritt der Ort
+  an seine Stelle, damit die Zeile nie ohne Kopf dasteht.
 - Zeile antippen klappt auf, immer nur eine offen (Akkordeon).
 - Der Stempel setzt sich mit einer kurzen Skalier-Animation auf; `prefers-reduced-motion`
   respektieren.
@@ -449,6 +451,20 @@ Bei Heimspielen entfällt die Abfahrt; die linke Spalte zeigt dann den Anwurf mi
 
 ### 6.6 Sprache
 Deutsch, Satzbau kurz, Du-Form. Buttons benennen die Handlung: „Dabei", nicht „Absenden".
+
+### 6.7 Datum und Uhrzeit
+Zwei Ansichten, zwei Regeln:
+
+- **Aushang** (`/`): feste Schreibweise „Sa 29.08." und „17:55", unabhängig von der
+  Browsersprache — der Aushang sieht auf jedem Gerät gleich aus und passt in die 96 px schmale
+  Zeitspalte.
+- **Kapitänsansicht** (`/admin`): Datum und Uhrzeit folgen den Systemeinstellungen
+  (`Intl.DateTimeFormat(undefined, …)`) — Reihenfolge, Trenner und 12-/24-Stunden-Zählung.
+
+In der Datenbank steht **UTC**. Das Eingabefeld `datetime-local` arbeitet dagegen in Ortszeit;
+zwischen beiden wird umgerechnet (`fuerEingabe` / `ausEingabe` in `format.ts`). Wer die
+Zeichenkette stattdessen durchreicht, verschiebt den Anwurf bei jedem Speichern um den
+Zonenversatz.
 
 ---
 

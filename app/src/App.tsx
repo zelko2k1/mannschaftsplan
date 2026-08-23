@@ -204,7 +204,7 @@ function Abfahrtsplan() {
   return (
     <div className="plan">
       <header className="kopf">
-        <span className="kopf__titel">Abfahrt</span>
+        <span className="kopf__titel">Spieltage</span>
         <span className="kopf__wer">
           {ich?.name ?? ''}
           {' · '}
