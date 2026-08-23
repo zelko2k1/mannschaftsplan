@@ -1,0 +1,17 @@
+# Abhängigkeiten & Build-Ergebnisse
+node_modules/
+dist/
+
+# PocketBase: Binary und Daten gehören nicht ins Repo. Das Binary holt scripts/dev-pb.sh,
+# pb_data entsteht beim ersten Start, pb_public ist das gebaute Frontend.
+pocketbase/pocketbase
+pocketbase/pocketbase.exe
+pocketbase/pb_data/
+pocketbase/pb_public/
+*.zip
+
+# Lokale Konfiguration (Superuser-Zugang für seed.mjs, ntfy-URL, …)
+.env
+.env.local
+
+.DS_Store
