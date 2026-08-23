@@ -1,6 +1,4 @@
 # Was hier läuft, muss auch lokal laufen — und umgekehrt.
-# Die API-Testfälle (T1–T7, T9, T13) kommen dazu, sobald es in Schritt 3 Routen gibt, gegen die
-# sie laufen können; sie brauchen ein Wegwerf-PocketBase in einem eigenen Job-Schritt.
 name: CI
 
 on:
@@ -32,3 +30,30 @@ jobs:
       - uses: actions/checkout@v4
       - name: Shell-Skripte auf Syntaxfehler prüfen
         run: for f in scripts/*.sh; do bash -n "$f"; done
+
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      # Start, Superuser und Tests in EINEM Schritt: ein per & gestarteter Prozess überlebt das
+      # Ende seines Schritts nicht zuverlässig.
+      - name: PocketBase starten und die Testfälle laufen lassen
+        env:
+          PB_SUPERUSER_EMAIL: ci@example.com
+          # Wegwerf-Zugang für eine Wegwerf-Datenbank auf einem Wegwerf-Runner. Es gibt hier
+          # nichts zu schützen — die Instanz existiert für die Dauer dieses Jobs und ist von
+          # außen nicht erreichbar.
+          PB_SUPERUSER_PASSWORD: nur-fuer-die-ci-2026
+        run: |
+          set -euo pipefail
+          ./scripts/dev-pb.sh &
+          for _ in $(seq 1 60); do
+            curl -fsS --max-time 1 http://127.0.0.1:8090/api/health >/dev/null 2>&1 && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8090/api/health > /dev/null
+          (cd pocketbase && ./pocketbase superuser upsert "$PB_SUPERUSER_EMAIL" "$PB_SUPERUSER_PASSWORD" --dir=pb_data)
+          node scripts/api-tests.mjs

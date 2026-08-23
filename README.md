@@ -58,9 +58,25 @@ Hetzner-Variante mit echter Domain und ACME und wird im Homelab nicht benutzt.
 ## Tests
 
 ```bash
-node scripts/api-tests.mjs   # T1–T7, T9, T13 gegen ein laufendes PocketBase
+set -a && . ./.env && set +a
+node scripts/api-tests.mjs   # Testfälle aus Abschnitt 11, gegen ein laufendes PocketBase
 cd app && npm test           # Logik im Frontend
 ```
 
+Die API-Tests legen eigene Datensätze an (Präfix `test-`) und räumen sie wieder weg — ein Seed
+muss dafür nicht gelaufen sein. Dieselbe Suite läuft in der CI gegen ein Wegwerf-PocketBase.
+
 T8, T10, T11 und T12 (Admin-Sperre, Access-Log, Linkvorschau, Backup-Restore) lassen sich nicht
 sinnvoll automatisieren und stehen als Handprüfung in Abschnitt 11 des Umsetzungsplans.
+
+## Token neu ausstellen
+
+Wenn jemand seinen Link verloren hat oder er in falsche Hände geraten ist (R12):
+
+```bash
+node pocketbase/rotate-token.mjs "Marco"
+```
+
+Das macht in einem Rutsch den alten Link tot, meldet alle Geräte des Mitglieds ab und schreibt
+einen Protokolleintrag. Ab Schritt 6 gibt es denselben Knopf in der Kapitänsansicht; das Skript
+bleibt als Rettungsanker daneben bestehen.
