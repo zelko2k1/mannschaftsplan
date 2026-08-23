@@ -154,6 +154,55 @@ module.exports = {
     return ausCookie !== '' && ausCookie === ausHeader
   },
 
+  /**
+   * Die Vorprüfung, die vor JEDER schreibenden Mitglieder-Route steht — Sitzung, CSRF, Spieltag,
+   * Sperre. An einer Stelle, damit keine Route sie versehentlich auslässt.
+   *
+   * @returns { fehler } zum direkten Zurückgeben, oder { sitzung, spieltag }
+   */
+  zugangPruefen(e, spieltagId) {
+    const sitzung = this.mitgliedAusSession(e)
+    if (!sitzung) return { fehler: { status: 401, message: 'Keine gültige Sitzung.' } }
+
+    // R11 · Ohne passende Kopfzeile keine Änderung. Fremde Seiten können den Cookie-Wert nicht
+    // lesen und die Kopfzeile deshalb nicht setzen.
+    if (!this.csrfOk(e)) return { fehler: { status: 403, message: 'Ungültige Anfrage.' } }
+
+    let spieltag
+    try {
+      spieltag = e.app.findRecordById('fixtures', spieltagId)
+    } catch {
+      spieltag = null
+    }
+    // R4 · Der Spieltag muss existieren. 400 ohne Detailauskunft.
+    if (!spieltag) return { fehler: { status: 400, message: 'Ungültige Angabe.' } }
+
+    if (spieltag.getBool('locked')) {
+      return { fehler: { status: 403, message: 'Dieser Spieltag ist abgeschlossen.' } }
+    }
+    return { sitzung, spieltag }
+  },
+
+  /**
+   * Findet den Datensatz eines Mitglieds zu einem Spieltag — die drei Tabellen responses, rides
+   * und seat_claims haben alle denselben Zuschnitt (UNIQUE über fixture + member).
+   */
+  eigenerSatz(e, collection, spieltagId, mitgliedId) {
+    try {
+      const treffer = e.app.findRecordsByFilter(
+        collection,
+        'fixture = {:f} && member = {:m}',
+        '',
+        1,
+        0,
+        { f: spieltagId, m: mitgliedId },
+      )
+      return treffer.length ? treffer[0] : null
+    } catch {
+      return null
+    }
+  },
+
   /** Eintrag ins Protokoll. Milderung für R14 — hier steht, wer was geändert hat. */
   protokollieren(app, actor, action, target, alt, neu) {
     try {
@@ -168,6 +217,31 @@ module.exports = {
     } catch {
       // Ein fehlgeschlagener Protokolleintrag darf die eigentliche Aktion nicht kippen.
     }
+  },
+
+  /**
+   * Abfahrtszeit nach Abschnitt 6.3:
+   *
+   *     fahrzeit_min = km / 80 * 60 + 25          // 25 min Puffer
+   *     abfahrt      = anwurf − round(fahrzeit auf 5 min)
+   *
+   * Gehört ins Backend, damit alle dasselbe sehen — nicht jedes Gerät seine eigene Zeit rechnet.
+   * Bei Heimspielen gibt es keine Abfahrt; die Zeitspalte zeigt dann den Anwurf.
+   *
+   * @returns ISO-Zeitstempel oder null bei Heimspiel
+   */
+  abfahrt(anwurfISO, km, istHeimspiel) {
+    if (istHeimspiel) return null
+
+    // PocketBase liefert "2026-09-05 19:30:00.000Z" — mit Leerzeichen statt „T". Node schluckt
+    // das, die JS-Engine von PocketBase nicht: dort kommt NaN heraus und die Abfahrtszeit fehlte
+    // stillschweigend. Deshalb vor dem Parsen begradigen.
+    const normalisiert = String(anwurfISO).trim().replace(' ', 'T')
+    const anwurf = new Date(/[Zz]|[+-]\d\d:?\d\d$/.test(normalisiert) ? normalisiert : normalisiert + 'Z')
+    if (isNaN(anwurf.getTime())) return null
+    const fahrzeit = (Number(km) || 0) / 80 * 60 + 25
+    const gerundet = Math.round(fahrzeit / 5) * 5
+    return new Date(anwurf.getTime() - gerundet * 60000).toISOString()
   },
 
   /** Pflicht vor jeder Ausgabe in HTML — das Token kommt aus der URL und ist Fremdeingabe. */

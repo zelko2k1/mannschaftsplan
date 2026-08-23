@@ -279,26 +279,35 @@ GET  /api/me
 
 GET  /api/board
      → {
-         members: [{id, name}],
+         me: <memberId>,                  // wer gerade angemeldet ist
+         members: [{id, name}],           // nur aktive, nach sort
          fixtures: [{
-           id, date, time, opponent_club, opponent_town, is_home, venue, km,
+           id, date, opponent_club, opponent_town, is_home, venue, km,
            meeting_point, needed_players, locked,
-           departure,                     // berechnet, s. Abschnitt 6.3
-           responses: { <memberId>: "yes"|"maybe"|"no" },
-           rides:     { <memberId>: seats },
-           seats_taken: [ <memberId> ]
+           departure,                     // berechnet, s. 6.3 — null bei Heimspiel
+           responses:   { <memberId>: "yes"|"maybe"|"no" },
+           rides:       [{ id, member, seats, taken }],   // taken = belegte Plätze DIESES Autos
+           seat_claims: { <memberId>: <rideId> }          // wer bei wem mitfährt
          }]
        }
      Ein Aufruf liefert alles — bei 8 Spielern und ~20 Spieltagen völlig unkritisch.
 
-PUT  /api/response/:fixtureId   { status: "yes"|"maybe"|"no"|null }
+PUT  /api/response/:fixtureId   { status: "yes"|"maybe"|"no"|null }   null nimmt zurück
 PUT  /api/ride/:fixtureId       { driving: bool, seats: 1..6 }
-PUT  /api/seat/:fixtureId       { riding: bool }
+PUT  /api/seat/:fixtureId       { riding: bool, ride: <rideId> }
 POST /api/logout                → Session löschen, Cookie leeren
 ```
 
-Fehlerfälle: 401 ohne Session, 403 bei `locked`, 400 bei ungültigen Werten, 409 wenn ein
-Mitfahrplatz belegt ist.
+Fehlerfälle: 401 ohne Session, 403 bei `locked` und bei fehlender CSRF-Kopfzeile, 400 bei
+ungültigen Werten, 409 wenn das gewählte Auto voll ist.
+
+Zwei Fälle, in denen der Server bewusst NICHT entscheidet:
+
+- **Plätze unter die Belegung senken** → 409. Das ginge nur, indem der Server einen Mitfahrer
+  hinauswirft; wer aussteigt, klärt der Fahrer.
+- **Fahrt ganz zurückziehen** → die Mitfahrer dieses Autos verschwinden mit (cascadeDelete). Sie
+  stehen dann wieder ohne Auto da, was der Wahrheit entspricht — alles andere wäre eine stille
+  Lüge im Fahrplan.
 
 ### Admin
 

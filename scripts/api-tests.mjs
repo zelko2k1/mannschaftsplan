@@ -108,6 +108,40 @@ async function testMitglied(name, aktiv = true) {
   return { satz, klartext }
 }
 
+async function testSpieltag(eigenschaften = {}) {
+  const satz = await pb('/api/collections/fixtures/records', {
+    method: 'POST',
+    body: JSON.stringify({
+      date: jetzt(),
+      opponent_club: 'test-Club',
+      opponent_town: `test-Ort-${randomBytes(3).toString('hex')}`,
+      is_home: false,
+      venue: 'test-Halle',
+      km: 80,
+      meeting_point: 'test-Parkplatz',
+      needed_players: 4,
+      locked: false,
+      ...eigenschaften,
+    }),
+  })
+  aufraeumen.push(['fixtures', satz.id])
+  return satz
+}
+
+/** Ruft als angemeldetes Mitglied auf — mit Cookies und der CSRF-Kopfzeile aus R11. */
+function alsMitglied(jar) {
+  return (pfad, optionen = {}) =>
+    roh(pfad, {
+      ...optionen,
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: alsHeader(jar),
+        'X-CSRF-Token': jar.dz_csrf,
+        ...optionen.headers,
+      },
+    })
+}
+
 /** Meldet sich an und liefert den Cookie-Jar zurück. */
 async function anmelden(klartext) {
   const antwort = await roh('/api/session', {
@@ -262,6 +296,277 @@ await pruefe('L1', 'Logout beendet die Sitzung und löscht sie aus der Datenbank
     `/api/collections/sessions/records?filter=${encodeURIComponent(`member="${satz.id}"`)}`,
   )
   gleich(rest.totalItems, 0, 'übrige Sitzungen')
+})
+
+// ── GET /api/board ─────────────────────────────────────────────────────────────────────────
+await pruefe('B1', 'GET /api/board ohne Cookie → 401', async () => {
+  gleich((await roh('/api/board')).status, 401, 'Status')
+})
+
+await pruefe('B2', 'Die Abfahrtszeit rechnet das Backend (Abschnitt 6.3)', async () => {
+  const { klartext } = await testMitglied('board')
+  const { jar } = await anmelden(klartext)
+  // 80 km → 80/80*60 + 25 = 85 min → auf 5 gerundet 85 min vor Anwurf.
+  const spieltag = await testSpieltag({ km: 80, is_home: false, date: '2026-09-05 19:30:00' })
+  const heimspiel = await testSpieltag({ km: 0, is_home: true, date: '2026-09-12 19:00:00' })
+
+  const board = await (await alsMitglied(jar)('/api/board')).json()
+  const auswaerts = board.fixtures.find((f) => f.id === spieltag.id)
+  const heim = board.fixtures.find((f) => f.id === heimspiel.id)
+
+  const anwurf = new Date(auswaerts.date.replace(' ', 'T'))
+  const minuten = (anwurf - new Date(auswaerts.departure)) / 60000
+  gleich(minuten, 85, 'Vorlauf in Minuten')
+  gleich(heim.departure, null, 'Heimspiel hat keine Abfahrt')
+})
+
+// ── T5 · Identität kommt aus der Sitzung, nie aus dem Request (R3) ─────────────────────────
+await pruefe('T5', 'Fremdes `member` im Body ändert den EIGENEN Datensatz, nicht das fremde', async () => {
+  const ich = await testMitglied('t5-ich')
+  const andere = await testMitglied('t5-andere')
+  const { jar } = await anmelden(ich.klartext)
+  const spieltag = await testSpieltag()
+
+  const antwort = await alsMitglied(jar)(`/api/response/${spieltag.id}`, {
+    method: 'PUT',
+    // Der Angriff: fremde Mitglieds-ID im Körper mitschicken.
+    body: JSON.stringify({ status: 'no', member: andere.satz.id }),
+  })
+  gleich(antwort.status, 200, 'Status')
+
+  const alle = await pb(
+    `/api/collections/responses/records?filter=${encodeURIComponent(`fixture="${spieltag.id}"`)}`,
+  )
+  gleich(alle.totalItems, 1, 'Anzahl Rückmeldungen')
+  gleich(alle.items[0].member, ich.satz.id, 'Betroffenes Mitglied')
+  gleich(alle.items[0].status, 'no', 'Status')
+})
+
+// ── T6 · Whitelist (R4) ────────────────────────────────────────────────────────────────────
+await pruefe('T6', 'Ungültige Werte → 400, und es wird nichts gespeichert', async () => {
+  const { klartext } = await testMitglied('t6')
+  const { jar } = await anmelden(klartext)
+  const spieltag = await testSpieltag()
+  const ruf = alsMitglied(jar)
+
+  const faelle = [
+    ['status "vielleicht"', `/api/response/${spieltag.id}`, { status: 'vielleicht' }],
+    ['status als Zahl', `/api/response/${spieltag.id}`, { status: 1 }],
+    ['seats 99', `/api/ride/${spieltag.id}`, { driving: true, seats: 99 }],
+    ['seats 0', `/api/ride/${spieltag.id}`, { driving: true, seats: 0 }],
+    ['seats 2.5', `/api/ride/${spieltag.id}`, { driving: true, seats: 2.5 }],
+    ['seats fehlt', `/api/ride/${spieltag.id}`, { driving: true }],
+    ['Auto ohne id', `/api/seat/${spieltag.id}`, { riding: true }],
+  ]
+  for (const [was, pfad, koerper] of faelle) {
+    const antwort = await ruf(pfad, { method: 'PUT', body: JSON.stringify(koerper) })
+    gleich(antwort.status, 400, `${was}: Status`)
+  }
+
+  for (const c of ['responses', 'rides', 'seat_claims']) {
+    const treffer = await pb(
+      `/api/collections/${c}/records?filter=${encodeURIComponent(`fixture="${spieltag.id}"`)}`,
+    )
+    gleich(treffer.totalItems, 0, `${c} ist leer geblieben`)
+  }
+})
+
+await pruefe('T6b', 'Unbekannter Spieltag → 400, ohne Auskunft warum', async () => {
+  const { klartext } = await testMitglied('t6b')
+  const { jar } = await anmelden(klartext)
+  const antwort = await alsMitglied(jar)('/api/response/gibtesnichtxxxx', {
+    method: 'PUT',
+    body: JSON.stringify({ status: 'yes' }),
+  })
+  gleich(antwort.status, 400, 'Status')
+})
+
+// ── T7 · Abgeschlossener Spieltag ──────────────────────────────────────────────────────────
+await pruefe('T7', 'PUT auf einen gesperrten Spieltag → 403', async () => {
+  const { klartext } = await testMitglied('t7')
+  const { jar } = await anmelden(klartext)
+  const spieltag = await testSpieltag({ locked: true })
+  const ruf = alsMitglied(jar)
+
+  for (const [pfad, koerper] of [
+    [`/api/response/${spieltag.id}`, { status: 'yes' }],
+    [`/api/ride/${spieltag.id}`, { driving: true, seats: 3 }],
+    [`/api/seat/${spieltag.id}`, { riding: false }],
+  ]) {
+    gleich((await ruf(pfad, { method: 'PUT', body: JSON.stringify(koerper) })).status, 403, pfad)
+  }
+})
+
+// ── R11 · CSRF ─────────────────────────────────────────────────────────────────────────────
+await pruefe('C1', 'Schreiben ohne CSRF-Kopfzeile → 403', async () => {
+  const { klartext } = await testMitglied('csrf')
+  const { jar } = await anmelden(klartext)
+  const spieltag = await testSpieltag()
+
+  // Cookies ja, Kopfzeile nein — genau das, was eine fremde Seite zustande brächte.
+  const ohne = await roh(`/api/response/${spieltag.id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Cookie: alsHeader(jar) },
+    body: JSON.stringify({ status: 'yes' }),
+  })
+  gleich(ohne.status, 403, 'ohne Kopfzeile')
+
+  const falsch = await roh(`/api/response/${spieltag.id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: alsHeader(jar),
+      'X-CSRF-Token': 'ausgedacht',
+    },
+    body: JSON.stringify({ status: 'yes' }),
+  })
+  gleich(falsch.status, 403, 'mit falscher Kopfzeile')
+})
+
+// ── Fahrdienst ─────────────────────────────────────────────────────────────────────────────
+await pruefe('F1', 'Fahren, mitfahren, und das volle Auto meldet 409', async () => {
+  const fahrer = await testMitglied('fahrer')
+  const eins = await testMitglied('mit1')
+  const zwei = await testMitglied('mit2')
+  const spieltag = await testSpieltag()
+
+  const fahrerJar = (await anmelden(fahrer.klartext)).jar
+  const einsJar = (await anmelden(eins.klartext)).jar
+  const zweiJar = (await anmelden(zwei.klartext)).jar
+
+  // Ein Platz, zwei Interessenten.
+  gleich(
+    (
+      await alsMitglied(fahrerJar)(`/api/ride/${spieltag.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ driving: true, seats: 1 }),
+      })
+    ).status,
+    200,
+    'Fahrer trägt sich ein',
+  )
+
+  const board = await (await alsMitglied(einsJar)('/api/board')).json()
+  const fahrt = board.fixtures.find((f) => f.id === spieltag.id).rides[0]
+  gleich(fahrt.seats, 1, 'Plätze')
+  gleich(fahrt.taken, 0, 'belegt')
+
+  gleich(
+    (
+      await alsMitglied(einsJar)(`/api/seat/${spieltag.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ riding: true, ride: fahrt.id }),
+      })
+    ).status,
+    200,
+    'erster Mitfahrer',
+  )
+  gleich(
+    (
+      await alsMitglied(zweiJar)(`/api/seat/${spieltag.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ riding: true, ride: fahrt.id }),
+      })
+    ).status,
+    409,
+    'zweiter Mitfahrer stößt auf ein volles Auto',
+  )
+})
+
+await pruefe('F2', 'Im eigenen Auto mitfahren geht nicht', async () => {
+  const fahrer = await testMitglied('selbstfahrer')
+  const spieltag = await testSpieltag()
+  const jar = (await anmelden(fahrer.klartext)).jar
+
+  await alsMitglied(jar)(`/api/ride/${spieltag.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ driving: true, seats: 3 }),
+  })
+  const board = await (await alsMitglied(jar)('/api/board')).json()
+  const fahrt = board.fixtures.find((f) => f.id === spieltag.id).rides[0]
+
+  gleich(
+    (
+      await alsMitglied(jar)(`/api/seat/${spieltag.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ riding: true, ride: fahrt.id }),
+      })
+    ).status,
+    400,
+    'Status',
+  )
+})
+
+await pruefe('F3', 'Plätze unter die Belegung senken → 409 statt jemanden hinauszuwerfen', async () => {
+  const fahrer = await testMitglied('schrumpf')
+  const einer = await testMitglied('schrumpf-1')
+  const zweiter = await testMitglied('schrumpf-2')
+  const spieltag = await testSpieltag()
+  const fahrerJar = (await anmelden(fahrer.klartext)).jar
+  const einerJar = (await anmelden(einer.klartext)).jar
+  const zweiterJar = (await anmelden(zweiter.klartext)).jar
+
+  await alsMitglied(fahrerJar)(`/api/ride/${spieltag.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ driving: true, seats: 2 }),
+  })
+  const board = await (await alsMitglied(einerJar)('/api/board')).json()
+  const fahrt = board.fixtures.find((f) => f.id === spieltag.id).rides[0]
+  for (const jar of [einerJar, zweiterJar]) {
+    await alsMitglied(jar)(`/api/seat/${spieltag.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ riding: true, ride: fahrt.id }),
+    })
+  }
+
+  // Auf einen Platz herunter, obwohl zwei mitfahren. Das ginge nur, indem der Server jemanden
+  // aus dem Auto wirft — das entscheidet der Fahrer, nicht der Server.
+  const antwort = await alsMitglied(fahrerJar)(`/api/ride/${spieltag.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ driving: true, seats: 1 }),
+  })
+  gleich(antwort.status, 409, 'Status')
+
+  // Auf genau die Belegung herunter ist dagegen in Ordnung.
+  gleich(
+    (
+      await alsMitglied(fahrerJar)(`/api/ride/${spieltag.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ driving: true, seats: 2 }),
+      })
+    ).status,
+    200,
+    'auf die Belegung selbst',
+  )
+})
+
+await pruefe('F4', 'Fahrt zurückziehen nimmt die Mitfahrer mit', async () => {
+  const fahrer = await testMitglied('rueckzug')
+  const mit = await testMitglied('rueckzug-mit')
+  const spieltag = await testSpieltag()
+  const fahrerJar = (await anmelden(fahrer.klartext)).jar
+  const mitJar = (await anmelden(mit.klartext)).jar
+
+  await alsMitglied(fahrerJar)(`/api/ride/${spieltag.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ driving: true, seats: 3 }),
+  })
+  const board = await (await alsMitglied(mitJar)('/api/board')).json()
+  const fahrt = board.fixtures.find((f) => f.id === spieltag.id).rides[0]
+  await alsMitglied(mitJar)(`/api/seat/${spieltag.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ riding: true, ride: fahrt.id }),
+  })
+
+  await alsMitglied(fahrerJar)(`/api/ride/${spieltag.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ driving: false }),
+  })
+
+  const uebrig = await pb(
+    `/api/collections/seat_claims/records?filter=${encodeURIComponent(`fixture="${spieltag.id}"`)}`,
+  )
+  gleich(uebrig.totalItems, 0, 'übrige Mitfahrer')
 })
 
 // ── Aufräumen ──────────────────────────────────────────────────────────────────────────────
