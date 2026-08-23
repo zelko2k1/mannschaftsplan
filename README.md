@@ -26,11 +26,18 @@ Dann **`http://localhost:5173`** öffnen — nicht die LAN-IP. Das Session-Cooki
 Browser akzeptieren das auf `localhost` auch über HTTP, über eine LAN-IP dagegen nicht. Der
 Login-Link funktioniert dort also schlicht nicht.
 
-Testdaten und Einladungs-Links:
+Testdaten und Einladungs-Links. Dafür braucht es einmalig einen Superuser — dieselbe Anmeldung
+öffnet auch PocketBases eigene Oberfläche unter `http://127.0.0.1:8090/_/`:
 
 ```bash
-node pocketbase/seed.mjs     # 8 Mitglieder, 6 Spieltage; gibt die Tokens EINMALIG aus
+cd pocketbase && ./pocketbase superuser upsert dev@example.com <passwort> --dir=pb_data
+cd .. && cp .env.example .env      # Passwort dort eintragen
+set -a && . ./.env && set +a
+node pocketbase/seed.mjs           # 8 Mitglieder, 6 Spieltage; gibt die Tokens EINMALIG aus
 ```
+
+Die Adresse muss eine gültige Form haben, `dev@localhost` lehnt PocketBase ab. Die ausgegebenen
+Links sind der einzige Weg zu den Tokens — in der Datenbank steht nur `sha256(token)` (R1).
 
 Produktionsnaher Schnelltest ohne Docker — alles same-origin auf `:8090`:
 

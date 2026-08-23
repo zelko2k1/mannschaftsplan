@@ -8,9 +8,10 @@ Dieses Dokument ist die vollständige Vorgabe für die Umsetzung. Wo eine Entsch
 gefallen ist, steht sie hier als Vorgabe, nicht als Vorschlag.
 
 > **Stand 2026-08-23.** Gegenüber der Erstfassung korrigiert: `GET /j/:token` legt keine Session
-> mehr an (R10, Abschnitt 5), `sessions.started_at` statt `created`, `seat_claims` bekommt eine
-> Relation auf `rides`, und der Caddy-Log-Filter für `/j/*` heißt `log_skip` statt eines
-> Query-Filters (R8). Rate Limiting läuft primär über PocketBase statt über ein Caddy-Plugin.
+> mehr an (R10, Abschnitt 5), `seat_claims` bekommt eine Relation auf `rides`, und der
+> Caddy-Log-Filter für `/j/*` heißt `log_skip` statt eines Query-Filters (R8). Rate Limiting läuft
+> primär über PocketBase statt über ein Caddy-Plugin. Beim Bau von Schritt 2 kamen die drei
+> PocketBase-Eigenheiten in Abschnitt 3 dazu (Regeln, Defaultwerte, `users`-Collection).
 > Betriebsziel bis auf Weiteres: lokal ohne Docker entwickeln, im Homelab unter
 > `https://dart.example.home` testen — siehe `README.md`. Der Hetzner-Betrieb aus Abschnitt 7
 > bleibt das Fernziel.
@@ -67,6 +68,20 @@ gefallen ist, steht sie hier als Vorgabe, nicht als Vorschlag.
 PocketBase-Collections. **Alle API-Rules bleiben leer** (= nur Superuser) — der Zugriff läuft
 ausschließlich über die Custom Routes aus Abschnitt 5.
 
+Drei Eigenheiten von PocketBase, die beim Anlegen zu beachten sind:
+
+- **„Leer" heißt `null`, nicht `""`.** Eine Regel, die auf den Leerstring gesetzt ist, bedeutet in
+  PocketBase „jeder, auch ohne Login". Gemeint ist hier das Gegenteil: Regel gar nicht setzen.
+  Wer das verwechselt, legt die gesamte Datenbank offen.
+- **Es gibt keine Defaultwerte.** PocketBase-Felder kennen kein `default`. `active: true` und
+  `needed_players: 4` sind deshalb nichts, was das Schema durchsetzt — sie müssen beim Schreiben
+  gesetzt werden. Bei `km: 0` und `locked: false` fällt es nicht auf, weil das die Nullwerte sind.
+  Ein Mitglied, das ohne `active` angelegt wird, ist sofort inaktiv und kommt nicht herein.
+- **Die mitgelieferte `users`-Collection löschen.** PocketBase legt beim ersten Start eine
+  Beispiel-Auth-Collection an, deren `createRule` der Leerstring ist — offene Selbstregistrierung.
+  Diese App benutzt sie nirgends (Mitglieder haben eigene Sessions, der Kapitän meldet sich gegen
+  `_superusers` an), also gehört sie in der Baseline-Migration entfernt.
+
 ### `members`
 | Feld | Typ | Anmerkung |
 |---|---|---|
@@ -84,8 +99,8 @@ ausschließlich über die Custom Routes aus Abschnitt 5.
 | `id` | auto | |
 | `member` | relation → members, cascade delete | |
 | `sid_hash` | text, unique, indexed | SHA-256 hex der Session-ID |
-| `started_at` | date | **nicht** `created` — so heißt bereits ein System-Feld von PocketBase |
-| `last_seen` | date | |
+| `created` | autodate | als `autodate`-Feld anlegen, nicht als `date` — PocketBase befüllt es dann selbst |
+| `last_seen` | date | wird bei jedem Zugriff des Mitglieds fortgeschrieben |
 | `ua_hash` | text | SHA-256 des User-Agent, nur zur Anzeige „Handy / Tablet" |
 
 ### `fixtures`
