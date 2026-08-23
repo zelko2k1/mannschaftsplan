@@ -1,0 +1,57 @@
+name: 🐞 Fehler melden
+description: Etwas funktioniert nicht wie erwartet
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke für die Meldung! Bitte **keine echten Namen** und **keinen gültigen
+        Einladungslink** einfügen — ein Link im Screenshot ist ein gültiger Zugang.
+        Sicherheitslücken bitte **nicht hier**, sondern vertraulich melden (siehe SECURITY.md).
+  - type: dropdown
+    id: rolle
+    attributes:
+      label: Als wer?
+      description: Die beiden Bereiche sind getrennt — das grenzt die Ursache oft schon ein.
+      options:
+        - Mitglied (über den Einladungslink)
+        - Kapitän (/admin)
+        - Beim Einrichten oder Betreiben
+    validations:
+      required: true
+  - type: dropdown
+    id: betrieb
+    attributes:
+      label: Wo läuft es?
+      options:
+        - Lokal zum Entwickeln (localhost:5173)
+        - Container hinter einem Reverse Proxy (Homelab)
+        - Eigener Server im Internet
+        - Weiß ich nicht
+    validations:
+      required: true
+  - type: textarea
+    id: was-passiert
+    attributes:
+      label: Was passiert?
+      description: Beschreibe den Fehler und was du stattdessen erwartet hättest.
+    validations:
+      required: true
+  - type: textarea
+    id: schritte
+    attributes:
+      label: Schritte zum Nachstellen
+      placeholder: |
+        1. …
+        2. …
+        3. Fehler tritt auf
+    validations:
+      required: true
+  - type: textarea
+    id: umgebung
+    attributes:
+      label: Umgebung (optional)
+      description: Gerät, Betriebssystem, Browser — soweit bekannt. Bei Zeiten hilft die Zeitzone.
+      placeholder: "z. B. Android, Chrome, Handy, Zeitzone Europe/Berlin"
+    validations:
+      required: false

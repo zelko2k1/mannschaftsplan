@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 🔒 Sicherheitslücke melden
+    url: https://github.com/zelko2k1/mannschaftsplan/security/policy
+    about: Sicherheitsprobleme bitte vertraulich melden — nicht als öffentliches Issue.
+  - name: 📖 Vorgabe und Anleitung
+    url: https://github.com/zelko2k1/mannschaftsplan/blob/main/docs/umsetzungsplan.md
+    about: Datenmodell, Sicherheitsregeln R1–R14 und Testfälle — vielleicht steht die Antwort schon dort.

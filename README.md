@@ -101,3 +101,38 @@ node pocketbase/rotate-token.mjs "Marco"
 Das macht in einem Rutsch den alten Link tot, meldet alle Geräte des Mitglieds ab und schreibt
 einen Protokolleintrag. Ab Schritt 6 gibt es denselben Knopf in der Kapitänsansicht; das Skript
 bleibt als Rettungsanker daneben bestehen.
+
+## Was wo liegt
+
+| Datei | Inhalt |
+|---|---|
+| [`docs/umsetzungsplan.md`](docs/umsetzungsplan.md) | Die verbindliche Vorgabe: Datenmodell, Sicherheitsregeln R1–R14, API, Design-Tokens, Testfälle T1–T13. |
+| [`PRODUCT.md`](PRODUCT.md) | Was die App sein will, in Prosa — daraus abgeleitet. |
+| [`CHANGELOG.md`](CHANGELOG.md) | Was sich von Version zu Version geändert hat. |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) · [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Mitmachen und Umgangston. |
+| [`SECURITY.md`](SECURITY.md) | Sicherheitslücken vertraulich melden. |
+| [`LICENSE`](LICENSE) | MIT — frei nutzbar. |
+| [`deploy/`](deploy/) | Dockerfile, Compose-Datei und die beiden Caddy-Vorlagen. |
+
+## Mitmachen
+
+Fehler, Ideen und Doku-Korrekturen sind willkommen — auch ohne eine Zeile Code. Am besten
+über [Issues](../../issues/new/choose); Ablauf, Entwicklungsumgebung und Commit-Stil stehen in
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+**Sicherheitslücken bitte nicht als öffentliches Issue**, sondern vertraulich — siehe
+[`SECURITY.md`](SECURITY.md). Der Zugang der Mitglieder ist ein Link ohne Passwort; ein Fund
+darin trifft sofort alle Betreiber.
+
+## Veröffentlichen
+
+Eine neue Version entsteht ohne Terminal: **Actions → „Release starten" → „Run workflow"**,
+Versionsnummer eingeben. Der Workflow prüft den Stand, zählt die Version hoch, stempelt den
+Abschnitt „Unveröffentlicht" im Changelog, setzt Commit und Tag und legt das GitHub-Release an.
+
+Ausgeliefert wird kein Paket, sondern der Stand selbst: Der Betreiber baut daraus sein
+Container-Image. Der Tag sagt, welcher Stand läuft.
+
+## Lizenz
+
+[MIT](LICENSE) — benutz es, ändere es, gib es weiter.

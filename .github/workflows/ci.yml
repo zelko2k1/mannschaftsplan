@@ -25,6 +25,39 @@ jobs:
       # Der Build ist zugleich der Typcheck (tsc -b läuft davor).
       - run: npm run build
 
+  # Der Changelog ist die einzige Stelle, an der die Mannschaft nachlesen kann, was sich
+  # geändert hat — er verfällt genau dann, wenn ihn niemand einfordert.
+  changelog:
+    name: Changelog gepflegt
+    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'no-changelog')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Eintrag verlangen, wenn ausgeliefertes Verhalten sich ändert
+        run: |
+          set -euo pipefail
+          base="origin/${{ github.base_ref }}"
+          geaendert="$(git diff --name-only "$base...HEAD")"
+          # Nur was bei der Mannschaft ankommt: Oberfläche, Server-Teil, Betriebsskripte,
+          # Deployment. Tests, CI und Doku bleiben bewusst außen vor — sie ändern nichts am
+          # Betrieb.
+          code="$(printf '%s\n' "$geaendert" | grep -E '^(app/src/|pocketbase/pb_hooks/|pocketbase/pb_migrations/|scripts/|deploy/)' | grep -v '\.test\.ts$' || true)"
+          if [ -z "$code" ]; then
+            echo "Kein ausgeliefertes Verhalten geändert — kein Eintrag nötig."
+            exit 0
+          fi
+          if printf '%s\n' "$geaendert" | grep -qx 'CHANGELOG.md'; then
+            echo "Changelog ist gepflegt."
+            exit 0
+          fi
+          echo "::error::Dieser PR ändert ausgeliefertes Verhalten, aber nicht CHANGELOG.md."
+          printf '%s\n' "$code" | sed 's/^/  · /'
+          echo "Bitte unter '## [Unveröffentlicht]' eintragen — oder das Label 'no-changelog' setzen, wenn sich für die Mannschaft nichts ändert."
+          exit 1
+
   skripte:
     runs-on: ubuntu-latest
     steps:

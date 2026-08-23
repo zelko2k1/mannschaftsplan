@@ -1,0 +1,45 @@
+name: 💡 Idee oder Wunsch
+description: Eine neue Funktion oder Verbesserung vorschlagen
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke für die Idee! Je konkreter der Mannschaftsalltag dahinter, desto besser
+        lässt sich einschätzen, ob und wie es umsetzbar ist.
+
+        Zur Einordnung: Diese App ist für **eine** Mannschaft — Termine und Fahrdienst.
+        Counter, Ergebnisse und Statistik gehören zu
+        [DartsZentrale](https://github.com/zelko2k1/dartszentrale).
+  - type: textarea
+    id: problem
+    attributes:
+      label: Welches Problem löst das?
+      description: Was fehlt dir heute, oder was ist umständlich?
+    validations:
+      required: true
+  - type: textarea
+    id: idee
+    attributes:
+      label: Wie könnte die Lösung aussehen?
+      description: Beschreibe deine Idee — grob genügt.
+    validations:
+      required: true
+  - type: dropdown
+    id: wen
+    attributes:
+      label: Wem hilft es?
+      options:
+        - Allen Mitgliedern
+        - Dem Kapitän
+        - Den Fahrern
+        - Dem Betreiber der Instanz
+    validations:
+      required: false
+  - type: textarea
+    id: kontext
+    attributes:
+      label: Weiterer Kontext (optional)
+      description: Alternativen, die du schon probiert hast, Beispiele, Skizzen …
+    validations:
+      required: false

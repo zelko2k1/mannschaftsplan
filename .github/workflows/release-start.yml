@@ -1,0 +1,109 @@
+# „Release starten" — der Ein-Klick-Knopf.
+#
+# Über Actions → „Release starten" → „Run workflow" die neue Versionsnummer eingeben
+# (z. B. 0.2.0). Dieser Workflow erledigt dann alles:
+#   1. Version in app/package.json (+ package-lock.json) hochzählen
+#   2. CHANGELOG: den Abschnitt „Unveröffentlicht" auf die neue Version stempeln
+#   3. Commit auf main + Tag vX.Y.Z setzen
+#   4. GitHub-Release mit den Notizen aus dem CHANGELOG veröffentlichen
+#
+# Kein Terminal nötig. Anders als bei DartsZentrale gibt es hier keine Verteil-Bundles:
+# ausgeliefert wird EIN Container-Image, das der Betreiber aus dem Repo baut. Der Tag sagt
+# also, welcher Stand läuft — mehr soll er nicht.
+name: Release starten
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Neue Versionsnummer ohne v, z. B. 0.2.0'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Versionsnummer prüfen
+        run: |
+          VERSION="${{ inputs.version }}"
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Ungültige Version '$VERSION'. Erwartet: X.Y.Z (z. B. 0.2.0)."
+            exit 1
+          fi
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "::error::Tag v$VERSION existiert bereits. Bitte eine neue Nummer wählen."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Abhängigkeiten installieren
+        run: npm ci
+        working-directory: app
+
+      # Vor dem Stempeln prüfen, nicht danach: ein Tag auf einem Stand, der die eigenen
+      # Prüfungen nicht besteht, ist schlimmer als gar kein Release.
+      - name: Prüfungen im Frontend
+        run: npm run lint && npm test && npm run build
+        working-directory: app
+
+      - name: Version hochzählen
+        working-directory: app
+        run: npm version "${{ inputs.version }}" --no-git-tag-version
+
+      - name: CHANGELOG stempeln
+        run: |
+          VERSION="${{ inputs.version }}"
+          DATE="$(date -u +%F)"
+          if ! grep -q '## \[Unveröffentlicht\]' CHANGELOG.md; then
+            echo "::error::Im CHANGELOG fehlt der Abschnitt '## [Unveröffentlicht]'."
+            exit 1
+          fi
+          # „## [Unveröffentlicht]" bleibt oben stehen; darunter kommt die neue
+          # Versionsüberschrift, die alle bis dahin gesammelten Notizen aufnimmt.
+          perl -0pi -e "s/## \\[Unveröffentlicht\\]/## [Unveröffentlicht]\n\n## [$VERSION] – $DATE/" CHANGELOG.md
+
+      - name: Notizen für das Release aus dem CHANGELOG schneiden
+        run: |
+          VERSION="${{ inputs.version }}"
+          # Alles zwischen der neuen Überschrift und der nächsten „## "-Zeile.
+          awk -v v="## [$VERSION]" '
+            index($0, v) == 1 { drin = 1; next }
+            drin && /^## / { exit }
+            drin { print }
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "Keine Notizen gesammelt — GitHub erzeugt sie aus den Commits." > release-notes.md
+          fi
+          cat release-notes.md
+
+      - name: Commit + Tag
+        run: |
+          VERSION="${{ inputs.version }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/package.json app/package-lock.json CHANGELOG.md
+          git commit -m "chore(release): v$VERSION"
+          git tag -a "v$VERSION" -m "Mannschaftsplan $VERSION"
+          git push origin HEAD:main
+          git push origin "v$VERSION"
+
+      - name: GitHub-Release erstellen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ inputs.version }}" \
+            --title "Mannschaftsplan ${{ inputs.version }}" \
+            --notes-file release-notes.md
