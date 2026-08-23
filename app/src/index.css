@@ -11,6 +11,14 @@
   --rot: #c1121f;       /* Warnung: kein Fahrer, keine Antwort, km-Angabe */
   --stempel: #1f4e8c;   /* Stempel „KOMPLETT" */
 
+  /* Auf dem gelben Papier fallen `grau` (3,0:1) und `rot` (3,5:1) unter die 4,5:1, die
+     Fließtext braucht — und ausgerechnet auswärts ist gelb, also genau dort, wo „kein Fahrer"
+     stehen muss. Diese beiden Töne sind aus derselben Farbfamilie abgeleitet und schaffen
+     5,2:1 bzw. 5,3:1. Die Zeile bindet damit `--grau` und `--rot` um (abfahrtsplan.css),
+     Komponenten müssen nichts davon wissen. */
+  --grau-auf-gelb: #584400;
+  --rot-auf-gelb: #8e0d17;
+
   --schrift-eng: 'Barlow Condensed', system-ui, sans-serif;
   --schrift: 'Barlow', system-ui, sans-serif;
   --schrift-mono: 'IBM Plex Mono', ui-monospace, monospace;
@@ -36,6 +44,20 @@ body {
   font-size: 16px;
   line-height: 1.4;
   -webkit-text-size-adjust: 100%;
+}
+
+/* Für Beschriftungen, die eine Bildschirmleseanwendung braucht, das Auge aber nicht: die
+   Plätze-Anzeige zeigt „3", vorgelesen wird „3 Plätze". */
+.visuell-versteckt {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* Tastaturbedienung muss sichtbar sein (6.4). Bewusst ein harter Rahmen in Tinte statt

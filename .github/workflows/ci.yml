@@ -21,6 +21,7 @@ jobs:
           cache-dependency-path: app/package-lock.json
       - run: npm ci
       - run: npm run lint
+      - run: npm test
       # Der Build ist zugleich der Typcheck (tsc -b läuft davor).
       - run: npm run build
 

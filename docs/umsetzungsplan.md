@@ -361,6 +361,21 @@ Regeln
   · Zielorte und Buttons in Versalien, `letter-spacing` 0.02–0.04em.
 ```
 
+**Auf gelbem Papier sind `grau` und `rot` zu schwach.** Gemessen: `grau` auf `gelb` erreicht nur
+3,0:1, `rot` nur 3,5:1 — Fließtext braucht 4,5:1. Ausgerechnet Auswärtsspiele sind gelb, also
+genau dort, wo „kein Fahrer" stehen muss. Für gelbes Papier gibt es deshalb zwei abgeleitete
+Töne aus derselben Farbfamilie:
+
+```
+  grauAufGelb  #584400    5,2:1 auf gelb
+  rotAufGelb   #8E0D17    5,3:1 auf gelb
+```
+
+Die Zeile bindet `--grau` und `--rot` auf diese Werte um; Komponenten müssen nichts davon wissen.
+
+**Rot ist ausschließlich Warnfarbe.** „Heim" steht in `grau`, nicht in Rot — nur die Entfernung,
+„kein Fahrer" und „du fehlst noch" bekommen Rot. Sonst gewöhnt sich das Auge daran.
+
 ### 6.3 Abfahrtszeit
 ```
 fahrzeit_min = km / 80 * 60 + 25          // 25 min Puffer
