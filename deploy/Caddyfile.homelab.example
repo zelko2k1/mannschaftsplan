@@ -1,0 +1,57 @@
+# Homelab-Variante: Dieser Block gehört in den BEREITS VORHANDENEN Caddy auf der Docker-LXC
+# (nicht in einen eigenen Container — der Wildcard-Schlüssel liegt schon dort).
+#
+# Vorher einmalig:
+#   1. AdGuard: Rewrite  dart.example.home → <IP des Docker-Hosts>
+#   2. Caddy-Container ins Netz des Stacks hängen, sonst findet er den Dienst nicht:
+#        docker network connect mannschaftsplan <caddy-container>
+#   3. Pfade zu Zertifikat und Schlüssel unten anpassen.
+#
+# HTTPS ist hier kein Luxus: das Session-Cookie aus R2 ist `Secure`, über nacktes HTTP
+# setzt der Browser es nicht und der Einladungslink funktioniert schlicht nicht.
+
+dart.example.home {
+  # Eigene CA — Let's Encrypt geht für .home nicht. Wildcard *.example.home deckt diesen
+  # Namen ab. Der Client muss die CA kennen, sonst „nicht sicher".
+  tls /etc/caddy/certs/example.home.fullchain.crt /etc/caddy/certs/example.home.key
+
+  encode zstd gzip
+
+  header {
+    X-Robots-Tag "noindex, nofollow"
+    Referrer-Policy "no-referrer"
+    Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'"
+    X-Content-Type-Options "nosniff"
+    -Server
+    # Strict-Transport-Security bleibt im Homelab bewusst WEG: HSTS würde den Browser für ein
+    # Jahr auf HTTPS für diesen Namen festnageln, auch wenn hier mal etwas anderes läuft.
+  }
+
+  # R13 im Homelab: an die Stelle des VPN tritt das LAN. Antwort 404 statt 403 (R6).
+  @admin path /admin* /_/*
+  handle @admin {
+    @fremd not remote_ip <dein-netzbereich>
+    respond @fremd 404
+    reverse_proxy mannschaftsplan:8090
+  }
+
+  # R8 · Einladungslinks nicht protokollieren — das Token steht im Pfad (Testfall T10).
+  @join path /j/*
+  handle @join {
+    log_skip
+    reverse_proxy mannschaftsplan:8090
+  }
+
+  handle {
+    reverse_proxy mannschaftsplan:8090
+  }
+
+  log {
+    output file /var/log/caddy/mannschaftsplan.log
+    format filter {
+      request>uri query {
+        delete *
+      }
+    }
+  }
+}

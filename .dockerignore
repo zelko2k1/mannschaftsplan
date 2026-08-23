@@ -1,0 +1,13 @@
+# Der Build-Kontext ist die Repo-Wurzel. Alles, was das Image nicht braucht, bleibt draußen —
+# vor allem pb_data: das sind die Laufzeitdaten, die gehören ins Volume, nicht ins Image.
+.git
+node_modules
+app/node_modules
+app/dist
+pocketbase/pocketbase
+pocketbase/pocketbase.exe
+pocketbase/pb_data
+pocketbase/pb_public
+.env
+.env.local
+*.zip

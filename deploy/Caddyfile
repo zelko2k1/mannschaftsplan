@@ -1,0 +1,50 @@
+# Caddy für den öffentlichen Betrieb (Hetzner). Im Homelab wird diese Datei NICHT benutzt —
+# dort kommt der Block aus Caddyfile.homelab.example in den vorhandenen Caddy.
+#
+# Domain eintragen und die VPN-/Allowlist-Adresse in @notvpn anpassen.
+
+dart.example.de {
+  encode zstd gzip
+
+  # R9 · Kopfzeilen. frame-ancestors 'none' und base-uri 'none' stehen bewusst in der CSP,
+  # style-src 'unsafe-inline' ist nötig, weil React Styles inline setzt.
+  header {
+    X-Robots-Tag "noindex, nofollow"
+    Referrer-Policy "no-referrer"
+    Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'"
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options "nosniff"
+    -Server
+  }
+
+  # R13 · Admin und PocketBase-Oberfläche nur aus dem VPN. Das ist die wirksamste
+  # Einzelmaßnahme: ein Fehler im Admin-Code ist von außen dann nicht ausnutzbar.
+  # Antwort ist 404, nicht 403 — kein Hinweis darauf, dass es hier etwas gibt (R6).
+  @admin path /admin* /_/*
+  handle @admin {
+    @notvpn not remote_ip 10.0.0.0/24
+    respond @notvpn 404
+    reverse_proxy mannschaftsplan:8090
+  }
+
+  # R8 · Einladungslinks gar nicht protokollieren. Das Token steht im PFAD; der Query-Filter
+  # weiter unten würde es unverändert im Log stehen lassen (Testfall T10).
+  @join path /j/*
+  handle @join {
+    log_skip
+    reverse_proxy mannschaftsplan:8090
+  }
+
+  handle {
+    reverse_proxy mannschaftsplan:8090
+  }
+
+  log {
+    output file /var/log/caddy/mannschaftsplan.log
+    format filter {
+      request>uri query {
+        delete *
+      }
+    }
+  }
+}

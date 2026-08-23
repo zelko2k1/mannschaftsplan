@@ -1,0 +1,53 @@
+# Stack für den Homelab-Betrieb (Arcane) und später für den Hetzner-Server.
+# Ein Service: PocketBase serviert das Frontend gleich mit. Caddy sitzt davor und terminiert
+# HTTPS — im Homelab der bereits vorhandene, auf dem Server der aus deploy/Caddyfile.
+services:
+  mannschaftsplan:
+    build:
+      # Wurzel des Repos: das Dockerfile braucht app/ UND pocketbase/.
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    # Fester Name, damit Caddy den Container per DNS findet — sonst hinge der Name vom
+    # Stack-Namen ab, den Arcane vergibt.
+    container_name: mannschaftsplan
+
+    # Command explizit setzen, damit die ins Image gebackenen Pfade benutzt werden und nicht
+    # /pb_migrations bzw. /pb_hooks (das könnten Volumes des Basis-Images sein).
+    command:
+      - serve
+      # automigrate AUS: Schema-Änderungen im Dashboard dürfen keine neuen Migrationsdateien
+      # erzeugen, die sich mit der Baseline im Image beißen.
+      - --automigrate=0
+      - --http=0.0.0.0:8090
+      - --dir=/pb_data
+      - --hooksDir=/pb/hooks
+      - --migrationsDir=/pb/migrations
+      - --publicDir=/pb/pb_public
+
+    # KEIN ports: — der einzige Weg hinein führt über Caddy. Ein veröffentlichter Host-Port
+    # wäre Klartext-HTTP am TLS-Proxy vorbei und würde /admin und /_/ aus R13 offenlegen.
+    expose:
+      - "8090"
+
+    volumes:
+      # Persistent: SQLite, Uploads, Backups. Migrationen und Hooks liegen im Image und
+      # brauchen kein Volume. Ohne dieses Volume sind die Daten nach einem Redeploy weg.
+      - pb_data:/pb_data
+
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8090/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  pb_data:
+
+# Benanntes Netz, damit ein Caddy aus einem ANDEREN Stack sich dazuhängen kann:
+#   docker network connect mannschaftsplan <caddy-container>
+# Danach erreicht Caddy den Dienst als http://mannschaftsplan:8090. Ohne das findet der
+# Reverse Proxy den Container nicht, weil hier bewusst kein Host-Port veröffentlicht wird.
+networks:
+  default:
+    name: mannschaftsplan

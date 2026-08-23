@@ -1,0 +1,57 @@
+/* Design-Tokens „Abfahrtsplan" — Abschnitt 6.2 des Umsetzungsplans.
+   Fahrplanaushang, kein App-Look: keine runden Ecken, keine Schatten, keine Verläufe.
+   Die Papierfarbe codiert Heim/Auswärts und ist die Hauptorientierung beim Scrollen —
+   sie darf nicht durch weitere Farbflächen verwässert werden. */
+:root {
+  --gelb: #f5b800;      /* Papier für Auswärtsspiele */
+  --gelb-tief: #dca400;
+  --papier: #fbf8f0;    /* Papier für Heimspiele */
+  --tinte: #17150f;     /* Schrift, Linien, Kopfbalken */
+  --grau: #6e6a5e;      /* Sekundärtext */
+  --rot: #c1121f;       /* Warnung: kein Fahrer, keine Antwort, km-Angabe */
+  --stempel: #1f4e8c;   /* Stempel „KOMPLETT" */
+
+  --schrift-eng: 'Barlow Condensed', system-ui, sans-serif;
+  --schrift: 'Barlow', system-ui, sans-serif;
+  --schrift-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* 2 px durchgezogen zwischen Zeilen, 1,5 px gestrichelt innerhalb einer Zeile. */
+  --linie: 2px solid var(--tinte);
+  --linie-innen: 1.5px dashed var(--tinte);
+
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--papier);
+  color: var(--tinte);
+  font-family: var(--schrift);
+  font-size: 16px;
+  line-height: 1.4;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Tastaturbedienung muss sichtbar sein (6.4). Bewusst ein harter Rahmen in Tinte statt
+   des Browser-Defaults, damit er auf gelbem UND weißem Papier trägt. */
+:focus-visible {
+  outline: 3px solid var(--tinte);
+  outline-offset: 2px;
+}
+
+/* Alle Bewegung ist Zutat, nie Information (6.4). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
