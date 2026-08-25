@@ -8,9 +8,14 @@
 // Adminrechte bekommt.
 //
 // R13 · Angemeldet wird gegen PocketBases eigene `_superusers`-Collection. Kein selbstgebautes
-// Passwort-Handling, kein eigener Hash, kein eigener Vergleich. Der Zugang gehört zusätzlich in
-// der Reverse-Proxy-Konfiguration auf VPN bzw. LAN beschränkt (deploy/Caddyfile) — das ist die
-// wirksamste Einzelmaßnahme, weil ein Fehler in diesem Code dann von außen nicht erreichbar ist.
+// Passwort-Handling, kein eigener Hash, kein eigener Vergleich. Vor diesen Code gehört zusätzlich
+// ein Tor in der Reverse-Proxy-Konfiguration (R13b, deploy/Caddyfile): IP-Allowlist oder eine
+// vorgeschaltete Proxy-Anmeldung. Das ist die wirksamste Einzelmaßnahme, weil ein Fehler hier
+// dann von außen gar nicht erst ansprechbar ist.
+//
+// ACHTUNG: `validatePassword()` weiter unten prüft das Passwort direkt und geht an PocketBases
+// MFA vorbei. Ein am Superuser eingeschalteter zweiter Faktor schützt `/_/`, aber NICHT diesen
+// Login. Nachzurüsten in Schritt 9; bis dahin ist das Tor aus R13b die Stelle, die das deckt.
 //
 // Alle Hilfen kommen aus adminauth.js und werden INNERHALB der Handler geholt. Funktionen im
 // Modul-Scope stehen den Handlern nicht zur Verfügung — sie laufen in isolierten Laufzeiten.
@@ -45,8 +50,9 @@ routerAdd('POST', '/admin/api/login', (e) => {
   // läuft eine bcrypt-Prüfung, bei einer unbekannten nicht. Diese Lücke lässt sich ohne einen
   // künstlichen Vergleich mit exakt denselben Kosten nicht schließen. Was sie zumacht, ist die
   // Sperre oben: nach fünf Versuchen ist eine Viertelstunde Ruhe, also höchstens fünf prüfbare
-  // Adressen pro Viertelstunde. Zusammen mit R13 (Admin nur über VPN bzw. LAN erreichbar) ist
-  // das der Punkt, an dem sich weiterer Aufwand nicht mehr lohnt.
+  // Adressen pro Viertelstunde — allerdings pro IP und nur im Arbeitsspeicher. Zusammen mit dem
+  // vorgeschalteten Tor aus R13b ist das der Punkt, an dem sich weiterer Aufwand nicht mehr
+  // lohnt; ohne dieses Tor wäre es das nicht.
   if (!superuser || !superuser.validatePassword(passwort)) {
     return e.json(401, { message: 'Anmeldung fehlgeschlagen.' })
   }

@@ -54,8 +54,13 @@ keine gültigen Einladungslinks** mitschicken — ein selbst angelegtes Testmitg
 
 - **HTTPS ist Pflicht**, nicht Kür: Ohne es setzt der Browser das `Secure`-Cookie nicht,
   und die Anmeldung funktioniert schlicht nicht.
-- **`/admin` im Reverse Proxy auf VPN oder LAN beschränken.** Das ist die wirksamste
-  Einzelmaßnahme (R13); Vorlagen liegen in [`deploy/`](deploy/).
+- **Vor `/admin` gehört ein Tor, das nicht das Kapitäns-Passwort ist** (R13b): eine
+  IP-Allowlist im Reverse Proxy oder eine vorgeschaltete Proxy-Anmeldung. Eines von beiden
+  genügt, keines ist zu wenig — ein Fehler im Admin-Code soll von außen nicht ansprechbar
+  sein. Vorlagen liegen in [`deploy/`](deploy/).
+- **`/_/` niemals öffentlich erreichbar machen** (R13a). Das PocketBase-Dashboard sieht die
+  ganze Datenbank und wird im Betrieb nie gebraucht; für Einrichtung und Restore genügt ein
+  SSH-Tunnel.
 - **Sicherungen verschlüsseln und woanders ablegen** — `scripts/backup.sh` nimmt dafür
   einen GPG-Empfänger; ohne ihn liegt die Datei im Klartext.
 - **Ausgeschiedene Mitglieder deaktivieren** statt den Link verfallen zu lassen; das

@@ -280,12 +280,54 @@ Admin-Aktion „Neues Token" pro Mitglied:
   Cookie-Lebensdauer — ein abgegriffener Cookie-Wert wäre sonst unbegrenzt gültig.
 - **Was das Modell hier nicht leistet:** die Antwortzeit verrät, ob eine Superuser-Adresse
   existiert (bei bekannter Adresse läuft eine bcrypt-Prüfung, bei unbekannter nicht). Das
-  schließt erst die Sperre oben: fünf Versuche, dann eine Viertelstunde Ruhe. Zusammen mit der
-  Netzsperre unten ist das der Punkt, an dem sich weiterer Aufwand nicht mehr lohnt.
-- **MFA für den Superuser aktivieren.**
-- `/admin` und `/_/` sind im Reverse Proxy **nicht öffentlich erreichbar** — nur über
-  WireGuard/Tailscale oder eine IP-Allowlist. Das ist die wirksamste Einzelmaßnahme:
-  ein Fehler im Admin-Code ist dann von außen nicht ausnutzbar.
+  schließt erst die Sperre oben: fünf Versuche, dann eine Viertelstunde Ruhe. Zusammen mit dem
+  vorgeschalteten Tor aus R13b ist das der Punkt, an dem sich weiterer Aufwand nicht mehr lohnt.
+  Die Sperre zählt **pro IP** und liegt im Arbeitsspeicher — sie ist nach einem Neustart weg und
+  von mehreren Adressen aus zu umgehen. Sie ersetzt das Tor nicht, sie ergänzt es.
+
+Die beiden geschützten Pfade haben verschiedene Bedürfnisse und deshalb verschiedene Regeln.
+
+#### R13a · `/_/` ist nie öffentlich erreichbar
+
+Das PocketBase-Dashboard sieht die gesamte Datenbank, alle Collections und die Backups. Im
+laufenden Betrieb wird es **nie** gebraucht: Mitglieder, Spieltage, Token und Protokoll pflegt der
+Kapitän in `/admin`. Nötig ist es beim Einrichten, beim Restore und im Notfall.
+
+Der Proxy antwortet auf `/_/*` deshalb **immer** mit 404 (nicht 403, R6). Das ist keine
+Voreinstellung, sondern eine Festlegung: keine Allowlist, kein Schalter, keine Ausnahme. Wer
+hinein muss, tunnelt — in `docker-compose.yaml` den auf `127.0.0.1` gebundenen Port aktivieren und
+
+```bash
+ssh -L 8090:127.0.0.1:8090 <server>
+```
+
+Die Bindung an `127.0.0.1` ist der Unterschied zu einem veröffentlichten Port: erreichbar nur für
+Prozesse auf dem Server selbst und für den, der sich per SSH dorthin verbinden darf.
+
+#### R13b · `/admin` nie mit nur einem Passwort
+
+Die Kapitänsansicht braucht der Betreiber regelmäßig und von unterwegs. Eine reine IP-Allowlist
+macht die App für jeden unbrauchbar, der kein VPN betreibt; nur die Superuser-Anmeldung wäre nach
+der Abwägung oben zu wenig. Also **eines von beiden, aber nie keines**:
+
+| Weg | Wie | Für wen |
+|---|---|---|
+| Netz | IP-Allowlist im Proxy, alles andere 404 | feste Adresse oder VPN (WireGuard, Tailscale) |
+| Tor | vorgeschaltete Proxy-Anmeldung vor `/admin*` | alle anderen — funktioniert aus jedem Netz |
+
+Beide erreichen dasselbe: ein Fehler im Admin-Code ist von außen nicht ansprechbar, weil die
+Anfrage den eigenen Code gar nicht erst erreicht. **Ist keiner der beiden Wege eingerichtet,
+bleibt `/admin` zu (404).** Die Wahl soll bewusst fallen und nicht per Voreinstellung.
+
+#### Offen · MFA greift für `/admin` nicht
+
+R13 verlangte „MFA für den Superuser aktivieren". Das wirkt für PocketBases eigenen Login unter
+`/_/`. Der Kapitäns-Login geht durch den eigenen Hook und prüft das Passwort direkt
+(`validatePassword`), am MFA-Ablauf vorbei — für `/admin` ist der zweite Faktor heute also
+wirkungslos. MFA am Superuser einzuschalten bleibt trotzdem richtig, weil es `/_/` schützt.
+
+Zu bauen ist der zweite Faktor im eigenen Login; bis dahin ist das Tor aus R13b die Stelle, die
+diese Lücke deckt. Siehe Schritt 9.
 
 ### R14 · Was das Modell nicht leistet
 Wer den Link eines Mitglieds weitergibt, ist dieses Mitglied. Das ist der bewusste Preis für
@@ -557,13 +599,21 @@ Traefik betreibt, bildet dieselben vier Punkte dort nach — Kopfzeilen (R9), Ad
     -Server
   }
 
-  # Admin nur aus dem VPN bzw. LAN. Der Bereich ist ein PLATZHALTER — siehe die offene
-  # Frage unter 7.2.1.
-  @admin path /admin* /_/*
+  # R13a · Dashboard ist nie öffentlich. Fest, ohne Schalter. Zugang per SSH-Tunnel.
+  @dashboard path /_/*
+  handle @dashboard {
+    respond 404
+  }
+
+  # R13b · Kapitänsansicht: GENAU EINEN Weg einrichten — Allowlist ODER Proxy-Anmeldung.
+  # Solange keiner eingerichtet ist, bleibt /admin zu.
+  @admin path /admin*
   handle @admin {
-    @notvpn not remote_ip <dein-vpn-bereich>
-    respond @notvpn 404
-    reverse_proxy mannschaftsplan:8090
+    # Weg 1 — Netz:  @fremd not remote_ip <dein-bereich>
+    #                respond @fremd 404
+    # Weg 2 — Tor:   basic_auth { <benutzer> <bcrypt-hash aus `caddy hash-password`> }
+    respond 404
+    # reverse_proxy mannschaftsplan:8090
   }
 
   # Token-Route: gar nicht protokollieren. Das Token steht im PFAD — ein Query-Filter
@@ -583,18 +633,22 @@ Traefik betreibt, bildet dieselben vier Punkte dort nach — Kopfzeilen (R9), Ad
 }
 ```
 
-#### 7.2.1 Offen: R13 ohne LAN
+#### 7.2.1 R13 ohne LAN — entschieden
 
-R13 stützt sich darauf, dass `/admin` und `/_/` nur aus einem vertrauenswürdigen Netz erreichbar
-sind. Hinter einem Proxy im eigenen Netz ist das das LAN. Auf einem öffentlichen Server gibt es
-weder LAN noch VPN, und ein beliebiger Betreiber hat auch keins. Damit steht die wirksamste Einzelmaßnahme der App im
-öffentlichen Betrieb ohne Fundament da.
+R13 stützte sich darauf, dass `/admin` und `/_/` nur aus einem vertrauenswürdigen Netz erreichbar
+sind. Auf einem öffentlichen Server gibt es weder LAN noch VPN, und ein beliebiger Betreiber hat
+auch keins. Statt die Regel abzuschwächen, ist sie **aufgeteilt** — die Begründung steht bei R13 in
+Abschnitt 4:
 
-Zur Wahl stehen: Standard geschlossen (ohne gesetzten Bereich antwortet `/admin` für alle mit 404,
-Öffnen ist ein bewusster Eintrag) oder Standard offen (es schützen nur das Superuser-Passwort und
-die Sperre nach sechs Fehlversuchen, T9). **Bis zur Entscheidung bleibt der Bereich in beiden
-Vorlagen ein Platzhalter, den der Betreiber ausfüllen muss.** Zu entscheiden, bevor die App
-öffentlich angeboten wird.
+- **R13a**: `/_/` bleibt immer zu, ohne Schalter. Zugang per SSH-Tunnel auf einen an `127.0.0.1`
+  gebundenen Port.
+- **R13b**: `/admin` ist erreichbar, aber nie mit nur einem Passwort. Entweder IP-Allowlist oder
+  eine dem Admin-Code vorgeschaltete Proxy-Anmeldung; ist keines eingerichtet, bleibt `/admin` zu.
+
+Beide Wege aus R13b kommen ohne VPN aus. Für die Vorlagen folgt daraus: der Block für `/_/` ist
+fest, der für `/admin` verlangt eine Entscheidung, und nirgends steht ein Beispielbereich, den man
+versehentlich übernimmt.
+
 **Rate Limiting** läuft primär über den in PocketBase eingebauten Rate-Limiter (Einstellungen →
 Rate limiting) — ein bewegliches Teil weniger als das `caddy-ratelimit`-Plugin, und es greift auch
 lokal ohne Caddy. Reichen die Regeln pro Route nicht, kommt der In-Memory-Zähler im Hook als zweite
@@ -689,11 +743,12 @@ Header, Rate Limits, Log-Filter, Backup mit getestetem Restore, Löschjob, Erinn
 Spielplan-PDF importieren, Tokens erzeugen, per Einzelchat verteilen.
 
 **Schritt 9 — Auslieferbar für Fremde**
-Das Caddy-Overlay aus 7.1 bauen (`docker-compose.caddy.yaml`), Domain und Allowlist über
-Umgebungsvariablen konfigurierbar machen, damit niemand eine Konfigurationsdatei editieren muss,
-und die offene Frage aus 7.2.1 entscheiden.
+Das Caddy-Overlay aus 7.1 bauen (`docker-compose.caddy.yaml`) und Domain wie den gewählten Weg aus
+R13b über Umgebungsvariablen konfigurierbar machen, damit niemand eine Konfigurationsdatei
+editieren muss. Dazu den zweiten Faktor im Kapitäns-Login nachrüsten — heute geht der eigene Hook
+an PocketBases MFA vorbei, siehe R13.
 Auf demselben Server laufen dann auch die Handprüfungen, die lokal und in der CI nicht möglich
-sind: T8c, T10, T11 und T12.
+sind: T8c, T8d, T10, T11 und T12.
 *Fertig, wenn:* ein nackter Server allein mit den Werten aus einer `.env` zum laufenden HTTPS-Dienst
 wird — und der Weg mit vorhandenem Proxy unverändert weiter funktioniert.
 
@@ -721,7 +776,8 @@ nur im Arbeitsspeicher.
 | T7 | `PUT` auf `locked`-Spieltag | 403 |
 | T8a | `/admin/api` ohne Kapitänssitzung | 404, nicht 401 oder 403 (R6) — **automatisiert** |
 | T8b | `/admin/api` mit einer MITGLIEDER-Sitzung | 404 (R5) — **automatisiert** |
-| T8c | `/admin` von außerhalb des VPN bzw. LAN | 404 — Aussage über den Proxy, **Handprüfung** |
+| T8c | `/admin` ohne den Weg aus R13b (fremde Adresse bzw. ohne Proxy-Anmeldung) | 404 bzw. Abweisung vor dem Admin-Code — Aussage über den Proxy, **Handprüfung** |
+| T8d | `/_/` von außen, in jeder Lage | 404 — R13a kennt keine Ausnahme, **Handprüfung** |
 | T9 | 6× falsches Admin-Passwort | gesperrt, auch für das richtige Passwort; kein Hinweis auf Existenz |
 | T10 | Access-Log nach `/j/`-Aufruf durchsuchen | kein Token im Klartext |
 | T11 | Link in WhatsApp einfügen | Vorschau „Dartzentrale — Termine", nichts Personalisiertes |

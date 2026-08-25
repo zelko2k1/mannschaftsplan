@@ -59,8 +59,16 @@ Spieltage und Mitglieder gepflegt, Token neu ausgestellt und das Protokoll geles
 
 Getrennt vom Mitgliederteil: eigener Cookie, eigene Sitzungstabelle, eigene Prüflogik (R5). Ohne
 Anmeldung antwortet `/admin/api` mit **404**, nicht mit 403 — kein Hinweis darauf, dass es hier
-etwas gibt (R6). Im Betrieb gehört `/admin` zusätzlich im Reverse Proxy auf VPN bzw. LAN
-beschränkt; das ist die wirksamste Einzelmaßnahme (R13).
+etwas gibt (R6).
+
+Im Betrieb kommt ein Tor davor, und zwar unabhängig vom Passwort (R13b): entweder eine
+IP-Allowlist im Reverse Proxy oder eine dem Admin-Code vorgeschaltete Proxy-Anmeldung. Eines von
+beiden muss eingerichtet sein — ohne bleibt `/admin` in den Vorlagen zu. Der Sinn: ein Fehler im
+Admin-Code soll von außen gar nicht erst ansprechbar sein.
+
+Das PocketBase-Dashboard unter `/_/` ist davon getrennt und bleibt **immer** zu (R13a). Es wird im
+Betrieb nie gebraucht; für Einrichtung, Restore und Notfälle führt der Weg über einen SSH-Tunnel,
+siehe die Kommentare in [`docker-compose.yaml`](docker-compose.yaml).
 
 ## Backup
 

@@ -14,6 +14,20 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   in der Kapitänsansicht, die Einladungslinks kommen dort aus „Neues Token". Für die
   API-Tests war der Seed ohnehin nie nötig — sie legen ihre eigenen Datensätze an.
 
+### Sicherheit
+- **R13 ist aufgeteilt, und die Caddy-Vorlagen liefern nichts mehr aus, was ungeprüft
+  durchgeht.** Bisher standen `/admin` und `/_/` im selben Block hinter einer IP-Allowlist mit
+  einem Beispielbereich darin — eine Vorlage, die man übernimmt, ohne sie zu ändern, schützt
+  niemanden. Jetzt gilt: `/_/` antwortet **immer** mit 404, ohne Schalter und ohne Ausnahme; es
+  wird im Betrieb nie gebraucht, und für Einrichtung oder Restore führt der Weg über einen
+  SSH-Tunnel auf einen an `127.0.0.1` gebundenen Port. Für `/admin` muss der Betreiber einen von
+  zwei Wegen einrichten — IP-Allowlist oder eine dem Admin-Code vorgeschaltete Proxy-Anmeldung —
+  und solange keiner eingerichtet ist, bleibt `/admin` zu. Beide Wege kommen ohne VPN aus, was
+  vorher nicht galt.
+- **Bekannte Lücke benannt:** Der Kapitäns-Login prüft das Passwort direkt und geht an
+  PocketBases MFA vorbei. Der zweite Faktor schützt heute nur `/_/`, nicht `/admin`. Nachzurüsten
+  in Schritt 9; bis dahin deckt das Tor aus R13b diese Stelle.
+
 ### Behoben
 - **Der Deploy unter Arcane brach ab, bevor gebaut wurde** — „dockerfile not found:
   `<projekt>/Dockerfile`". Die Compose-Datei lag in `deploy/` und baute mit `context: ..`,

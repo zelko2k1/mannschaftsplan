@@ -18,14 +18,38 @@ dart.example.de {
     -Server
   }
 
-  # R13 · Admin und PocketBase-Oberfläche nur aus dem VPN. Das ist die wirksamste
-  # Einzelmaßnahme: ein Fehler im Admin-Code ist von außen dann nicht ausnutzbar.
+  # R13a · Das PocketBase-Dashboard ist NIE öffentlich erreichbar. Keine Allowlist, kein
+  # Schalter, keine Ausnahme — es sieht die ganze Datenbank und wird im Betrieb nie gebraucht.
+  # Wer hinein muss (Einrichten, Restore, Notfall), tunnelt: in docker-compose.yaml den an
+  # 127.0.0.1 gebundenen Port aktivieren, dann
+  #     ssh -L 8090:127.0.0.1:8090 <server>
+  # und im Browser http://127.0.0.1:8090/_/ öffnen.
   # Antwort ist 404, nicht 403 — kein Hinweis darauf, dass es hier etwas gibt (R6).
-  @admin path /admin* /_/*
+  @dashboard path /_/*
+  handle @dashboard {
+    respond 404
+  }
+
+  # R13b · Die Kapitänsansicht ist erreichbar, aber NIE mit nur einem Passwort. Ein Fehler im
+  # Admin-Code soll von außen nicht ansprechbar sein — dafür muss vor dem eigenen Code ein Tor
+  # stehen. GENAU EINEN der beiden Wege einrichten; beide kommen ohne VPN aus.
+  #
+  #   Weg 1 — Netz. Nur sinnvoll mit fester Adresse oder VPN (WireGuard, Tailscale):
+  #       @fremd not remote_ip <dein-bereich>
+  #       respond @fremd 404
+  #
+  #   Weg 2 — Tor. Funktioniert aus jedem Netz, auch vom Handy im Mobilnetz. Ein zweites,
+  #   vom Kapitäns-Passwort unabhängiges Kennwort. Hash erzeugen mit `caddy hash-password`:
+  #       basic_auth {
+  #         <benutzer> <bcrypt-hash>
+  #       }
+  #
+  # Danach die letzte Zeile einkommentieren und das `respond 404` entfernen. Solange nichts
+  # eingerichtet ist, bleibt /admin zu — die Wahl soll bewusst fallen, nicht per Voreinstellung.
+  @admin path /admin*
   handle @admin {
-    @notvpn not remote_ip 10.0.0.0/24
-    respond @notvpn 404
-    reverse_proxy mannschaftsplan:8090
+    respond 404
+    # reverse_proxy mannschaftsplan:8090
   }
 
   # R8 · Einladungslinks gar nicht protokollieren. Das Token steht im PFAD; der Query-Filter

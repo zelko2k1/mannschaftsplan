@@ -30,8 +30,18 @@ services:
       - --migrationsDir=/pb/migrations
       - --publicDir=/pb/pb_public
 
-    # KEIN ports: — der einzige Weg hinein führt über Caddy. Ein veröffentlichter Host-Port
-    # wäre Klartext-HTTP am TLS-Proxy vorbei und würde /admin und /_/ aus R13 offenlegen.
+    # KEIN ports: — der einzige Weg hinein führt über den Reverse Proxy. Ein veröffentlichter
+    # Host-Port wäre Klartext-HTTP am TLS-Proxy vorbei und würde /admin und /_/ aus R13
+    # offenlegen.
+    #
+    # Ausnahme für R13a: Das Dashboard unter /_/ ist im Proxy dauerhaft mit 404 dicht. Wer
+    # dorthin muss — Einrichten, Restore, Notfall — aktiviert die Zeile unten und tunnelt:
+    #     ssh -L 8090:127.0.0.1:8090 <server>
+    # Die Bindung an 127.0.0.1 ist der Unterschied zu "8090:8090": erreichbar nur auf dem
+    # Server selbst und für den, der sich per SSH dorthin verbinden darf. Danach wieder
+    # auskommentieren — offen bleiben muss sie nicht.
+    # ports:
+    #   - "127.0.0.1:8090:8090"
     expose:
       - "8090"
 

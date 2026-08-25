@@ -32,11 +32,15 @@ dart.example.home {
     # Jahr auf HTTPS für diesen Namen festnageln, auch wenn hier mal etwas anderes läuft.
   }
 
-  # R13 im Homelab: an die Stelle des VPN tritt das LAN. Antwort 404 statt 403 (R6).
+  # R13b · Weg 1 (Netz): an die Stelle des VPN tritt hier das eigene Netz. Damit ist die
+  # Bedingung „nie mit nur einem Passwort" erfüllt — der Bereich MUSS angepasst werden, sonst
+  # sperrt er die falschen Leute aus oder die falschen herein. Antwort 404 statt 403 (R6).
+  #
+  # Ist dieser Name auch von außen erreichbar, gilt R13a: dann gehört `/_/` in einen eigenen
+  # Block, der immer mit 404 antwortet, und der Zugang läuft über einen SSH-Tunnel.
   @admin path /admin* /_/*
   handle @admin {
-    # Auf das eigene LAN anpassen — hier steht ein Beispielbereich.
-    @fremd not remote_ip 192.168.0.0/24
+    @fremd not remote_ip <dein-netzbereich>
     respond @fremd 404
     reverse_proxy mannschaftsplan:8090
   }
