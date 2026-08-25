@@ -50,9 +50,9 @@ cd app && npm install && npm run dev   # Vite auf localhost:5173
 ```
 
 Danach **`http://localhost:5173`** öffnen — nicht die LAN-IP; das Session-Cookie ist
-`Secure` (R2) und wird über nacktes HTTP nur auf `localhost` gesetzt. Testdaten und
-Einladungslinks kommen aus `pocketbase/seed.mjs`, Einzelheiten stehen im
-[README](README.md).
+`Secure` (R2) und wird über nacktes HTTP nur auf `localhost` gesetzt. Die Datenbank ist
+danach leer: Mitglieder, Spieltage und Einladungslinks legst du dir selbst in der
+Kapitänsansicht unter `/admin` an. Einzelheiten stehen im [README](README.md).
 
 Vor einem Pull Request:
 

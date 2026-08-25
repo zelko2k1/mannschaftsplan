@@ -548,7 +548,7 @@ function Protokoll({ abgemeldet }: { abgemeldet: () => void }) {
             </td>
             <td>
               {z.actor}
-              {/* Ohne den Präfix `admin:`/`member:` sähe „Marco" aus wie der Kapitän. */}
+              {/* Ohne den Präfix `admin:`/`member:` sähe ein Mitglied aus wie der Kapitän. */}
               {z.actor_typ === 'admin' && ' (Kapitän)'}
             </td>
             <td>

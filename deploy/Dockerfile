@@ -2,7 +2,7 @@
 # fest im Image. Dadurch läuft alles auf EINER Origin — die Cookies aus R2/R11 brauchen weder
 # CORS noch eine Backend-URL im Bundle.
 #
-# Build-Kontext ist die REPO-WURZEL (siehe docker-compose.yaml), weil sowohl app/ als auch
+# Build-Kontext ist die REPO-WURZEL (siehe ../docker-compose.yaml), weil sowohl app/ als auch
 # pocketbase/ gebraucht werden:  docker build -f deploy/Dockerfile .
 
 # ── Frontend bauen ───────────────────────────────────────────────────────────────────────────

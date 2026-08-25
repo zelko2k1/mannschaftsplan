@@ -78,7 +78,8 @@ nicht kennen.
 ## Evidence on Hand
 
 - Lauffähiges Backend mit 22 automatisierten Prüfungen aus Abschnitt 11 des Umsetzungsplans.
-- Reproduzierbare Testdaten über `pocketbase/seed.mjs` (8 Mitglieder, 6 Spieltage).
+- Die Auslieferung enthält keine Daten und keine Konten: keine Beispielmannschaft, kein
+  Demo-Spielplan, kein vorgegebener Zugang. Wer die App aufsetzt, legt alles selbst an.
 - **Bewusste Absenz:** keine Marketing-Seite, keine Nutzerzahlen, keine Referenzen. Das Produkt
   hat genau eine Mannschaft als Zielgruppe — künftige Arbeit darf hier nichts erfinden.
 

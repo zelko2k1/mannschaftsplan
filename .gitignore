@@ -10,7 +10,7 @@ pocketbase/pb_data/
 pocketbase/pb_public/
 *.zip
 
-# Lokale Konfiguration (Superuser-Zugang für seed.mjs, ntfy-URL, …)
+# Lokale Konfiguration (Superuser-Zugang für die Skripte, ntfy-URL, …)
 .env
 .env.local
 

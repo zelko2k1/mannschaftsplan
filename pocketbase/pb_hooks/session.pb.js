@@ -68,8 +68,8 @@ routerAdd('POST', '/api/session', (e) => {
   limit.zuruecksetzen(e.app, `session:${e.realIP()}`)
 
   u.sessionStarten(e, mitglied)
-  // Kein Ziel: der Handelnde IST das Mitglied, sonst stünde im Protokoll „Marco · Link
-  // geöffnet · Marco".
+  // Kein Ziel: der Handelnde IST das Mitglied, sonst stünde derselbe Name zweimal in der
+  // Protokollzeile — einmal als Handelnder, einmal als Ziel.
   u.protokollieren(e.app, `member:${mitglied.id}`, 'session.start', '', '', '')
 
   // 302 nach GET / — der Browser wechselt dabei auf GET, das Token verschwindet aus der Adresszeile.

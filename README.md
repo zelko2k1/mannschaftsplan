@@ -26,24 +26,31 @@ Dann **`http://localhost:5173`** öffnen — nicht die LAN-IP. Das Session-Cooki
 Browser akzeptieren das auf `localhost` auch über HTTP, über eine LAN-IP dagegen nicht. Der
 Login-Link funktioniert dort also schlicht nicht.
 
-Testdaten und Einladungs-Links. Dafür braucht es einmalig einen Superuser — dieselbe Anmeldung
-öffnet auch PocketBases eigene Oberfläche unter `http://127.0.0.1:8090/_/`:
-
-```bash
-cd pocketbase && ./pocketbase superuser upsert dev@example.com <passwort> --dir=pb_data
-cd .. && cp .env.example .env      # Passwort dort eintragen
-set -a && . ./.env && set +a
-node pocketbase/seed.mjs           # 8 Mitglieder, 6 Spieltage; gibt die Tokens EINMALIG aus
-```
-
-Die Adresse muss eine gültige Form haben, `dev@localhost` lehnt PocketBase ab. Die ausgegebenen
-Links sind der einzige Weg zu den Tokens — in der Datenbank steht nur `sha256(token)` (R1).
-
 Produktionsnaher Schnelltest ohne Docker — alles same-origin auf `:8090`:
 
 ```bash
 cd app && npm run build      # baut nach ../pocketbase/pb_public/
 ```
+
+## Einrichten
+
+Die App startet leer: keine Mitglieder, keine Spieltage, keine vorgegebenen Konten. Alles legst du
+selbst an, und zwar in der Kapitänsansicht.
+
+Einzige Ausnahme ist der Superuser — den braucht PocketBase für sich selbst, und dieselbe Anmeldung
+öffnet auch seine Oberfläche unter `http://127.0.0.1:8090/_/`. Beim ersten Start schreibt
+PocketBase einen Einrichtungslink auf die Konsole; wer lieber im Terminal bleibt:
+
+```bash
+cd pocketbase && ./pocketbase superuser upsert <deine-adresse> <dein-passwort> --dir=pb_data
+```
+
+Die Adresse muss eine gültige Form haben, `dev@localhost` lehnt PocketBase ab.
+
+Danach `http://localhost:5173/admin` öffnen und die Mannschaft eintragen. Jedes Mitglied bekommt
+dort über **„Neues Token"** seinen Einladungslink. Der Klartext erscheint **genau einmal** — in der
+Datenbank steht nur `sha256(token)` (R1). Wer seinen Link verliert, bekommt am selben Knopf einen
+neuen.
 
 ## Kapitänsansicht
 
@@ -69,23 +76,28 @@ bleibt die Datei unverschlüsselt liegen — das Skript sagt es dann auch. Wiede
 ## Im Homelab
 
 Läuft als ein einziger Container (PocketBase mit dem gebauten Frontend in `pb_public`, Migrationen
-und Hooks fest im Image) hinter dem vorhandenen Caddy unter **`https://dart.example.home`**.
+und Hooks fest im Image) hinter dem vorhandenen Caddy unter dem Namen, den du im Homelab vergibst.
 HTTPS ist hier keine Kür: ohne es wird das `Secure`-Cookie nicht gesetzt.
 
-Siehe [`deploy/`](deploy/) — `docker-compose.yaml` für den Arcane-Stack,
+Der Stack steht in [`docker-compose.yaml`](docker-compose.yaml) in der Repo-Wurzel — dort und
+nicht in `deploy/`, weil der Build-Kontext die Wurzel ist und ein Kontext oberhalb der
+Compose-Datei unter Arcane nicht auflöst. In [`deploy/`](deploy/) liegt der Rest:
 `Caddyfile.homelab.example` als Vorlage für den Block im Homelab-Caddy. `deploy/Caddyfile` ist die
 Hetzner-Variante mit echter Domain und ACME und wird im Homelab nicht benutzt.
 
 ## Tests
 
+Die API-Tests melden sich als Superuser an; dafür braucht es eine `.env` mit deinem eigenen Zugang:
+
 ```bash
+cp .env.example .env         # Adresse und Passwort deines Superusers eintragen
 set -a && . ./.env && set +a
 node scripts/api-tests.mjs   # Testfälle aus Abschnitt 11, gegen ein laufendes PocketBase
 cd app && npm test           # Logik im Frontend
 ```
 
-Die API-Tests legen eigene Datensätze an (Präfix `test-`) und räumen sie wieder weg — ein Seed
-muss dafür nicht gelaufen sein. Dieselbe Suite läuft in der CI gegen ein Wegwerf-PocketBase.
+Die API-Tests legen eigene Datensätze an (Präfix `test-`) und räumen sie wieder weg — vorbereitet
+werden muss dafür nichts. Dieselbe Suite läuft in der CI gegen ein Wegwerf-PocketBase.
 
 T8, T10, T11 und T12 (Admin-Sperre, Access-Log, Linkvorschau, Backup-Restore) lassen sich nicht
 sinnvoll automatisieren und stehen als Handprüfung in Abschnitt 11 des Umsetzungsplans.
@@ -95,7 +107,7 @@ sinnvoll automatisieren und stehen als Handprüfung in Abschnitt 11 des Umsetzun
 Wenn jemand seinen Link verloren hat oder er in falsche Hände geraten ist (R12):
 
 ```bash
-node pocketbase/rotate-token.mjs "Marco"
+node pocketbase/rotate-token.mjs "<Name des Mitglieds>"
 ```
 
 Das macht in einem Rutsch den alten Link tot, meldet alle Geräte des Mitglieds ab und schreibt
@@ -112,7 +124,8 @@ bleibt als Rettungsanker daneben bestehen.
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) · [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Mitmachen und Umgangston. |
 | [`SECURITY.md`](SECURITY.md) | Sicherheitslücken vertraulich melden. |
 | [`LICENSE`](LICENSE) | MIT — frei nutzbar. |
-| [`deploy/`](deploy/) | Dockerfile, Compose-Datei und die beiden Caddy-Vorlagen. |
+| [`docker-compose.yaml`](docker-compose.yaml) | Der Stack für Arcane bzw. den Server. |
+| [`deploy/`](deploy/) | Dockerfile und die beiden Caddy-Vorlagen. |
 
 ## Mitmachen
 

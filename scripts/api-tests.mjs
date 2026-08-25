@@ -5,7 +5,7 @@
 //   PB_SUPERUSER_EMAIL=… PB_SUPERUSER_PASSWORD=… node scripts/api-tests.mjs
 //
 // Die Tests legen eigene Mitglieder und Spieltage an (Präfix „test-") und räumen sie hinterher
-// wieder weg. Ein Seed muss dafür nicht gelaufen sein.
+// wieder weg. Vorbereitet werden muss dafür nichts; eine leere Datenbank genügt.
 //
 // T8, T10, T11 und T12 (Admin-Sperre, Access-Log, WhatsApp-Vorschau, Backup-Restore) stehen
 // bewusst nicht hier — die brauchen einen Proxy, einen echten Messenger oder ein Backup und

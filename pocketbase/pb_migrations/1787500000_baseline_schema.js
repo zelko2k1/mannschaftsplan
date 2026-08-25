@@ -17,7 +17,7 @@
 //
 // 2. KEINE DEFAULTWERTE: PocketBase-Felder kennen kein `default`. `active: true` und
 //    `needed_players: 4` aus Abschnitt 3 sind deshalb nichts, was das Schema durchsetzt —
-//    sie müssen beim Schreiben gesetzt werden (seed.mjs und die Admin-Routen tun das).
+//    sie müssen beim Schreiben gesetzt werden (die Admin-Routen tun das).
 //    Bei `km: 0` und `locked: false` fällt das nicht auf, weil das ohnehin die Nullwerte sind.
 
 migrate(
@@ -63,7 +63,7 @@ migrate(
       type: 'base',
       name: 'members',
       fields: [
-        { name: 'name', type: 'text', required: true, max: 60, help: 'Anzeigename, z. B. „Marco"' },
+        { name: 'name', type: 'text', required: true, max: 60, help: 'Anzeigename des Mitglieds' },
         { name: 'active', type: 'bool', help: 'Inaktive Mitglieder erscheinen nicht mehr in Listen.' },
         { name: 'sort', type: 'number', onlyInt: true, help: 'Reihenfolge in Listen' },
         {
@@ -90,16 +90,16 @@ migrate(
       name: 'fixtures',
       fields: [
         { name: 'date', type: 'date', required: true, help: 'Datum + Anwurfzeit' },
-        { name: 'opponent_club', type: 'text', max: 80, help: '„Bulls Eye"' },
+        { name: 'opponent_club', type: 'text', max: 80, help: 'Name des gegnerischen Vereins' },
         {
           name: 'opponent_town',
           type: 'text',
           required: true,
           max: 80,
-          help: '„Celle" — steht groß in der Zielspalte',
+          help: 'Ort des Gegners — steht klein unter dem Vereinsnamen',
         },
         { name: 'is_home', type: 'bool' },
-        { name: 'venue', type: 'text', max: 120, help: '„Sportsbar Celle"' },
+        { name: 'venue', type: 'text', max: 120, help: 'Spielstätte vor Ort' },
         { name: 'km', type: 'number', onlyInt: true, min: 0, help: 'Einfache Strecke' },
         {
           name: 'meeting_point',

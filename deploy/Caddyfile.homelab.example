@@ -1,8 +1,11 @@
 # Homelab-Variante: Dieser Block gehört in den BEREITS VORHANDENEN Caddy auf der Docker-LXC
 # (nicht in einen eigenen Container — der Wildcard-Schlüssel liegt schon dort).
 #
+# Name, IP-Bereich und Zertifikatspfade unten sind Platzhalter — vor dem Einsetzen durch die
+# eigenen Werte ersetzen.
+#
 # Vorher einmalig:
-#   1. AdGuard: Rewrite  dart.example.home → <IP des Docker-Hosts>
+#   1. Im DNS des Heimnetzes: Rewrite  dart.example.home → <IP des Docker-Hosts>
 #   2. Caddy-Container ins Netz des Stacks hängen, sonst findet er den Dienst nicht:
 #        docker network connect mannschaftsplan <caddy-container>
 #   3. Pfade zu Zertifikat und Schlüssel unten anpassen.
@@ -11,8 +14,8 @@
 # setzt der Browser es nicht und der Einladungslink funktioniert schlicht nicht.
 
 dart.example.home {
-  # Eigene CA — Let's Encrypt geht für .home nicht. Wildcard *.example.home deckt diesen
-  # Namen ab. Der Client muss die CA kennen, sonst „nicht sicher".
+  # Eigene CA — Let's Encrypt geht für .home nicht. Ein Wildcard-Zertifikat der eigenen Domain
+  # deckt diesen Namen ab. Der Client muss die CA kennen, sonst „nicht sicher".
   tls /etc/caddy/certs/example.home.fullchain.crt /etc/caddy/certs/example.home.key
 
   encode zstd gzip
@@ -30,7 +33,8 @@ dart.example.home {
   # R13 im Homelab: an die Stelle des VPN tritt das LAN. Antwort 404 statt 403 (R6).
   @admin path /admin* /_/*
   handle @admin {
-    @fremd not remote_ip <dein-netzbereich>
+    # Auf das eigene LAN anpassen — hier steht ein Beispielbereich.
+    @fremd not remote_ip 192.168.0.0/24
     respond @fremd 404
     reverse_proxy mannschaftsplan:8090
   }

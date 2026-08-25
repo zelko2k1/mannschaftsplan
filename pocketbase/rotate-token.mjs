@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Stellt einem Mitglied ein neues Einladungstoken aus — R12.
 //
-//   node pocketbase/rotate-token.mjs "Marco"
+//   node pocketbase/rotate-token.mjs "<Name des Mitglieds>"
 //
 // Drei Dinge passieren dabei, und zwar in dieser Reihenfolge:
 //   1. neuer Hash → alle alten Links sind tot

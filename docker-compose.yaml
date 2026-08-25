@@ -1,11 +1,16 @@
 # Stack für den Homelab-Betrieb (Arcane) und später für den Hetzner-Server.
 # Ein Service: PocketBase serviert das Frontend gleich mit. Caddy sitzt davor und terminiert
 # HTTPS — im Homelab der bereits vorhandene, auf dem Server der aus deploy/Caddyfile.
+#
+# Diese Datei liegt bewusst in der REPO-WURZEL und nicht in deploy/: der Build-Kontext ist die
+# Wurzel, und ein Kontext oberhalb der Compose-Datei (`context: ..`) bricht, sobald das Werkzeug
+# relative Pfade gegen das Projektverzeichnis auflöst statt gegen den Ort der Datei. Arcane tut
+# genau das und sucht das Dockerfile dann eine Ebene zu hoch.
 services:
   mannschaftsplan:
     build:
       # Wurzel des Repos: das Dockerfile braucht app/ UND pocketbase/.
-      context: ..
+      context: .
       dockerfile: deploy/Dockerfile
     restart: unless-stopped
     # Fester Name, damit Caddy den Container per DNS findet — sonst hinge der Name vom

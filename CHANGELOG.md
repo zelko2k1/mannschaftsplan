@@ -7,10 +7,32 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+### Entfernt
+- **Das Seed-Skript mit den erfundenen Testdaten ist weg** (`pocketbase/seed.mjs`). Es legte
+  acht Mitglieder und sechs Spieltage mit ausgedachten Namen an. Die Auslieferung enthält
+  jetzt keine Daten und keine Konten mehr: Mannschaft und Spielplan entstehen ausschließlich
+  in der Kapitänsansicht, die Einladungslinks kommen dort aus „Neues Token". Für die
+  API-Tests war der Seed ohnehin nie nötig — sie legen ihre eigenen Datensätze an.
+
+### Behoben
+- **Der Deploy unter Arcane brach ab, bevor gebaut wurde** — „dockerfile not found:
+  `<projekt>/Dockerfile`". Die Compose-Datei lag in `deploy/` und baute mit `context: ..`,
+  also aus einem Verzeichnis oberhalb ihrer selbst. Arcane löst relative Pfade gegen das
+  Projektverzeichnis auf statt gegen den Ort der Compose-Datei und suchte das Dockerfile
+  dadurch eine Ebene zu hoch. `docker-compose.yaml` liegt jetzt in der Repo-Wurzel und baut
+  mit `context: .` — damit gibt es kein Verzeichnis oberhalb mehr, auf das es ankäme.
+
 ### Geändert
+- **`.env.example` gibt nichts mehr vor.** Statt einer vorgegebenen Adresse stehen dort leere
+  Felder; eingetragen wird der Superuser, den man sich selbst angelegt hat. Gebraucht wird die
+  Datei nur noch von den Skripten, nicht von der App.
+- **Alle Beispiele im Repo tragen neutrale Namen.** Erfundene Personen, Vereine und Orte sind
+  aus Feld-Hilfetexten, Kommentaren und dem Umsetzungsplan verschwunden; an ihre Stelle tritt
+  die Beschreibung des Feldes. Die Homelab-Vorlage nennt keinen echten Hostnamen und keinen
+  echten IP-Bereich mehr, sondern klar gekennzeichnete Platzhalter.
 - **Groß steht der Gegner, nicht der Ort.** Im Aushang wie in der Kapitänsliste steht
-  jetzt der Vereinsname in der großen Zeile („BULLS EYE"), der Ort rückt darunter
-  („Celle · Sportsbar Celle"). Fehlt der Vereinsname, tritt der Ort an seine Stelle.
+  jetzt der Vereinsname in der großen Zeile, der Ort rückt zusammen mit der Spielstätte
+  darunter. Fehlt der Vereinsname, tritt der Ort an seine Stelle.
 - **Der Kopfbalken heißt „Spieltage"** statt „Abfahrt".
 - **Datum und Uhrzeit folgen in der Kapitänsansicht den Systemeinstellungen** —
   Reihenfolge, Trenner und 12-/24-Stunden-Zählung. Der Aushang behält seine feste

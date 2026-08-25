@@ -12,9 +12,9 @@ gefallen ist, steht sie hier als Vorgabe, nicht als Vorschlag.
 > Caddy-Log-Filter für `/j/*` heißt `log_skip` statt eines Query-Filters (R8). Rate Limiting läuft
 > primär über PocketBase statt über ein Caddy-Plugin. Beim Bau von Schritt 2 kamen die drei
 > PocketBase-Eigenheiten in Abschnitt 3 dazu (Regeln, Defaultwerte, `users`-Collection).
-> Betriebsziel bis auf Weiteres: lokal ohne Docker entwickeln, im Homelab unter
-> `https://dart.example.home` testen — siehe `README.md`. Der Hetzner-Betrieb aus Abschnitt 7
-> bleibt das Fernziel.
+> Betriebsziel bis auf Weiteres: lokal ohne Docker entwickeln und im Homelab unter dem dort
+> vergebenen Namen testen — siehe `README.md`. Der Hetzner-Betrieb aus Abschnitt 7 bleibt das
+> Fernziel.
 
 ---
 
@@ -86,7 +86,7 @@ Drei Eigenheiten von PocketBase, die beim Anlegen zu beachten sind:
 | Feld | Typ | Anmerkung |
 |---|---|---|
 | `id` | auto | |
-| `name` | text, required | Anzeigename, z. B. „Marco" |
+| `name` | text, required | Anzeigename des Mitglieds |
 | `active` | bool, default true | inaktive Mitglieder erscheinen nicht mehr |
 | `sort` | number | Reihenfolge in Listen |
 | `token_hash` | text, unique, **indexed** | SHA-256 hex des Einladungstokens |
@@ -107,10 +107,10 @@ Drei Eigenheiten von PocketBase, die beim Anlegen zu beachten sind:
 | Feld | Typ | Anmerkung |
 |---|---|---|
 | `date` | date, required | Datum + Anwurfzeit |
-| `opponent_club` | text | „Bulls Eye" — steht groß in der Zeile; fehlt er, rückt der Ort nach |
-| `opponent_town` | text, required | „Celle" — steht klein unter dem Gegner |
+| `opponent_club` | text | Name des gegnerischen Vereins — steht groß in der Zeile; fehlt er, rückt der Ort nach |
+| `opponent_town` | text, required | Ort des Gegners — steht klein unter dem Vereinsnamen |
 | `is_home` | bool | |
-| `venue` | text | „Sportsbar Celle" |
+| `venue` | text | Spielstätte vor Ort |
 | `km` | number, default 0 | einfache Strecke |
 | `meeting_point` | text | Treffpunkt für die Abfahrt |
 | `needed_players` | number, default 4 | |
@@ -420,8 +420,8 @@ Bei Heimspielen entfällt die Abfahrt; die linke Spalte zeigt dann den Anwurf mi
 │ SPIELTAGE            Bezirksliga 26/27 │  Kopfbalken, tinte auf gelb
 ├────────────────────────────────────────┤
 │ 17:55 │ Sa 29.08.        52 km         │  ← Zeitspalte 96 px, 2 px Trennlinie
-│ ABFAHR│ BULLS EYE                      │  ← der Gegner, danach wird gesucht
-│       │ Celle · Sportsbar Celle        │
+│ ABFAHR│ GEGNERVEREIN                   │  ← der Gegner, danach wird gesucht
+│       │ Ort · Spielstätte              │
 │       │ 4/4 zugesagt · 2 Plätze frei   │
 │       │                    [KOMPLETT]  │  ← Stempel, −7°, nur wenn vollzählig
 ├───────┴────────────────────────────────┤
@@ -597,8 +597,8 @@ Repo, Docker Compose, PocketBase startet, Caddy davor, TLS steht, `/` liefert ei
 *Fertig, wenn:* HTTPS erreichbar, `/_/` von außen 404.
 
 **Schritt 2 — Datenmodell**
-Collections aus Abschnitt 3 als Migration anlegen, alle Rules leer. Seed-Skript mit 8 Mitgliedern
-und 6 Spieltagen.
+Collections aus Abschnitt 3 als Migration anlegen, alle Rules leer. Keine Testdaten im Repo — die
+Auslieferung bringt weder Mitglieder noch Spieltage noch Konten mit.
 *Fertig, wenn:* `curl https://.../api/collections/fixtures/records` liefert 401/403.
 
 **Schritt 3 — Token & Session**
