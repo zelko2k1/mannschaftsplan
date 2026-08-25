@@ -20,18 +20,37 @@ services:
       - "80:80"
       - "443:443"
 
-    # Caddy löst {$...} aus SEINER Umgebung auf — die Werte müssen also hier ankommen, nicht nur
-    # in der Compose-Datei. Fehlt einer, bricht `docker compose up` mit dieser Meldung ab, statt
-    # einen Dienst zu starten, der falsch konfiguriert ist.
-    environment:
-      DOMAIN: "${DOMAIN:?DOMAIN fehlt. .env.example nach .env kopieren und ausfuellen.}"
-      ACME_EMAIL: "${ACME_EMAIL:?ACME_EMAIL fehlt. Adresse fuer die Zertifikats-Benachrichtigungen.}"
-      # R13b · Ohne Tor vor /admin faehrt dieser Stack nicht an. Das ist Absicht: die
-      # Kapitaensansicht steht sonst mit nur einem Passwort im Internet.
-      ADMIN_USER: "${ADMIN_USER:?ADMIN_USER fehlt. R13b verlangt ein Tor vor /admin.}"
-      ADMIN_PASSWORD_HASH: "${ADMIN_PASSWORD_HASH:?ADMIN_PASSWORD_HASH fehlt. Erzeugen mit: docker run --rm caddy:2.11.4-alpine caddy hash-password --plaintext '<passwort>'}"
-      # Optional, nur wenn in deploy/Caddyfile die beiden @fremd-Zeilen eingeschaltet sind.
-      ADMIN_ALLOW: "${ADMIN_ALLOW:-}"
+    # Caddy löst {$...} aus SEINER Umgebung auf — die Werte müssen also im Container ankommen,
+    # nicht nur in der Compose-Datei.
+    #
+    # WARUM env_file UND NICHT environment: Ein bcrypt-Hash steckt voller '$'. Über
+    # `${ADMIN_PASSWORD_HASH}` liefe der Wert durch die Variablen-Auflösung von Compose, und die
+    # frisst jedes '$', auf das ein Buchstabe folgt — aus
+    #     $2a$14$I21rRT1Q3VhcaAm5NB6NVuE/pXam…
+    # wurde nachweislich
+    #     $2a$14/pXam…
+    # Der Betreiber stünde dann vor einer Tür, die sein eigenes Passwort nicht annimmt. env_file
+    # reicht die Datei an den Container durch, statt sie zu deuten. Der CI-Job `Caddy-Vorlagen`
+    # prüft das bei jedem Lauf nach.
+    #
+    # Nebenwirkung: der Caddy-Container sieht damit auch die Skript-Variablen aus der .env. Das
+    # ist hinnehmbar — wer die Umgebung dieses Containers lesen kann, kann auch die .env auf dem
+    # Host lesen.
+    env_file:
+      - .env
+
+    # Fehlt einer der Werte, soll `docker compose up` abbrechen und sagen WELCHER — env_file
+    # allein würde Caddy mit leeren Angaben starten lassen. Diese Schilder werden nie gelesen;
+    # sie stehen hier nur, weil `${VAR:?meldung}` genau dann abbricht. Dass die Werte darin von
+    # der Auflösung verstümmelt werden, ist ohne Belang: benutzt wird das, was über env_file im
+    # Container ankommt.
+    labels:
+      de.mannschaftsplan.gesetzt.domain: "${DOMAIN:?DOMAIN fehlt. .env.example nach .env kopieren und ausfuellen.}"
+      de.mannschaftsplan.gesetzt.acme: "${ACME_EMAIL:?ACME_EMAIL fehlt. Adresse fuer die Zertifikats-Benachrichtigungen.}"
+      # R13b · Ohne Tor vor /admin fährt dieser Stack nicht an. Das ist Absicht: die
+      # Kapitänsansicht stünde sonst mit nur einem Passwort im Internet.
+      de.mannschaftsplan.gesetzt.admin-user: "${ADMIN_USER:?ADMIN_USER fehlt. R13b verlangt ein Tor vor /admin.}"
+      de.mannschaftsplan.gesetzt.admin-hash: "${ADMIN_PASSWORD_HASH:?ADMIN_PASSWORD_HASH fehlt. Erzeugen mit: docker run --rm caddy:2.11.4-alpine caddy hash-password --plaintext '<passwort>'}"
 
     volumes:
       # Die Vorlage wird nicht editiert, deshalb schreibgeschützt eingehängt.

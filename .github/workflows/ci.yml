@@ -176,7 +176,13 @@ jobs:
         run: |
           set -euo pipefail
           docker compose -f docker-compose.yaml config > /dev/null
+          # Das Overlay reicht die .env per env_file an Caddy durch — die Datei muss also da
+          # sein. Beim Betreiber ist sie es (Schritt 2 der Anleitung), hier nicht: .env ist
+          # gitignored und wird für diesen Lauf angelegt.
+          printf 'DOMAIN=%s\nACME_EMAIL=%s\nADMIN_USER=%s\nADMIN_PASSWORD_HASH=%s\n' \
+            "$DOMAIN" "$ACME_EMAIL" "$ADMIN_USER" "$ADMIN_PASSWORD_HASH" > .env
           docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml config > /dev/null
+          rm -f .env
 
       - name: Image bauen
         run: docker build -f deploy/Dockerfile -t mannschaftsplan:ci .
