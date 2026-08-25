@@ -27,7 +27,7 @@ weiterentwickeln will, findet alles Weitere unter [Für Entwickler](#für-entwic
 
 | | |
 |---|---|
-| **Einen kleinen Server** | Bei einem Anbieter deiner Wahl. Das kleinste Angebot reicht — die App ist für zehn Leute gedacht, nicht für zehntausend. Darauf muss **Docker** installiert sein. |
+| **Einen kleinen Server** | Bei einem Anbieter deiner Wahl. Das kleinste Angebot reicht — die App ist für zehn Leute gedacht, nicht für zehntausend. Darauf muss **Docker** installiert sein, mit **Compose 2.24 oder neuer** (`docker compose version`). Jede halbwegs aktuelle Docker-Installation bringt das mit. |
 | **Einen Namen im Internet** | Etwa `dart.mein-verein.de`. Eine Subdomain einer Domain, die du schon hast, genügt völlig. |
 | **Eine E-Mail-Adresse** | Nur für die automatischen Hinweise, wenn das Sicherheitszertifikat abläuft. |
 | **Eine halbe Stunde** | |
@@ -206,6 +206,10 @@ die Anmeldung eine Viertelstunde gesperrt — auch für das richtige Passwort.
 
 **„Ich habe mein Kapitäns-Passwort vergessen."** Schritt 6 noch einmal ausführen; `upsert`
 überschreibt den vorhandenen Zugang.
+
+**„Das Passwort aus Schritt 3 wird nicht angenommen."** Prüfe `docker compose version`. Bei älteren
+Ausgaben als 2.24 verstümmelt Docker die Prüfsumme beim Einlesen — dann passt sie nicht mehr zu
+deinem Passwort. Abhilfe: Docker aktualisieren.
 
 **Neue Version einspielen:**
 

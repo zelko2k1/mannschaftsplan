@@ -21,6 +21,10 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   fährt der Stack nicht an und nennt den fehlenden, statt falsch konfiguriert zu laufen. Wer
   bereits einen Proxy betreibt, nimmt weiterhin nur `docker-compose.yaml` — der App-Service ist
   in beiden Fällen derselbe und nur einmal definiert.
+- **Die README ist für Betreiber geschrieben, nicht für Entwickler.** Vorn stehen sieben
+  nummerierte Schritte vom DNS-Eintrag bis zum ersten verteilten Einladungslink, dazu der Alltag,
+  Sicherungen und die häufigen Fehlerbilder. Alles Technische steht gesammelt unter „Für
+  Entwickler". Vorausgesetzt wird Docker Compose **2.24 oder neuer**.
 - **Die CI prüft die Caddy-Vorlagen.** Beide laufen gegen dieselbe Caddy-Version wie im Betrieb:
   `caddy validate` für die Overlay-Vorlage in beiden Ausbaustufen von R13b, ein Syntaxcheck für
   den Block für vorhandene Proxys, dazu die Formatierung. Vorlagen, die Betreiber unverändert
