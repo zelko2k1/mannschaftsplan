@@ -115,8 +115,11 @@ jobs:
           # Betreiber stünde vor einer Tür, die sein Passwort nicht annimmt. Also nachgesehen.
           hash="$(docker run --rm "$CADDY_IMAGE" caddy hash-password --plaintext 'nur-fuer-die-ci')"
           printf 'DOMAIN=dart.example.de\nACME_EMAIL=ci@example.com\nADMIN_USER=ci\nADMIN_PASSWORD_HASH=%s\n' "$hash" > .env
+          # Gefragt ist der Wert IM CONTAINER, nicht der in `docker compose config`: dessen
+          # Ausgabe verdoppelt jedes '$' zu '$$', damit sie selbst wieder eine gültige
+          # Compose-Datei ist. Wer das misst, misst die Ausgabeform und nicht die Wirklichkeit.
           angekommen="$(docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml \
-            config --format json | jq -r '.services.caddy.environment.ADMIN_PASSWORD_HASH')"
+            run --rm --no-deps --entrypoint sh caddy -c 'printf %s "$ADMIN_PASSWORD_HASH"')"
           echo "erzeugt:   $hash"
           echo "angekommen: $angekommen"
           rm -f .env
