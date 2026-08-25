@@ -23,13 +23,37 @@ const SAMESITE_LAX = 2
 // Ein halbes Jahr, wie in R2.
 const SESSION_DAUER = 15552000
 
+// Fällt zurück, solange niemand etwas eingestellt hat. Steht genauso in der Migration
+// 1787700000_settings.js — beide Stellen zusammen ändern.
+const ANZEIGENAME_STANDARD = 'Mannschaftsplan'
+
 module.exports = {
   SID_COOKIE,
   CSRF_COOKIE,
 
+  ANZEIGENAME_STANDARD,
+
   /** SHA-256 als Hex — die einzige Form, in der Token und Session-IDs gespeichert werden. */
   hash(text) {
     return $security.sha256(String(text))
+  },
+
+  /**
+   * Der eine Datensatz aus `settings`. Fehlt er oder ist die Tabelle noch nicht da — etwa weil
+   * eine Migration hängt —, kommt der Standard zurück statt einer Ausnahme: die Einladungsseite
+   * darf an einer Einstellung nicht scheitern. Sie ist der einzige Weg der Mannschaft herein.
+   */
+  einstellungen(app) {
+    try {
+      const saetze = app.findAllRecords('settings')
+      if (saetze && saetze.length) {
+        const name = saetze[0].getString('anzeigename')
+        if (name) return { anzeigename: name }
+      }
+    } catch {
+      /* siehe oben */
+    }
+    return { anzeigename: ANZEIGENAME_STANDARD }
   },
 
   /** Einladungstoken: 22 Zeichen base64url ≈ 132 Bit (R1). */

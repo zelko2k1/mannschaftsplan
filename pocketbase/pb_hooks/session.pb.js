@@ -17,7 +17,8 @@ routerAdd('GET', '/j/{token}', (e) => {
   // R6 · Das Token wird hier NICHT nachgeschlagen. Die Antwort ist für jede Zeichenkette
   // identisch, es gibt also nichts, woran man ein gültiges Token erkennen könnte.
   const token = e.request.pathValue('token')
-  return e.blob(200, 'text/html; charset=utf-8', seiten.einloesen(u.escape(token)))
+  const name = u.escape(u.einstellungen(e.app).anzeigename)
+  return e.blob(200, 'text/html; charset=utf-8', seiten.einloesen(u.escape(token), name))
 })
 
 // ── POST /api/session — Token einlösen ──────────────────────────────────────────────────────
@@ -50,7 +51,8 @@ routerAdd('POST', '/api/session', (e) => {
   // Jeder Fehlschlag zählt gegen die Grenze oben.
   const abweisen = () => {
     limit.pruefen(e.app, `session:${e.realIP()}`, 10, 60)
-    return e.blob(200, 'text/html; charset=utf-8', seiten.ungueltig())
+    const name = u.escape(u.einstellungen(e.app).anzeigename)
+    return e.blob(200, 'text/html; charset=utf-8', seiten.ungueltig(name))
   }
 
   if (!token) return abweisen()

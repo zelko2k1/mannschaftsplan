@@ -207,7 +207,7 @@ jobs:
           curl -fsS http://127.0.0.1:8090/robots.txt | grep -q '^Disallow: /$'
           echo "— Hooks geladen: die Einladungsseite kommt aus session.pb.js"
           curl -fsS http://127.0.0.1:8090/j/beliebig | grep -q 'action="/api/session"'
-          echo "— Linkvorschau nennt DIESE App (T11) und nicht die, aus der die Vorlage stammt"
+          echo "— Linkvorschau trägt den Anzeigename aus settings, im Auslieferungszustand den Standard"
           curl -fsS http://127.0.0.1:8090/j/beliebig | grep -q 'og:title" content="Mannschaftsplan — Termine"'
           echo "— Migrationen gelaufen und Collections gesperrt"
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8090/api/collections/fixtures/records)" = 403

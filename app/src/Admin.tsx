@@ -4,12 +4,13 @@ import {
   NichtAngemeldet,
   type AdminMitglied,
   type AdminSpieltag,
+  type Einstellungen as EinstellungenDaten,
   type Protokollzeile,
 } from './adminApi'
 import { ausEingabe, fuerEingabe, systemDatum, systemDatumZeit } from './format'
 import './admin.css'
 
-type Reiter = 'spieltage' | 'mitglieder' | 'protokoll'
+type Reiter = 'spieltage' | 'mitglieder' | 'einstellungen' | 'protokoll'
 
 export default function Admin() {
   const [email, setEmail] = useState<string | null>(null)
@@ -61,6 +62,7 @@ export default function Admin() {
           [
             ['spieltage', 'Spieltage'],
             ['mitglieder', 'Mitglieder'],
+            ['einstellungen', 'Einstellungen'],
             ['protokoll', 'Protokoll'],
           ] as [Reiter, string][]
         ).map(([wert, text]) => (
@@ -79,6 +81,7 @@ export default function Admin() {
       <div className="admin__inhalt">
         {reiter === 'spieltage' && <Spieltage abgemeldet={() => setEmail(null)} />}
         {reiter === 'mitglieder' && <Mitglieder abgemeldet={() => setEmail(null)} />}
+        {reiter === 'einstellungen' && <Einstellungen abgemeldet={() => setEmail(null)} />}
         {reiter === 'protokoll' && <Protokoll abgemeldet={() => setEmail(null)} />}
       </div>
     </div>
@@ -502,6 +505,123 @@ function Mitglieder({ abgemeldet }: { abgemeldet: () => void }) {
 // ── Protokoll ───────────────────────────────────────────────────────────────────────────────
 // Die technischen Namen sind im Protokoll gespeichert (Abschnitt 3), gelesen wird hier aber von
 // einem Menschen. Unbekannte Aktionen bleiben stehen wie sie sind, statt zu verschwinden.
+// ── Einstellungen ───────────────────────────────────────────────────────────────────────────
+function Einstellungen({ abgemeldet }: { abgemeldet: () => void }) {
+  const [daten, setDaten] = useState<EinstellungenDaten | null>(null)
+  const [name, setName] = useState('')
+  const [fehler, setFehler] = useState('')
+  const [gespeichert, setGespeichert] = useState(false)
+  const [laeuft, setLaeuft] = useState(false)
+
+  useEffect(() => {
+    adminApi
+      .einstellungen()
+      .then((d) => {
+        setDaten(d)
+        setName(d.anzeigename)
+      })
+      .catch((problem) => {
+        if (problem instanceof NichtAngemeldet) return abgemeldet()
+        setFehler(problem instanceof Error ? problem.message : 'Nicht geladen.')
+      })
+  }, [abgemeldet])
+
+  if (!daten) {
+    return fehler ? (
+      <p className="fehler" role="status">
+        {fehler}
+      </p>
+    ) : (
+      <p>Einen Moment …</p>
+    )
+  }
+
+  const unveraendert = name.trim() === daten.anzeigename
+
+  return (
+    <>
+      {fehler && (
+        <p className="fehler" role="status">
+          {fehler}
+        </p>
+      )}
+
+      <div className="satz">
+        <div className="satz__kopf">
+          <span className="satz__name">Name der Mannschaft</span>
+          <span className="satz__zusatz">
+            Steht auf der Einladungsseite und in der Vorschau, die Messenger beim Verschicken
+            eines Links erzeugen.
+          </span>
+        </div>
+
+        <form
+          className="satz__aktionen"
+          onSubmit={(ereignis) => {
+            ereignis.preventDefault()
+            const gewuenscht = name.trim()
+            if (!gewuenscht || unveraendert) return
+            setLaeuft(true)
+            setFehler('')
+            setGespeichert(false)
+            adminApi
+              .einstellungenAendern({ anzeigename: gewuenscht })
+              .then((d) => {
+                setDaten(d)
+                setName(d.anzeigename)
+                setGespeichert(true)
+              })
+              .catch((problem) => {
+                if (problem instanceof NichtAngemeldet) return abgemeldet()
+                setFehler(problem instanceof Error ? problem.message : 'Nicht gespeichert.')
+              })
+              .finally(() => setLaeuft(false))
+          }}
+        >
+          <label className="feld" style={{ flex: '1 1 14rem' }}>
+            <span>Anzeigename</span>
+            <input
+              value={name}
+              maxLength={60}
+              onChange={(x) => {
+                setName(x.target.value)
+                setGespeichert(false)
+              }}
+            />
+          </label>
+          <button
+            type="submit"
+            className="knopf"
+            style={{ alignSelf: 'end' }}
+            disabled={laeuft || unveraendert || !name.trim()}
+          >
+            {laeuft ? 'Speichert …' : 'Speichern'}
+          </button>
+        </form>
+
+        {/* Derselbe Kasten wie beim frisch ausgestellten Token — hier steht etwas, das man
+            gelesen haben muss, bevor man es tut. */}
+        <div className="token">
+          <p className="token__hinweis">Wer den Link weiterleitet, zeigt diesen Namen mit</p>
+          <p style={{ margin: 0, fontSize: '0.85rem' }}>
+            Die Vorschau entsteht auf den Servern des Messengers, bevor ein Mensch den Link
+            antippt. Alles, was hier steht, ist damit für jeden sichtbar, der einen weitergeleiteten
+            Link bekommt. Der Mannschaftsname ist dafür in Ordnung — Namen einzelner Personen,
+            Adressen oder Spielorte gehören nicht hierher.
+          </p>
+        </div>
+
+        {gespeichert && (
+          <p className="satz__zusatz" role="status">
+            Gespeichert. Neue Vorschauen zeigen den Namen sofort; schon verschickte Links behalten
+            die alte, weil der Messenger sie zwischenspeichert.
+          </p>
+        )}
+      </div>
+    </>
+  )
+}
+
 const WAS: Record<string, string> = {
   'session.start': 'Link geöffnet',
   'response.set': 'Rückmeldung',
@@ -515,6 +635,7 @@ const WAS: Record<string, string> = {
   'fixture.create': 'Spieltag angelegt',
   'fixture.update': 'Spieltag geändert',
   'fixture.delete': 'Spieltag gelöscht',
+  'settings.update': 'Einstellung geändert',
 }
 
 function Protokoll({ abgemeldet }: { abgemeldet: () => void }) {

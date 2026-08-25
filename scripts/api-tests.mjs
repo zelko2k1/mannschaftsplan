@@ -84,6 +84,11 @@ function gleich(ist, soll, wobei) {
   if (ist !== soll) throw new Error(`${wobei}: erwartet ${JSON.stringify(soll)}, war ${JSON.stringify(ist)}`)
 }
 
+/** Für Aussagen, die keinen Vergleichswert haben — „steht drin", „steht nicht drin". */
+function stimmt(bedingung, wobei) {
+  if (!bedingung) throw new Error(`${wobei}: trifft nicht zu`)
+}
+
 // ── Vorbereitung ───────────────────────────────────────────────────────────────────────────
 adminToken = (
   await pb('/api/collections/_superusers/auth-with-password', {
@@ -574,7 +579,13 @@ await pruefe('F4', 'Fahrt zurückziehen nimmt die Mitfahrer mit', async () => {
 // und bleibt eine Handprüfung. Hier steht die Hälfte, die die Anwendung selbst verantwortet:
 // ohne Kapitänssitzung antwortet /admin/api mit 404, nicht mit 401 oder 403 (R6).
 
-const ADMIN_ROUTEN = ['/admin/api/me', '/admin/api/fixtures', '/admin/api/members', '/admin/api/audit']
+const ADMIN_ROUTEN = [
+  '/admin/api/me',
+  '/admin/api/fixtures',
+  '/admin/api/members',
+  '/admin/api/settings',
+  '/admin/api/audit',
+]
 
 async function adminAnmelden(passwort = PASSWORT) {
   const antwort = await roh('/admin/api/login', {
@@ -760,6 +771,61 @@ await pruefe('A8', 'Spieltag anlegen, ändern und löschen', async () => {
   )
 
   gleich((await ruf(`/admin/api/fixtures/${id}`, { method: 'DELETE' })).status, 200, 'löschen')
+})
+
+await pruefe('A9', 'Anzeigename wirkt auf die Einladungsseite und wird escaped', async () => {
+  const { jar } = await adminAnmelden()
+  const ruf = alsKapitaen(jar)
+  const seite = async () => (await roh('/j/beliebiges-token')).text()
+
+  const vorher = (await (await ruf('/admin/api/settings')).json()).anzeigename
+
+  try {
+    gleich(
+      (await ruf('/admin/api/settings', { method: 'PATCH', body: JSON.stringify({ anzeigename: 'test-DC' }) }))
+        .status,
+      200,
+      'speichern',
+    )
+    const html = await seite()
+    stimmt(
+      html.includes('<meta property="og:title" content="test-DC — Termine">'),
+      'Name steht in der Linkvorschau',
+    )
+    stimmt(html.includes('<h1>test-DC</h1>'), 'Name steht als Überschrift')
+
+    // Leer und zu lang werden abgewiesen — sonst stünde die Einladungsseite ohne Überschrift da
+    // bzw. die Datenbank lehnte mit einer Meldung ab, die dem Kapitän nichts sagt.
+    gleich(
+      (await ruf('/admin/api/settings', { method: 'PATCH', body: JSON.stringify({ anzeigename: '  ' }) })).status,
+      400,
+      'leerer Name',
+    )
+    gleich(
+      (
+        await ruf('/admin/api/settings', {
+          method: 'PATCH',
+          body: JSON.stringify({ anzeigename: 'x'.repeat(61) }),
+        })
+      ).status,
+      400,
+      '61 Zeichen',
+    )
+
+    // Der Name landet in einem Attributwert. Ein Anführungszeichen darin bräche ohne Escaping
+    // aus `content="…"` aus — der Kapitän könnte sich selbst eine Lücke einbauen.
+    await ruf('/admin/api/settings', {
+      method: 'PATCH',
+      body: JSON.stringify({ anzeigename: 'test-"><script>alert(1)</script>' }),
+    })
+    const boese = await seite()
+    stimmt(!boese.includes('<script>alert(1)</script>'), 'kein eingeschleustes <script>')
+    stimmt(/<meta property="og:title" content="[^"]*&quot;/.test(boese), 'Attribut bleibt heil')
+  } finally {
+    // Der Anzeigename ist ein einzelner Datensatz und wird nicht wie die übrigen Testdaten am
+    // Ende gelöscht — er muss auf den vorgefundenen Wert zurück.
+    await ruf('/admin/api/settings', { method: 'PATCH', body: JSON.stringify({ anzeigename: vorher }) })
+  }
 })
 
 // ── T9 · MUSS ALS LETZTES LAUFEN ───────────────────────────────────────────────────────────

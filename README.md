@@ -123,6 +123,17 @@ persönlichen Link für dieses Mitglied.
 
 Danach die Spieltage eintragen — Datum, Anwurfzeit, Gegner, Ort, Entfernung. Fertig.
 
+**8 · Den Namen deiner Mannschaft eintragen** *(freiwillig)*
+
+Unter **Einstellungen** steht der Anzeigename. Er erscheint auf der Seite, die ein Mitglied beim
+Antippen des Links sieht, und in der Vorschau, die WhatsApp und andere Messenger beim Verschicken
+erzeugen. Voreingestellt ist „Mannschaftsplan".
+
+> Diese Vorschau entsteht auf den Servern des Messengers, **bevor** ein Mensch den Link antippt.
+> Was dort steht, sieht also jeder, dem ein Link weitergeleitet wird. Der Mannschafts- oder
+> Vereinsname ist dafür in Ordnung. Namen einzelner Personen, Adressen oder Spielorte gehören
+> nicht hinein.
+
 ### Der Alltag
 
 **Ein Mitglied hat seinen Link verloren.** In der Kapitänsansicht auf „Neues Token". Der alte Link

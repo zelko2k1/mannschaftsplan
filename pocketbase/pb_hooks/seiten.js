@@ -7,14 +7,18 @@
 // liegt deshalb als eigene Datei /j.js in pb_public (Quelle: app/public/j.js). Ohne JavaScript
 // bleibt der sichtbare Knopf.
 
-const GRUNDGERUEST = (titel, inhalt) => `<!doctype html>
+// `name` ist der eingestellte Anzeigename und muss BEREITS ESCAPED hereinkommen — er landet
+// sowohl im Text als auch in einem Attributwert. Ein Anführungszeichen darin bräche sonst aus
+// `content="…"` aus. Gesetzt wird er nur vom Kapitän; das ändert nichts daran, dass hier escaped
+// gehört, was in HTML geschrieben wird.
+const GRUNDGERUEST = (name, inhalt) => `<!doctype html>
 <html lang="de">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>${titel}</title>
-<meta property="og:title" content="Mannschaftsplan — Termine">
+<title>${name} — Termine</title>
+<meta property="og:title" content="${name} — Termine">
 <meta property="og:description" content="Termine und Fahrdienst der Mannschaft.">
 <meta property="og:type" content="website">
 <style>
@@ -57,11 +61,12 @@ module.exports = {
    * entstehen, wäre R10 verletzt.
    *
    * @param tokenEscaped bereits durch utils.escape() gelaufen
+   * @param nameEscaped  eingestellter Anzeigename, ebenfalls bereits escaped
    */
-  einloesen(tokenEscaped) {
+  einloesen(tokenEscaped, nameEscaped) {
     return GRUNDGERUEST(
-      'Mannschaftsplan — Termine',
-      `<h1>Mannschaftsplan</h1>
+      nameEscaped,
+      `<h1>${nameEscaped}</h1>
 <p>Einen Moment, du wirst angemeldet.</p>
 <form method="POST" action="/api/session">
   <input type="hidden" name="token" value="${tokenEscaped}">
@@ -75,9 +80,9 @@ module.exports = {
    * R6 · Immer dieselbe Antwort, HTTP 200, kein Hinweis auf den Grund. „Gibt es nicht" und
    * „ist inaktiv" dürfen sich nicht unterscheiden lassen.
    */
-  ungueltig() {
+  ungueltig(nameEscaped) {
     return GRUNDGERUEST(
-      'Mannschaftsplan — Termine',
+      nameEscaped,
       `<h1>Link ungültig</h1>
 <p>Dieser Link funktioniert nicht mehr. Frag den Mannschaftsführer nach einem neuen.</p>`,
     )

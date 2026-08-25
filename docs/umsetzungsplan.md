@@ -173,8 +173,28 @@ hinein.
 | `old_value` | text |
 | `new_value` | text |
 
+### `settings`
+Genau **ein** Datensatz, angelegt von der Migration. Benannte Felder statt Schlüssel-Wert: ein Feld
+hat hier einen Typ, eine Längenbegrenzung und einen Hilfetext, und die Admin-Route schreibt gegen
+eine Whitelist (R4).
+
+| Feld | Typ | Anmerkung |
+|---|---|---|
+| `anzeigename` | text, required, max 60 | Überschrift der Einladungsseite und Titel der Linkvorschau. Standard `Mannschaftsplan` |
+| `updated` | autodate | |
+
+**Der Anzeigename ist öffentlich.** Er steht im OpenGraph-Titel und wird damit von jedem Messenger
+abgerufen, dem ein Link weitergeleitet wird — noch bevor ein Mensch ihn antippt. Ein Mannschafts-
+oder Vereinsname gehört dorthin, ein Personenname oder eine Adresse nicht. Die Kapitänsansicht
+sagt das an der Eingabe.
+
+Gelesen wird der Datensatz auch von der Einladungsseite, also außerhalb des Adminbereichs; das
+Holen liegt deshalb in `utils.js`. Fehlt der Datensatz oder die Tabelle, kommt der Standard zurück
+statt einer Ausnahme — die Einladungsseite ist der einzige Weg der Mannschaft herein und darf an
+einer Einstellung nicht scheitern.
+
 **Nicht gespeichert:** Telefonnummern, Adressen, Geburtsdaten, E-Mail-Adressen der Spieler.
-Der Treffpunkt ist ein Freitext am Spieltag („Netto-Parkplatz"), keine Privatadresse.
+Der Treffpunkt ist ein Freitext am Spieltag, keine Privatadresse.
 
 ---
 
@@ -254,7 +274,9 @@ Dazu `robots.txt` mit `Disallow: /`.
 
 ### R10 · Linkvorschau
 `GET /j/:token` darf keine fachliche Nebenwirkung haben (WhatsApp ruft die URL serverseitig
-ab). Statische OpenGraph-Tags: Titel „Mannschaftsplan — Termine", keine personalisierten Daten.
+ab). OpenGraph-Tags ohne personalisierte Daten: Titel ist der Anzeigename aus `settings` plus
+„ — Termine", Standard also „Mannschaftsplan — Termine". Der Wert wird escaped, bevor er in den
+Attributwert geht — er kommt aus einer Eingabe, auch wenn nur der Kapitän sie machen kann.
 
 Deshalb legt der GET **keine Session an** — er liefert nur das Formular, das Einlösen passiert im
 `POST /api/session` (siehe Abschnitt 5). Der Crawler führt kein JS aus, erzeugt also weder Session
@@ -404,6 +426,8 @@ POST   /admin/api/members
 PATCH  /admin/api/members/:id
 POST   /admin/api/members/:id/rotate-token   → { token: "<Klartext, einmalig>" }
 PUT    /admin/api/response/:fixtureId/:memberId    // Korrektur durch den Kapitän
+GET    /admin/api/settings                   → { anzeigename }
+PATCH  /admin/api/settings                   { anzeigename }   // R4-Whitelist, geht ins Protokoll
 GET    /admin/api/audit?limit=100
 ```
 
@@ -784,6 +808,7 @@ nur im Arbeitsspeicher.
 | T8d | `/_/` von außen, in jeder Lage | 404 — R13a kennt keine Ausnahme, **Handprüfung** |
 | T9 | 6× falsches Admin-Passwort | gesperrt, auch für das richtige Passwort; kein Hinweis auf Existenz |
 | T10 | Access-Log nach `/j/`-Aufruf durchsuchen | kein Token im Klartext |
-| T11 | Link in WhatsApp einfügen | Vorschau „Mannschaftsplan — Termine", nichts Personalisiertes |
+| T11 | Link in WhatsApp einfügen | Vorschau zeigt den Anzeigename aus `settings`, nichts Personalisiertes |
+| A9 | Anzeigename ändern, Einladungsseite abrufen | Name steht in Überschrift und OpenGraph-Titel; HTML darin wird escaped — **automatisiert** |
 | T12 | Backup einspielen | Datenstand vollständig wiederhergestellt |
 | T13 | `GET /j/<gültig>` allein aufrufen (wie der Crawler, ohne JS) | keine neue Zeile in `sessions`, kein Cookie — Beleg für R10 |

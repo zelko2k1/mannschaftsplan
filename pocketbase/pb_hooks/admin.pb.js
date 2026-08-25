@@ -375,6 +375,57 @@ routerAdd('PUT', '/admin/api/response/{fixtureId}/{memberId}', (e) => {
   return e.json(200, { ok: true })
 })
 
+// ── Einstellungen ───────────────────────────────────────────────────────────────────────────
+// Genau ein Datensatz, angelegt von der Migration. Gelesen wird er auch von der
+// Einladungsseite — deshalb liegt das Holen in utils.js und nicht hier.
+routerAdd('GET', '/admin/api/settings', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const u = require(`${__hooks}/utils.js`)
+  const raus = a.abweisen(e)
+  if (raus) return raus
+
+  return e.json(200, u.einstellungen(e.app))
+})
+
+routerAdd('PATCH', '/admin/api/settings', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const u = require(`${__hooks}/utils.js`)
+  const raus = a.abweisen(e)
+  if (raus) return raus
+
+  const koerper = e.requestInfo().body || {}
+
+  // R4 · Whitelist: geschrieben wird nur, was hier steht. Was sonst im Körper ankommt, wird
+  // ignoriert, nicht abgelehnt.
+  if (!('anzeigename' in koerper)) return e.json(400, { message: 'Ungültige Angabe.' })
+
+  const name = String(koerper.anzeigename || '').trim()
+  // Leer ginge nicht: die Einladungsseite hätte dann eine leere Überschrift. Die Obergrenze
+  // spiegelt `max: 60` aus der Migration — sonst lehnte erst die Datenbank ab, mit einer
+  // Meldung, die dem Kapitän nichts sagt.
+  if (!name || name.length > 60) return e.json(400, { message: 'Ungültige Angabe.' })
+
+  let satz
+  try {
+    const alle = e.app.findAllRecords('settings')
+    satz = alle && alle.length ? alle[0] : new Record(e.app.findCollectionByNameOrId('settings'))
+  } catch {
+    return e.json(400, { message: 'Ungültige Angabe.' })
+  }
+
+  const vorher = satz.getString('anzeigename')
+  if (vorher === name) return e.json(200, u.einstellungen(e.app))
+
+  satz.set('anzeigename', name)
+  e.app.save(satz)
+
+  // Der Name steht anschließend in jeder Linkvorschau. Wer ihn wann geändert hat, gehört
+  // deshalb ins Protokoll — mit altem und neuem Wert.
+  a.protokoll(e, 'settings.update', 'anzeigename', vorher, name)
+
+  return e.json(200, u.einstellungen(e.app))
+})
+
 // ── Protokoll ───────────────────────────────────────────────────────────────────────────────
 routerAdd('GET', '/admin/api/audit', (e) => {
   const a = require(`${__hooks}/adminauth.js`)

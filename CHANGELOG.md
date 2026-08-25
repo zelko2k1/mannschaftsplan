@@ -15,6 +15,13 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   API-Tests war der Seed ohnehin nie nötig — sie legen ihre eigenen Datensätze an.
 
 ### Hinzugefügt
+- **Die Kapitänsansicht hat einen Punkt „Einstellungen", und der Anzeigename ist das erste, was
+  dort steht.** Bisher hieß die App auf der Einladungsseite und in jeder Linkvorschau fest
+  „Mannschaftsplan"; jetzt trägt der Kapitän dort den Namen seiner Mannschaft ein. Die Eingabe
+  sagt gleich daneben, warum das keine reine Geschmacksfrage ist: Die Vorschau entsteht auf den
+  Servern des Messengers, bevor ein Mensch den Link antippt, und ist damit für jeden sichtbar,
+  dem ein Link weitergeleitet wird. Namen einzelner Personen oder Adressen gehören nicht hinein.
+  Änderungen stehen mit altem und neuem Wert im Protokoll.
 - **Ein Server, vier Werte, ein Befehl.** `docker-compose.caddy.yaml` stellt Caddy vor die App —
   für alle, auf deren Server noch kein Reverse Proxy läuft. Domain, ACME-Adresse und das Tor aus
   R13b kommen aus der `.env`; die Caddy-Vorlage wird nicht mehr editiert. Fehlt einer der Werte,

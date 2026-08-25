@@ -26,6 +26,11 @@ export type AdminMitglied = {
   geraete: number
 }
 
+export type Einstellungen = {
+  /** Steht auf der Einladungsseite und in der Linkvorschau — für jeden Empfänger sichtbar. */
+  anzeigename: string
+}
+
 export type Protokollzeile = {
   at: string
   /** Bereits vom Server aufgelöst — Name statt `member:<id>`. */
@@ -111,6 +116,10 @@ export const adminApi = {
     ruf<{ token: string; sitzungen_beendet: number }>(`/members/${id}/rotate-token`, {
       method: 'POST',
     }),
+
+  einstellungen: () => ruf<Einstellungen>('/settings'),
+  einstellungenAendern: (daten: Partial<Einstellungen>) =>
+    ruf<Einstellungen>('/settings', { method: 'PATCH', body: JSON.stringify(daten) }),
 
   protokoll: () => ruf<{ items: Protokollzeile[] }>('/audit?limit=100'),
 }
