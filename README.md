@@ -73,17 +73,23 @@ Gehört in einen Cronjob auf einer **anderen** Maschine als dem Server. Ohne `GP
 bleibt die Datei unverschlüsselt liegen — das Skript sagt es dann auch. Wiederherstellen über
 `POST /api/backups/<datei>/restore`; PocketBase startet dabei neu.
 
-## Im Homelab
+## Im Betrieb
 
-Läuft als ein einziger Container (PocketBase mit dem gebauten Frontend in `pb_public`, Migrationen
-und Hooks fest im Image) hinter dem vorhandenen Caddy unter dem Namen, den du im Homelab vergibst.
-HTTPS ist hier keine Kür: ohne es wird das `Secure`-Cookie nicht gesetzt.
+Läuft als ein einziger Container: PocketBase mit dem gebauten Frontend in `pb_public`, Migrationen
+und Hooks fest im Image. Davor gehört ein Reverse Proxy, der HTTPS terminiert — das ist keine Kür,
+ohne HTTPS wird das `Secure`-Cookie nicht gesetzt und der Einladungslink funktioniert nicht.
 
 Der Stack steht in [`docker-compose.yaml`](docker-compose.yaml) in der Repo-Wurzel — dort und
 nicht in `deploy/`, weil der Build-Kontext die Wurzel ist und ein Kontext oberhalb der
-Compose-Datei unter Arcane nicht auflöst. In [`deploy/`](deploy/) liegt der Rest:
-`Caddyfile.homelab.example` als Vorlage für den Block im Homelab-Caddy. `deploy/Caddyfile` ist die
-Hetzner-Variante mit echter Domain und ACME und wird im Homelab nicht benutzt.
+Compose-Datei je nach Werkzeug nicht auflöst. Er veröffentlicht bewusst **keinen Host-Port**: der
+Proxy hängt sich ans Netz `mannschaftsplan` und erreicht den Dienst als `http://mannschaftsplan:8090`.
+
+In [`deploy/`](deploy/) liegen zwei Caddy-Vorlagen. [`Caddyfile`](deploy/Caddyfile) ist für den
+eigenen Server mit echter Domain und automatischem Zertifikat.
+[`Caddyfile.homelab.example`](deploy/Caddyfile.homelab.example) ist der Block für einen **bereits
+vorhandenen** Caddy, etwa im eigenen Netz. Wer nginx oder Traefik betreibt, bildet dieselben vier
+Punkte dort nach: Sicherheitskopfzeilen, Admin-Sperre, `/j/*` nicht protokollieren, Query-Filter
+im Log.
 
 ## Tests
 

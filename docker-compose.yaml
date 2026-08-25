@@ -1,6 +1,6 @@
-# Stack für den Homelab-Betrieb (Arcane) und später für den Hetzner-Server.
-# Ein Service: PocketBase serviert das Frontend gleich mit. Caddy sitzt davor und terminiert
-# HTTPS — im Homelab der bereits vorhandene, auf dem Server der aus deploy/Caddyfile.
+# Der Stack für den Betrieb auf einem eigenen Server.
+# Ein Service: PocketBase serviert das Frontend gleich mit. Davor gehört ein Reverse Proxy, der
+# HTTPS terminiert — entweder ein bereits vorhandener oder der aus deploy/Caddyfile.
 #
 # Diese Datei liegt bewusst in der REPO-WURZEL und nicht in deploy/: der Build-Kontext ist die
 # Wurzel, und ein Kontext oberhalb der Compose-Datei (`context: ..`) bricht, sobald das Werkzeug

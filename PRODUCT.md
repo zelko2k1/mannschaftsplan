@@ -46,8 +46,8 @@ nicht kennen.
   sein, sind aber nicht der Regelfall.
 - **Der Einstieg ist ein Link aus WhatsApp** — der Messenger ruft ihn zur Vorschau serverseitig
   ab, bevor ein Mensch ihn antippt.
-- **Selbst gehostet:** PocketBase als ein Binary hinter Caddy; lokal ohne Docker entwickelt, im
-  Homelab unter HTTPS getestet, später auf einem eigenen Server.
+- **Selbst gehostet:** PocketBase als ein Binary hinter einem Reverse Proxy; lokal ohne Docker
+  entwickelt, betrieben als Container auf einem eigenen Server.
 - **Deutsch, Du-Form.** Keine Mehrsprachigkeit vorgesehen.
 
 ## Capabilities and Constraints

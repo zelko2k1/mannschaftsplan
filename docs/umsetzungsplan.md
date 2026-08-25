@@ -12,16 +12,19 @@ gefallen ist, steht sie hier als Vorgabe, nicht als Vorschlag.
 > Caddy-Log-Filter für `/j/*` heißt `log_skip` statt eines Query-Filters (R8). Rate Limiting läuft
 > primär über PocketBase statt über ein Caddy-Plugin. Beim Bau von Schritt 2 kamen die drei
 > PocketBase-Eigenheiten in Abschnitt 3 dazu (Regeln, Defaultwerte, `users`-Collection).
-> Betriebsziel bis auf Weiteres: lokal ohne Docker entwickeln und im Homelab unter dem dort
-> vergebenen Namen testen — siehe `README.md`. Der Hetzner-Betrieb aus Abschnitt 7 bleibt das
-> Fernziel.
+> Betriebsziel bis auf Weiteres: lokal ohne Docker entwickeln — siehe `README.md`. Der Betrieb auf
+> einem eigenen Server aus Abschnitt 7 bleibt das Fernziel.
 >
 > **Nachtrag 2026-08-25.** Abschnitt 7.1 beschrieb bis hierher zwei Services mit Bind-Mounts —
 > das entspricht dem gebauten Stand nicht mehr und ist auf das tatsächliche Betriebsmodell
 > umgeschrieben: ein Image, ein Service, kein Host-Port, zwei Compose-Varianten je nachdem, ob
-> ein Reverse Proxy schon da ist. Die Auslieferung enthält außerdem keine Daten und keine Konten
-> mehr; das Seed-Skript aus Schritt 2 ist ersatzlos entfallen. Neu als offener Punkt: R13 hat im
-> öffentlichen Betrieb kein Netz, auf das es sich stützen kann (7.2.1).
+> ein Reverse Proxy schon da ist. Geprüft wird in zwei Umgebungen — lokal samt CI, und für alles
+> Übrige direkt auf einem öffentlich erreichbaren Server. Ein Aufbau im eigenen Heimnetz ist als
+> Prüfstufe **entfallen**: er deckt exklusiv nur T10 ab, kann T11 prinzipbedingt nicht und prüft
+> die Proxy-Konfiguration, die im Betrieb gar nicht verwendet wird. Die Auslieferung enthält
+> außerdem keine Daten und keine Konten mehr; das Seed-Skript aus Schritt 2 ist ersatzlos
+> entfallen. Neu als offener Punkt: R13 hat im öffentlichen Betrieb kein Netz, auf das es sich
+> stützen kann (7.2.1).
 
 ---
 
@@ -63,7 +66,7 @@ gefallen ist, steht sie hier als Vorgabe, nicht als Vorschlag.
 | Frontend | React + Vite, TypeScript | vorhandene Erfahrung |
 | Auslieferung | Frontend-Build nach `pb_public/` | gleiche Origin → Cookies ohne CORS-Gefummel, keine `VITE_PB_URL` nötig |
 | Reverse Proxy | Caddy als mitgelieferte Vorlage, aber austauschbar | automatisches TLS, Header, Log-Filter, Admin-Sperre — wer Traefik oder nginx betreibt, hängt sie stattdessen davor |
-| Betrieb | Docker Compose, ein Container | überall gleich: Homelab zum Testen, Server für den echten Betrieb (Abschnitt 7) |
+| Betrieb | Docker Compose, ein Container | überall gleich — Prüfserver wie Betrieb, siehe Abschnitt 7 |
 | Schriften | **selbst gehostet** via `@fontsource` | keine Google-Fonts-Einbindung — in Deutschland abmahnfähig |
 
 **Keine** externen CDNs, keine Tracker, keine Analytics.
@@ -481,7 +484,7 @@ Zonenversatz.
 
 Die App ist nur über das Internet sinnvoll zu betreiben — Terminabsprache passiert unterwegs, nicht
 im Vereins-WLAN. Betrieben wird deshalb ausschließlich in Docker, und zwar überall gleich: dieselbe
-Datei, dasselbe Image, ob im Homelab oder auf einem Server.
+Datei, dasselbe Image auf dem Prüfserver wie im Betrieb.
 
 **Ein Service.** PocketBase liefert das Frontend aus `pb_public` gleich mit — eine Origin, damit die
 Cookies aus R2/R11 ohne CORS auskommen. Migrationen, Hooks und der Frontend-Build liegen **im Image**,
@@ -510,10 +513,25 @@ docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml up -d   # mit
 Der App-Service ist dabei **einmal** definiert; das Overlay stellt nur den Proxy daneben. Zwei
 vollständige Compose-Dateien wären zwei Wahrheiten, die auseinanderlaufen.
 
-Das **Homelab ist Testumgebung, kein Betrieb.** Es fährt die Basisdatei hinter dem dort bereits
-vorhandenen Caddy — also genau die Konfiguration, die auch ein Betreiber mit eigenem Proxy fährt.
-Damit testet das Homelab einen echten Auslieferungsweg und keinen Sonderfall. Was es
-prinzipbedingt nicht abdeckt: die Absicherung aus R13, die sich dort aufs LAN stützt.
+#### Wo geprüft wird
+
+Zwei Umgebungen, nicht drei. **Lokal** läuft die schnelle Schleife: Logik, Aussehen und die
+Testfälle T1–T9 und T13. Das Aussehen ist dort sogar genauer zu beurteilen als anderswo, weil
+`npm run build` nach `pb_public/` baut und PocketBase danach same-origin genau das ausliefert, was
+auch im Container steht — und weil die Schriften selbst gehostet sind, gibt es nichts, das
+anderswo anders aussähe. Den Containerpfad deckt die **CI** ab: sie baut das Image, startet es und
+lässt die vollständige API-Suite dagegen laufen.
+
+Was beides nicht kann, braucht einen **öffentlich erreichbaren Server** — kein Heimnetz, sondern
+denselben Anbieter, auf dem später der Betrieb läuft. Dort und nur dort sind prüfbar: T11 (der
+Messenger ruft die URL serverseitig ab, ein Name aus dem Heimnetz ist für ihn nicht auflösbar),
+T8c von einer wirklich fremden Adresse, ein echtes Zertifikat samt ACME und HSTS, das Verhalten
+auf einem Handy im Mobilnetz — und R13 ohne LAN, siehe 7.2.1.
+
+Ein Aufbau im eigenen Heimnetz liegt zwischen beidem und trägt deshalb nicht: er kostet
+Einrichtung, deckt exklusiv nur T10 ab und prüft ausgerechnet die Proxy-Konfiguration, die im
+Betrieb nicht verwendet wird. Der Weg „hinter vorhandenem Proxy" bleibt als **Nutzer**-Variante
+unterstützt und dokumentiert; er ist nur keine Stufe der eigenen Prüfkette.
 
 `docker-compose.yaml` liegt in der **Repo-Wurzel**, nicht in `deploy/`: der Build-Kontext ist die
 Wurzel, und ein Kontext oberhalb der Compose-Datei (`context: ..`) bricht, sobald das Werkzeug
@@ -568,8 +586,8 @@ Traefik betreibt, bildet dieselben vier Punkte dort nach — Kopfzeilen (R9), Ad
 #### 7.2.1 Offen: R13 ohne LAN
 
 R13 stützt sich darauf, dass `/admin` und `/_/` nur aus einem vertrauenswürdigen Netz erreichbar
-sind. Im Homelab ist das das LAN. Auf einem öffentlichen Server gibt es beides nicht, und ein
-beliebiger Betreiber hat kein VPN. Damit steht die wirksamste Einzelmaßnahme der App im
+sind. Hinter einem Proxy im eigenen Netz ist das das LAN. Auf einem öffentlichen Server gibt es
+weder LAN noch VPN, und ein beliebiger Betreiber hat auch keins. Damit steht die wirksamste Einzelmaßnahme der App im
 öffentlichen Betrieb ohne Fundament da.
 
 Zur Wahl stehen: Standard geschlossen (ohne gesetzten Bereich antwortet `/admin` für alle mit 404,
@@ -674,6 +692,8 @@ Spielplan-PDF importieren, Tokens erzeugen, per Einzelchat verteilen.
 Das Caddy-Overlay aus 7.1 bauen (`docker-compose.caddy.yaml`), Domain und Allowlist über
 Umgebungsvariablen konfigurierbar machen, damit niemand eine Konfigurationsdatei editieren muss,
 und die offene Frage aus 7.2.1 entscheiden.
+Auf demselben Server laufen dann auch die Handprüfungen, die lokal und in der CI nicht möglich
+sind: T8c, T10, T11 und T12.
 *Fertig, wenn:* ein nackter Server allein mit den Werten aus einer `.env` zum laufenden HTTPS-Dienst
 wird — und der Weg mit vorhandenem Proxy unverändert weiter funktioniert.
 

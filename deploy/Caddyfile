@@ -1,5 +1,6 @@
-# Caddy für den öffentlichen Betrieb (Hetzner). Im Homelab wird diese Datei NICHT benutzt —
-# dort kommt der Block aus Caddyfile.homelab.example in den vorhandenen Caddy.
+# Caddy für den öffentlichen Betrieb auf einem eigenen Server: eigene Domain, Zertifikat
+# automatisch über Let's Encrypt. Wer schon einen Reverse Proxy betreibt, nimmt stattdessen den
+# Block aus Caddyfile.homelab.example und hängt ihn in seine vorhandene Konfiguration.
 #
 # Domain eintragen und die VPN-/Allowlist-Adresse in @notvpn anpassen.
 

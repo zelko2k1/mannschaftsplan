@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # PocketBase für den lokalen Entwicklungsbetrieb — holt das Binary beim ersten Mal und startet es.
 #
-# Auf diesem Rechner läuft kein Docker; der Homelab-Weg (deploy/) ist für den Betrieb da, nicht
-# fürs Entwickeln. Deshalb hier das nackte Binary.
+# Zum Entwickeln braucht es kein Docker; der Containerweg (deploy/) ist für den Betrieb da.
+# Deshalb hier das nackte Binary.
 #
 # Umgebungsvariablen:
 #   PB_PORT=8090      Port

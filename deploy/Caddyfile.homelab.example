@@ -1,5 +1,7 @@
-# Homelab-Variante: Dieser Block gehört in den BEREITS VORHANDENEN Caddy auf der Docker-LXC
-# (nicht in einen eigenen Container — der Wildcard-Schlüssel liegt schon dort).
+# Für Betreiber, die schon einen Caddy haben — im eigenen Netz oder auf einem Server mit anderen
+# Diensten. Dieser Block gehört in die BEREITS VORHANDENE Konfiguration, nicht in einen zweiten
+# Caddy-Container: der würde mit dem vorhandenen um Port 443 streiten, und das Zertifikat liegt
+# ohnehin schon dort.
 #
 # Name, IP-Bereich und Zertifikatspfade unten sind Platzhalter — vor dem Einsetzen durch die
 # eigenen Werte ersetzen.
