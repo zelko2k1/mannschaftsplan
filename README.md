@@ -44,7 +44,45 @@ Bei deinem Domain-Anbieter einen sogenannten A-Record anlegen: `dart.mein-verein
 IP-Adresse deines Servers. Das dauert je nach Anbieter ein paar Minuten, bis es überall bekannt
 ist. Ohne diesen Schritt bekommt die App im nächsten Schritt kein Sicherheitszertifikat.
 
-**2 · Die App auf den Server holen**
+**2 · Docker einrichten**
+
+Manche Anbieter haben ein fertiges Serverabbild mit Docker — dann bist du hier schon fertig.
+Sonst installierst du es nach der [offiziellen Anleitung von
+Docker](https://docs.docker.com/engine/install/).
+
+> **Nicht** `apt install docker.io docker-compose` nehmen. Die Paketquellen der Distributionen
+> liefern je nach Alter eine zu alte Fassung, und daran scheitert später das Passwort aus
+> Schritt 4 — siehe [Wenn etwas nicht klappt](#wenn-etwas-nicht-klappt).
+
+<details>
+<summary>Die Befehle für Ubuntu, zum Kopieren</summary>
+
+```bash
+sudo apt update
+sudo apt install -y ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
+  | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
+
+Bei Debian statt `.../linux/ubuntu` überall `.../linux/debian` einsetzen.
+
+</details>
+
+Danach nachsehen, ob es gereicht hat:
+
+```bash
+docker compose version
+```
+
+Steht dort eine Zahl **kleiner als 2.24**, geht es nicht weiter — dann ist Docker zu alt, und
+später wird dein Passwort nicht angenommen, ohne dass irgendetwas nach einem Fehler aussieht.
+
+**3 · Die App auf den Server holen**
 
 Auf dem Server einloggen und:
 
@@ -54,7 +92,7 @@ cd mannschaftsplan
 cp .env.example .env
 ```
 
-**3 · Ein Passwort für die Kapitänsseite festlegen**
+**4 · Ein Passwort für die Kapitänsseite festlegen**
 
 Bevor überhaupt jemand die Kapitänsseite zu sehen bekommt, fragt der Webserver nach einem
 Passwort. Das ist eine zusätzliche Tür vor der eigentlichen Anmeldung — sie sorgt dafür, dass
@@ -69,7 +107,7 @@ docker run --rm caddy:2.11.4-alpine caddy hash-password --plaintext 'dein-passwo
 
 Heraus kommt eine kryptische Zeile, die mit `$2a$` beginnt. Die brauchst du gleich.
 
-**4 · Die vier Werte eintragen**
+**5 · Die vier Werte eintragen**
 
 Die Datei `.env` öffnen (`nano .env`) und ausfüllen:
 
@@ -83,7 +121,7 @@ ADMIN_PASSWORD_HASH=$2a$14$…die Zeile von eben…
 Mehr ist es nicht. In der Datei stehen keine Vorgaben, die du übernehmen könntest — jeder Wert ist
 deiner.
 
-**5 · Starten**
+**6 · Starten**
 
 ```bash
 docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml up -d
@@ -95,22 +133,22 @@ sie sich danach selbst; du musst dich darum nie kümmern, auch nicht um die Verl
 Fehlt einer der vier Werte, startet nichts und du bekommst gesagt, welcher fehlt. Das ist Absicht:
 lieber gar nicht starten als halb eingerichtet im Internet stehen.
 
-**6 · Deinen Kapitänszugang anlegen**
+**7 · Deinen Kapitänszugang anlegen**
 
 ```bash
 docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml exec mannschaftsplan \
   /usr/local/bin/pocketbase superuser upsert deine@adresse.de dein-passwort --dir=/pb_data
 ```
 
-Das ist die Anmeldung für die Kapitänsseite — eine andere als die aus Schritt 3. Die Adresse muss
+Das ist die Anmeldung für die Kapitänsseite — eine andere als die aus Schritt 4. Die Adresse muss
 wie eine echte E-Mail-Adresse aussehen. Das Passwort steht danach in der Befehls-Historie deiner
 Shell; wenn dich das stört, lösche sie mit `history -c`.
 
-**7 · Die Mannschaft eintragen**
+**8 · Die Mannschaft eintragen**
 
 `https://dart.mein-verein.de/admin` aufrufen. Es kommen **zwei** Abfragen nacheinander: erst das
-Passwort aus Schritt 3 (der Browser fragt in einem kleinen Fenster), dann die Anmeldung aus
-Schritt 6 auf der Seite selbst.
+Passwort aus Schritt 4 (der Browser fragt in einem kleinen Fenster), dann die Anmeldung aus
+Schritt 7 auf der Seite selbst.
 
 Dort legst du die Mitglieder an. Bei jedem gibt es den Knopf **„Neues Token"** — der erzeugt den
 persönlichen Link für dieses Mitglied.
@@ -123,9 +161,9 @@ persönlichen Link für dieses Mitglied.
 
 Danach die Spieltage eintragen — Datum, Anwurfzeit, Gegner, Ort, Entfernung. Fertig.
 
-**8 · Einstellungen anpassen** *(freiwillig, aber lohnend)*
+**9 · Einstellungen anpassen** *(freiwillig, aber lohnend)*
 
-Der Reiter **Einstellungen** hat drei Dinge:
+Der Reiter **Einstellungen** hat vier Dinge:
 
 **Name der Mannschaft.** Er erscheint auf der Seite, die ein Mitglied beim Antippen des Links
 sieht, und in der Vorschau, die WhatsApp und andere Messenger erzeugen. Voreingestellt ist
@@ -242,13 +280,13 @@ IP-Adresse oder über `http://` weigert sich der Browser, die nötige Sitzung zu
 lässt sich nicht abstellen, es ist eine Schutzmaßnahme des Browsers.
 
 **„Ich komme nicht auf `/admin`."** Zwei Passwörter, zwei Schritte: erst das aus Einrichtungs-
-schritt 3 im Browser-Fenster, dann das aus Schritt 6 auf der Seite. Nach fünf Fehlversuchen ist
+schritt 4 im Browser-Fenster, dann das aus Schritt 7 auf der Seite. Nach fünf Fehlversuchen ist
 die Anmeldung eine Viertelstunde gesperrt — auch für das richtige Passwort.
 
-**„Ich habe mein Kapitäns-Passwort vergessen."** Schritt 6 noch einmal ausführen; `upsert`
+**„Ich habe mein Kapitäns-Passwort vergessen."** Schritt 7 noch einmal ausführen; `upsert`
 überschreibt den vorhandenen Zugang.
 
-**„Das Passwort aus Schritt 3 wird nicht angenommen."** Prüfe `docker compose version`. Bei älteren
+**„Das Passwort aus Schritt 4 wird nicht angenommen."** Prüfe `docker compose version`. Bei älteren
 Ausgaben als 2.24 verstümmelt Docker die Prüfsumme beim Einlesen — dann passt sie nicht mehr zu
 deinem Passwort. Abhilfe: Docker aktualisieren.
 
@@ -376,6 +414,7 @@ Macht den alten Link tot, meldet alle Geräte des Mitglieds ab und schreibt eine
 | Datei | Inhalt |
 |---|---|
 | [`docs/umsetzungsplan.md`](docs/umsetzungsplan.md) | Die verbindliche Vorgabe: Datenmodell, Sicherheitsregeln R1–R14, API, Design-Tokens, Testfälle. |
+| [`docs/erster-testlauf.md`](docs/erster-testlauf.md) | Ablauf für den ersten Lauf auf einem echten Server — samt der Handprüfungen, die lokal nicht gehen. |
 | [`PRODUCT.md`](PRODUCT.md) | Was die App sein will, in Prosa — daraus abgeleitet. |
 | [`CHANGELOG.md`](CHANGELOG.md) | Was sich von Version zu Version geändert hat. |
 | [`docker-compose.yaml`](docker-compose.yaml) | Der Stack. Ohne Overlay: App allein, hinter vorhandenem Proxy. |

@@ -816,7 +816,10 @@ wird — und der Weg mit vorhandenem Proxy unverändert weiter funktioniert.
 
 ## 11. Testfälle
 
-Vor „fertig" alle durchlaufen. Was mit **automatisiert** markiert ist, steckt in
+Vor „fertig" alle durchlaufen. Die Handprüfungen brauchen einen öffentlich erreichbaren Server;
+der Ablauf dafür steht in [`erster-testlauf.md`](erster-testlauf.md).
+
+Was mit **automatisiert** markiert ist, steckt in
 `scripts/api-tests.mjs` und läuft in der CI — sowohl gegen ein nacktes PocketBase als auch gegen
 das gebaute Container-Image. Der Rest bleibt Handarbeit, weil er einen Proxy, einen echten
 Messenger oder ein Auge braucht.
