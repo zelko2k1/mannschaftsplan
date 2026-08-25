@@ -11,6 +11,10 @@ routerAdd('GET', '/api/board', (e) => {
   const sitzung = u.mitgliedAusSession(e)
   if (!sitzung) return e.json(401, { message: 'Keine gültige Sitzung.' })
 
+  // Einmal pro Aufruf, nicht einmal pro Spieltag: die Fahrzeit-Formel braucht dieselben zwei
+  // Werte für alle Zeilen.
+  const einst = u.einstellungen(e.app)
+
   const mitglieder = e.app.findRecordsByFilter('members', 'active = true', 'sort,name', 200, 0)
   const spieltage = e.app.findRecordsByFilter('fixtures', "id != ''", 'date', 200, 0)
 
@@ -72,7 +76,7 @@ routerAdd('GET', '/api/board', (e) => {
       locked: s.getBool('locked'),
       // Berechnet, nicht gespeichert (Abschnitt 6.3). Bei Heimspielen null — dort zeigt die
       // Zeitspalte den Anwurf mit dem Label „ANWURF" statt „ABFAHRT".
-      departure: u.abfahrt(datum, s.getInt('km'), heim),
+      departure: u.abfahrt(datum, s.getInt('km'), heim, einst.tempo_kmh, einst.puffer_minuten),
       responses,
       rides,
       seat_claims,

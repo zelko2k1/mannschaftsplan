@@ -506,9 +506,11 @@ function Mitglieder({ abgemeldet }: { abgemeldet: () => void }) {
 // Die technischen Namen sind im Protokoll gespeichert (Abschnitt 3), gelesen wird hier aber von
 // einem Menschen. Unbekannte Aktionen bleiben stehen wie sie sind, statt zu verschwinden.
 // ── Einstellungen ───────────────────────────────────────────────────────────────────────────
+// Ein Formular, ein Knopf. Geschickt wird nur, was sich geändert hat — der Server schreibt je
+// geändertem Feld eine Protokollzeile, und eine Zeile „80 → 80" wäre Rauschen.
 function Einstellungen({ abgemeldet }: { abgemeldet: () => void }) {
   const [daten, setDaten] = useState<EinstellungenDaten | null>(null)
-  const [name, setName] = useState('')
+  const [entwurf, setEntwurf] = useState<EinstellungenDaten | null>(null)
   const [fehler, setFehler] = useState('')
   const [gespeichert, setGespeichert] = useState(false)
   const [laeuft, setLaeuft] = useState(false)
@@ -518,7 +520,7 @@ function Einstellungen({ abgemeldet }: { abgemeldet: () => void }) {
       .einstellungen()
       .then((d) => {
         setDaten(d)
-        setName(d.anzeigename)
+        setEntwurf(d)
       })
       .catch((problem) => {
         if (problem instanceof NichtAngemeldet) return abgemeldet()
@@ -526,7 +528,7 @@ function Einstellungen({ abgemeldet }: { abgemeldet: () => void }) {
       })
   }, [abgemeldet])
 
-  if (!daten) {
+  if (!daten || !entwurf) {
     return fehler ? (
       <p className="fehler" role="status">
         {fehler}
@@ -536,89 +538,182 @@ function Einstellungen({ abgemeldet }: { abgemeldet: () => void }) {
     )
   }
 
-  const unveraendert = name.trim() === daten.anzeigename
+  const setzen = (teil: Partial<EinstellungenDaten>) => {
+    setEntwurf({ ...entwurf, ...teil })
+    setGespeichert(false)
+  }
+
+  // Zahlenfelder dürfen beim Tippen kurz leer sein — NaN sperrt dann den Speichern-Knopf, statt
+  // aus dem leeren Feld eine 0 zu machen.
+  const zahl = (wert: string) => (wert === '' ? Number.NaN : Number(wert))
+
+  const name = entwurf.anzeigename.trim()
+  const zahlenOk =
+    Number.isFinite(entwurf.tempo_kmh) &&
+    Number.isFinite(entwurf.puffer_minuten) &&
+    Number.isFinite(entwurf.auto_sperre_stunden)
+  const veraendert =
+    name !== daten.anzeigename ||
+    entwurf.tempo_kmh !== daten.tempo_kmh ||
+    entwurf.puffer_minuten !== daten.puffer_minuten ||
+    entwurf.auto_sperre_stunden !== daten.auto_sperre_stunden
+
+  const speichern = (ereignis: React.FormEvent) => {
+    ereignis.preventDefault()
+    if (!name || !zahlenOk || !veraendert) return
+
+    const aenderung: Partial<EinstellungenDaten> = {}
+    if (name !== daten.anzeigename) aenderung.anzeigename = name
+    if (entwurf.tempo_kmh !== daten.tempo_kmh) aenderung.tempo_kmh = entwurf.tempo_kmh
+    if (entwurf.puffer_minuten !== daten.puffer_minuten) aenderung.puffer_minuten = entwurf.puffer_minuten
+    if (entwurf.auto_sperre_stunden !== daten.auto_sperre_stunden) {
+      aenderung.auto_sperre_stunden = entwurf.auto_sperre_stunden
+    }
+
+    setLaeuft(true)
+    setFehler('')
+    setGespeichert(false)
+    adminApi
+      .einstellungenAendern(aenderung)
+      .then((d) => {
+        setDaten(d)
+        setEntwurf(d)
+        setGespeichert(true)
+      })
+      .catch((problem) => {
+        if (problem instanceof NichtAngemeldet) return abgemeldet()
+        setFehler(problem instanceof Error ? problem.message : 'Nicht gespeichert.')
+      })
+      .finally(() => setLaeuft(false))
+  }
 
   return (
-    <>
+    <form onSubmit={speichern}>
       {fehler && (
         <p className="fehler" role="status">
           {fehler}
         </p>
       )}
 
+      {/* ── Name ─────────────────────────────────────────────────────────────────────────── */}
       <div className="satz">
         <div className="satz__kopf">
           <span className="satz__name">Name der Mannschaft</span>
           <span className="satz__zusatz">
-            Steht auf der Einladungsseite und in der Vorschau, die Messenger beim Verschicken
-            eines Links erzeugen.
+            Steht auf der Einladungsseite und in der Vorschau, die Messenger beim Verschicken eines
+            Links erzeugen.
           </span>
         </div>
 
-        <form
-          className="satz__aktionen"
-          onSubmit={(ereignis) => {
-            ereignis.preventDefault()
-            const gewuenscht = name.trim()
-            if (!gewuenscht || unveraendert) return
-            setLaeuft(true)
-            setFehler('')
-            setGespeichert(false)
-            adminApi
-              .einstellungenAendern({ anzeigename: gewuenscht })
-              .then((d) => {
-                setDaten(d)
-                setName(d.anzeigename)
-                setGespeichert(true)
-              })
-              .catch((problem) => {
-                if (problem instanceof NichtAngemeldet) return abgemeldet()
-                setFehler(problem instanceof Error ? problem.message : 'Nicht gespeichert.')
-              })
-              .finally(() => setLaeuft(false))
-          }}
-        >
+        <div className="satz__aktionen">
           <label className="feld" style={{ flex: '1 1 14rem' }}>
             <span>Anzeigename</span>
             <input
-              value={name}
+              value={entwurf.anzeigename}
               maxLength={60}
-              onChange={(x) => {
-                setName(x.target.value)
-                setGespeichert(false)
-              }}
+              onChange={(x) => setzen({ anzeigename: x.target.value })}
             />
           </label>
-          <button
-            type="submit"
-            className="knopf"
-            style={{ alignSelf: 'end' }}
-            disabled={laeuft || unveraendert || !name.trim()}
-          >
-            {laeuft ? 'Speichert …' : 'Speichern'}
-          </button>
-        </form>
+        </div>
 
         {/* Derselbe Kasten wie beim frisch ausgestellten Token — hier steht etwas, das man
             gelesen haben muss, bevor man es tut. */}
         <div className="token">
           <p className="token__hinweis">Wer den Link weiterleitet, zeigt diesen Namen mit</p>
           <p style={{ margin: 0, fontSize: '0.85rem' }}>
-            Die Vorschau entsteht auf den Servern des Messengers, bevor ein Mensch den Link
-            antippt. Alles, was hier steht, ist damit für jeden sichtbar, der einen weitergeleiteten
-            Link bekommt. Der Mannschaftsname ist dafür in Ordnung — Namen einzelner Personen,
-            Adressen oder Spielorte gehören nicht hierher.
+            Die Vorschau entsteht auf den Servern des Messengers, bevor ein Mensch den Link antippt.
+            Alles, was hier steht, ist damit für jeden sichtbar, der einen weitergeleiteten Link
+            bekommt. Der Mannschaftsname ist dafür in Ordnung — Namen einzelner Personen, Adressen
+            oder Spielorte gehören nicht hierher.
           </p>
         </div>
-
-        {gespeichert && (
-          <p className="satz__zusatz" role="status">
-            Gespeichert. Neue Vorschauen zeigen den Namen sofort; schon verschickte Links behalten
-            die alte, weil der Messenger sie zwischenspeichert.
-          </p>
-        )}
       </div>
-    </>
+
+      {/* ── Fahrzeit ─────────────────────────────────────────────────────────────────────── */}
+      <div className="satz">
+        <div className="satz__kopf">
+          <span className="satz__name">Abfahrtszeit</span>
+          <span className="satz__zusatz">
+            Die Abfahrt im Aushang wird gerechnet, nicht eingetragen: Strecke geteilt durch Tempo,
+            plus Puffer, auf fünf Minuten gerundet und vom Anwurf abgezogen. Auf dem Land trägt ein
+            höheres Tempo, in der Stadt ein niedrigeres.
+          </span>
+        </div>
+
+        <div className="satz__aktionen">
+          <label className="feld" style={{ flex: '0 1 10rem' }}>
+            <span>Tempo (km/h)</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={20}
+              max={200}
+              value={Number.isFinite(entwurf.tempo_kmh) ? entwurf.tempo_kmh : ''}
+              onChange={(x) => setzen({ tempo_kmh: zahl(x.target.value) })}
+            />
+          </label>
+          <label className="feld" style={{ flex: '0 1 10rem' }}>
+            <span>Puffer (Minuten)</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={180}
+              value={Number.isFinite(entwurf.puffer_minuten) ? entwurf.puffer_minuten : ''}
+              onChange={(x) => setzen({ puffer_minuten: zahl(x.target.value) })}
+            />
+          </label>
+        </div>
+      </div>
+
+      {/* ── Automatisches Sperren ────────────────────────────────────────────────────────── */}
+      <div className="satz">
+        <div className="satz__kopf">
+          <span className="satz__name">Spieltage von selbst schließen</span>
+          <span className="satz__zusatz">
+            Ein gespielter Spieltag nimmt keine Rückmeldungen mehr an. Mit einer Frist erledigt das
+            die App, statt dass du nach jedem Spiel daran denken musst. <strong>0 = aus</strong> —
+            dann sperrst du weiterhin von Hand.
+          </span>
+        </div>
+
+        <div className="satz__aktionen">
+          <label className="feld" style={{ flex: '0 1 12rem' }}>
+            <span>Stunden nach Anwurf</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={168}
+              value={Number.isFinite(entwurf.auto_sperre_stunden) ? entwurf.auto_sperre_stunden : ''}
+              onChange={(x) =>
+                setzen({ auto_sperre_stunden: zahl(x.target.value) })
+              }
+            />
+          </label>
+          <span className="satz__zusatz" style={{ alignSelf: 'end', paddingBottom: '0.5rem' }}>
+            {entwurf.auto_sperre_stunden > 0
+              ? `Gesperrt wird stündlich geprüft — ein Spieltag schließt also bis zu eine Stunde nach Ablauf der Frist.`
+              : 'Ausgeschaltet.'}
+          </span>
+        </div>
+      </div>
+
+      {/* ── Speichern ────────────────────────────────────────────────────────────────────── */}
+      <div className="satz">
+        <div className="satz__aktionen">
+          <button type="submit" className="knopf" disabled={laeuft || !veraendert || !name || !zahlenOk}>
+            {laeuft ? 'Speichert …' : 'Speichern'}
+          </button>
+          {gespeichert && (
+            <span className="satz__zusatz" style={{ alignSelf: 'center' }} role="status">
+              Gespeichert. Schon verschickte Links behalten ihre alte Vorschau — die speichert der
+              Messenger zwischen.
+            </span>
+          )}
+        </div>
+      </div>
+    </form>
   )
 }
 
@@ -636,6 +731,7 @@ const WAS: Record<string, string> = {
   'fixture.update': 'Spieltag geändert',
   'fixture.delete': 'Spieltag gelöscht',
   'settings.update': 'Einstellung geändert',
+  'fixture.lock': 'Spieltag gesperrt',
 }
 
 function Protokoll({ abgemeldet }: { abgemeldet: () => void }) {
@@ -669,8 +765,10 @@ function Protokoll({ abgemeldet }: { abgemeldet: () => void }) {
             </td>
             <td>
               {z.actor}
-              {/* Ohne den Präfix `admin:`/`member:` sähe ein Mitglied aus wie der Kapitän. */}
+              {/* Ohne den Präfix `admin:`/`member:`/`system:` sähe ein Mitglied aus wie der
+                  Kapitän — und eine Zeile, die niemand ausgelöst hat, wie seine Tat. */}
               {z.actor_typ === 'admin' && ' (Kapitän)'}
+              {z.actor_typ === 'system' && ' (automatisch)'}
             </td>
             <td>
               {WAS[z.action] || z.action}

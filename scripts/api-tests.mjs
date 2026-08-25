@@ -828,6 +828,66 @@ await pruefe('A9', 'Anzeigename wirkt auf die Einladungsseite und wird escaped',
   }
 })
 
+await pruefe('A10', 'Die Fahrzeit-Formel folgt den Einstellungen', async () => {
+  const { jar: kapitaen } = await adminAnmelden()
+  const ruf = alsKapitaen(kapitaen)
+  const vorher = await (await ruf('/admin/api/settings')).json()
+
+  const { klartext } = await testMitglied('formel')
+  const { jar } = await anmelden(klartext)
+  const spieltag = await testSpieltag({ km: 60, is_home: false, date: '2026-10-03 19:00:00' })
+
+  const vorlauf = async () => {
+    const board = await (await alsMitglied(jar)('/api/board')).json()
+    const s = board.fixtures.find((f) => f.id === spieltag.id)
+    return (new Date(s.date.replace(' ', 'T')) - new Date(s.departure)) / 60000
+  }
+
+  try {
+    // 60 km bei 60 km/h sind 60 Minuten, plus 10 Minuten Puffer.
+    gleich(
+      (
+        await ruf('/admin/api/settings', {
+          method: 'PATCH',
+          body: JSON.stringify({ tempo_kmh: 60, puffer_minuten: 10 }),
+        })
+      ).status,
+      200,
+      'speichern',
+    )
+    gleich(await vorlauf(), 70, 'Vorlauf bei 60 km/h und 10 min Puffer')
+
+    // Dasselbe Spiel bei halbem Tempo: doppelte Fahrzeit, Puffer unverändert.
+    await ruf('/admin/api/settings', { method: 'PATCH', body: JSON.stringify({ tempo_kmh: 30 }) })
+    gleich(await vorlauf(), 130, 'Vorlauf bei 30 km/h')
+
+    // Grenzen aus der Migration, hier gespiegelt: sonst lehnte erst die Datenbank ab.
+    for (const [feld, wert] of [
+      ['tempo_kmh', 19],
+      ['tempo_kmh', 201],
+      ['puffer_minuten', -1],
+      ['auto_sperre_stunden', -1],
+      ['auto_sperre_stunden', 169],
+      ['tempo_kmh', 80.5],
+    ]) {
+      gleich(
+        (await ruf('/admin/api/settings', { method: 'PATCH', body: JSON.stringify({ [feld]: wert }) })).status,
+        400,
+        `${feld} = ${wert}`,
+      )
+    }
+  } finally {
+    await ruf('/admin/api/settings', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        tempo_kmh: vorher.tempo_kmh,
+        puffer_minuten: vorher.puffer_minuten,
+        auto_sperre_stunden: vorher.auto_sperre_stunden,
+      }),
+    })
+  }
+})
+
 // ── T9 · MUSS ALS LETZTES LAUFEN ───────────────────────────────────────────────────────────
 // Die Sperre gilt 15 Minuten für diese IP und würde jede weitere Anmeldung blockieren. Der
 // Zähler liegt im Arbeitsspeicher: ein Neustart von PocketBase räumt ihn weg.

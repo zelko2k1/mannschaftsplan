@@ -15,6 +15,15 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   API-Tests war der Seed ohnehin nie nötig — sie legen ihre eigenen Datensätze an.
 
 ### Hinzugefügt
+- **Die Abfahrtszeit rechnet nicht mehr mit fest verdrahteten Zahlen.** Tempo und Puffer standen
+  bei 80 km/h und 25 Minuten im Code — für eine Mannschaft, die über Land fährt, zu niedrig, für
+  eine in der Stadt zu hoch. Beide stehen jetzt unter Einstellungen. Die Formel selbst bleibt im
+  Backend, damit alle dieselbe Abfahrt sehen.
+- **Spieltage können sich selbst schließen.** Wer eine Frist in Stunden hinterlegt, muss nach dem
+  Spiel nicht mehr daran denken, den Spieltag zu sperren — sonst ändert jemand hinterher seine
+  Zusage. Voreingestellt ist **0, also aus**: Wer bisher von Hand gesperrt hat, findet nach der
+  Aktualisierung nichts vor, das er nicht selbst gewählt hat. Geprüft wird stündlich, und im
+  Protokoll steht die Zeile mit dem Vermerk „automatisch" statt unter einem Namen.
 - **Die Kapitänsansicht hat einen Punkt „Einstellungen", und der Anzeigename ist das erste, was
   dort steht.** Bisher hieß die App auf der Einladungsseite und in jeder Linkvorschau fest
   „Mannschaftsplan"; jetzt trägt der Kapitän dort den Namen seiner Mannschaft ein. Die Eingabe

@@ -123,16 +123,28 @@ persönlichen Link für dieses Mitglied.
 
 Danach die Spieltage eintragen — Datum, Anwurfzeit, Gegner, Ort, Entfernung. Fertig.
 
-**8 · Den Namen deiner Mannschaft eintragen** *(freiwillig)*
+**8 · Einstellungen anpassen** *(freiwillig, aber lohnend)*
 
-Unter **Einstellungen** steht der Anzeigename. Er erscheint auf der Seite, die ein Mitglied beim
-Antippen des Links sieht, und in der Vorschau, die WhatsApp und andere Messenger beim Verschicken
-erzeugen. Voreingestellt ist „Mannschaftsplan".
+Der Reiter **Einstellungen** hat drei Dinge:
+
+**Name der Mannschaft.** Er erscheint auf der Seite, die ein Mitglied beim Antippen des Links
+sieht, und in der Vorschau, die WhatsApp und andere Messenger erzeugen. Voreingestellt ist
+„Mannschaftsplan".
 
 > Diese Vorschau entsteht auf den Servern des Messengers, **bevor** ein Mensch den Link antippt.
 > Was dort steht, sieht also jeder, dem ein Link weitergeleitet wird. Der Mannschafts- oder
 > Vereinsname ist dafür in Ordnung. Namen einzelner Personen, Adressen oder Spielorte gehören
 > nicht hinein.
+
+**Abfahrtszeit.** Die App trägt die Abfahrt nicht ein, sie rechnet sie: Strecke geteilt durch
+Tempo, plus Puffer, auf fünf Minuten gerundet, vom Anwurf abgezogen. Voreingestellt sind 80 km/h
+und 25 Minuten. Fahrt ihr über Land, stimmt ein höheres Tempo; in der Stadt ein niedrigeres. Der
+Puffer ist alles, was zwischen Ankunft und Anwurf passiert — parken, umziehen, einwerfen.
+
+**Spieltage von selbst schließen.** Ein gespielter Spieltag soll keine Rückmeldungen mehr
+annehmen, sonst ändert jemand hinterher seine Zusage. Trägst du hier eine Stundenzahl ein,
+erledigt das die App; bei **0** bleibt es bei deinem Handgriff nach dem Spiel. Geprüft wird
+stündlich, ein Spieltag schließt also bis zu eine Stunde nach Ablauf der Frist.
 
 ### Der Alltag
 
@@ -147,7 +159,8 @@ Einzelchat verschicken, nie in der Mannschaftsgruppe, und keine Bildschirmfotos 
 Listen und ist sofort von allen Geräten abgemeldet.
 
 **Ein Spieltag ist gelaufen.** Auf „gesperrt" setzen — dann kann niemand mehr nachträglich seine
-Zusage ändern.
+Zusage ändern. Wenn du unter Einstellungen eine Frist hinterlegt hast, passiert das von selbst;
+im Protokoll steht die Zeile dann mit dem Vermerk „(automatisch)".
 
 ### Sicherungen
 

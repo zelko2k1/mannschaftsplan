@@ -395,15 +395,13 @@ routerAdd('PATCH', '/admin/api/settings', (e) => {
 
   const koerper = e.requestInfo().body || {}
 
-  // R4 · Whitelist: geschrieben wird nur, was hier steht. Was sonst im Körper ankommt, wird
-  // ignoriert, nicht abgelehnt.
-  if (!('anzeigename' in koerper)) return e.json(400, { message: 'Ungültige Angabe.' })
-
-  const name = String(koerper.anzeigename || '').trim()
-  // Leer ginge nicht: die Einladungsseite hätte dann eine leere Überschrift. Die Obergrenze
-  // spiegelt `max: 60` aus der Migration — sonst lehnte erst die Datenbank ab, mit einer
-  // Meldung, die dem Kapitän nichts sagt.
-  if (!name || name.length > 60) return e.json(400, { message: 'Ungültige Angabe.' })
+  // R4 · Whitelist mit Grenzen. Die Grenzen spiegeln die Migration — ohne sie lehnte erst die
+  // Datenbank ab, mit einer Meldung, die dem Kapitän nichts sagt.
+  const ZAHLEN = {
+    tempo_kmh: { min: 20, max: 200 },
+    puffer_minuten: { min: 0, max: 180 },
+    auto_sperre_stunden: { min: 0, max: 168 },
+  }
 
   let satz
   try {
@@ -413,15 +411,33 @@ routerAdd('PATCH', '/admin/api/settings', (e) => {
     return e.json(400, { message: 'Ungültige Angabe.' })
   }
 
-  const vorher = satz.getString('anzeigename')
-  if (vorher === name) return e.json(200, u.einstellungen(e.app))
+  const vorher = u.einstellungen(e.app)
+  const geaendert = []
 
-  satz.set('anzeigename', name)
+  if ('anzeigename' in koerper) {
+    const name = String(koerper.anzeigename || '').trim()
+    // Leer ginge nicht: die Einladungsseite hätte dann eine leere Überschrift.
+    if (!name || name.length > 60) return e.json(400, { message: 'Ungültige Angabe.' })
+    if (name !== vorher.anzeigename) geaendert.push(['anzeigename', vorher.anzeigename, name])
+    satz.set('anzeigename', name)
+  }
+
+  for (const feld in ZAHLEN) {
+    if (!(feld in koerper)) continue
+    const wert = Number(koerper[feld])
+    if (!isFinite(wert) || wert !== Math.round(wert)) return e.json(400, { message: 'Ungültige Angabe.' })
+    if (wert < ZAHLEN[feld].min || wert > ZAHLEN[feld].max) return e.json(400, { message: 'Ungültige Angabe.' })
+    if (wert !== vorher[feld]) geaendert.push([feld, String(vorher[feld]), String(wert)])
+    satz.set(feld, wert)
+  }
+
+  if (!geaendert.length) return e.json(200, u.einstellungen(e.app))
+
   e.app.save(satz)
 
-  // Der Name steht anschließend in jeder Linkvorschau. Wer ihn wann geändert hat, gehört
-  // deshalb ins Protokoll — mit altem und neuem Wert.
-  a.protokoll(e, 'settings.update', 'anzeigename', vorher, name)
+  // Je Feld eine Zeile. Der Anzeigename steht anschließend in jeder Linkvorschau, die Frist
+  // schließt Spieltage ohne Zutun — beides gehört nachvollziehbar ins Protokoll.
+  for (const [feld, alt, neu] of geaendert) a.protokoll(e, 'settings.update', feld, alt, neu)
 
   return e.json(200, u.einstellungen(e.app))
 })
@@ -451,6 +467,9 @@ routerAdd('GET', '/admin/api/audit', (e) => {
   const lesbar = (wert) => {
     if (!wert) return ''
     if (wert.indexOf('admin:') === 0) return wert.slice(6)
+    // Der Cron, der gespielte Spieltage schließt. Ohne eigenen Zweig stünde hier die rohe
+    // Zeichenkette `system:auto-sperre`.
+    if (wert.indexOf('system:') === 0) return wert.slice(7)
     if (wert.indexOf('member:') === 0) {
       const id = wert.slice(7)
       return namen[id] || `Mitglied ${id}`
@@ -466,8 +485,14 @@ routerAdd('GET', '/admin/api/audit', (e) => {
     items: alle.map((x) => ({
       at: x.getDateTime('at').string(),
       actor: lesbar(x.getString('actor')),
-      // Ob es der Kapitän oder ein Mitglied war, geht sonst verloren, sobald der Präfix weg ist.
-      actor_typ: x.getString('actor').indexOf('admin:') === 0 ? 'admin' : 'member',
+      // Ob es der Kapitän, ein Mitglied oder die Automatik war, geht sonst verloren, sobald der
+      // Präfix weg ist.
+      actor_typ:
+        x.getString('actor').indexOf('admin:') === 0
+          ? 'admin'
+          : x.getString('actor').indexOf('system:') === 0
+            ? 'system'
+            : 'member',
       action: x.getString('action'),
       target: lesbar(x.getString('target')),
       old_value: x.getString('old_value'),

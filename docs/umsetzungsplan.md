@@ -181,7 +181,13 @@ eine Whitelist (R4).
 | Feld | Typ | Anmerkung |
 |---|---|---|
 | `anzeigename` | text, required, max 60 | Überschrift der Einladungsseite und Titel der Linkvorschau. Standard `Mannschaftsplan` |
+| `tempo_kmh` | number, 20–200 | Durchschnittsgeschwindigkeit für die Fahrzeit (6.3). Standard 80 |
+| `puffer_minuten` | number, 0–180 | Zuschlag vor dem Anwurf (6.3). Standard 25 |
+| `auto_sperre_stunden` | number, 0–168 | Frist, nach der ein Spieltag von selbst schließt. **0 = aus**, und das ist der Standard |
 | `updated` | autodate | |
+
+Die Grenzen stehen zweimal: in der Migration und in der Admin-Route. Ohne die zweite lehnte erst
+die Datenbank ab, mit einer Meldung, die dem Kapitän nichts sagt.
 
 **Der Anzeigename ist öffentlich.** Er steht im OpenGraph-Titel und wird damit von jedem Messenger
 abgerufen, dem ein Link weitergeleitet wird — noch bevor ein Mensch ihn antippt. Ein Mannschafts-
@@ -426,8 +432,9 @@ POST   /admin/api/members
 PATCH  /admin/api/members/:id
 POST   /admin/api/members/:id/rotate-token   → { token: "<Klartext, einmalig>" }
 PUT    /admin/api/response/:fixtureId/:memberId    // Korrektur durch den Kapitän
-GET    /admin/api/settings                   → { anzeigename }
-PATCH  /admin/api/settings                   { anzeigename }   // R4-Whitelist, geht ins Protokoll
+GET    /admin/api/settings   → { anzeigename, tempo_kmh, puffer_minuten, auto_sperre_stunden }
+PATCH  /admin/api/settings     dieselben Felder, alle einzeln   // R4-Whitelist, je Feld eine
+                                                                // Protokollzeile
 GET    /admin/api/audit?limit=100
 ```
 
@@ -483,11 +490,15 @@ Die Zeile bindet `--grau` und `--rot` auf diese Werte um; Komponenten müssen ni
 
 ### 6.3 Abfahrtszeit
 ```
-fahrzeit_min = km / 80 * 60 + 25          // 25 min Puffer
+fahrzeit_min = km / tempo_kmh * 60 + puffer_minuten
 abfahrt      = anwurf − round(fahrzeit_min auf 5 min)
 ```
+`tempo_kmh` und `puffer_minuten` stehen in `settings` (Standard 80 und 25) und werden in der
+Kapitänsansicht gepflegt — auf dem Land trägt ein höheres Tempo, in der Stadt ein niedrigeres.
+
 Bei Heimspielen entfällt die Abfahrt; die linke Spalte zeigt dann den Anwurf mit dem Label
-„ANWURF" statt „ABFAHRT". Die Formel gehört ins Backend, damit alle dasselbe sehen.
+„ANWURF" statt „ABFAHRT". Die Formel gehört ins Backend, damit alle dasselbe sehen — auch das
+Frontend rechnet sie nicht nach, sonst liefe sie irgendwann auseinander.
 
 ### 6.4 Aufbau
 
@@ -810,5 +821,7 @@ nur im Arbeitsspeicher.
 | T10 | Access-Log nach `/j/`-Aufruf durchsuchen | kein Token im Klartext |
 | T11 | Link in WhatsApp einfügen | Vorschau zeigt den Anzeigename aus `settings`, nichts Personalisiertes |
 | A9 | Anzeigename ändern, Einladungsseite abrufen | Name steht in Überschrift und OpenGraph-Titel; HTML darin wird escaped — **automatisiert** |
+| A10 | Tempo und Puffer ändern, `/api/board` abrufen | Abfahrtszeit folgt der Formel aus 6.3; Werte außerhalb der Grenzen → 400 — **automatisiert** |
+| A11 | Frist setzen, Cron `spieltage-sperren` auslösen | vergangener Spieltag wird gesperrt, künftiger nicht, Protokollzeile mit `system:auto-sperre`; bei 0 passiert nichts. Auslösen über `POST /api/crons/spieltage-sperren` als Superuser — **Handprüfung** |
 | T12 | Backup einspielen | Datenstand vollständig wiederhergestellt |
 | T13 | `GET /j/<gültig>` allein aufrufen (wie der Crawler, ohne JS) | keine neue Zeile in `sessions`, kein Cookie — Beleg für R10 |

@@ -29,13 +29,19 @@ export type AdminMitglied = {
 export type Einstellungen = {
   /** Steht auf der Einladungsseite und in der Linkvorschau — für jeden Empfänger sichtbar. */
   anzeigename: string
+  /** Angenommene Durchschnittsgeschwindigkeit für die Abfahrtszeit. */
+  tempo_kmh: number
+  /** Zeit vor dem Anwurf, die zusätzlich eingeplant wird. */
+  puffer_minuten: number
+  /** Stunden nach dem Anwurf, nach denen ein Spieltag von selbst schließt. 0 = aus. */
+  auto_sperre_stunden: number
 }
 
 export type Protokollzeile = {
   at: string
   /** Bereits vom Server aufgelöst — Name statt `member:<id>`. */
   actor: string
-  actor_typ: 'admin' | 'member'
+  actor_typ: 'admin' | 'member' | 'system'
   action: string
   target: string
   old_value: string

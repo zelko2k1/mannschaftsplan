@@ -23,15 +23,21 @@ const SAMESITE_LAX = 2
 // Ein halbes Jahr, wie in R2.
 const SESSION_DAUER = 15552000
 
-// Fällt zurück, solange niemand etwas eingestellt hat. Steht genauso in der Migration
-// 1787700000_settings.js — beide Stellen zusammen ändern.
+// Fallen zurück, solange niemand etwas eingestellt hat. Stehen genauso in den Migrationen
+// 1787700000_settings.js und 1787800000_settings_fahrzeit_sperre.js — zusammen ändern.
 const ANZEIGENAME_STANDARD = 'Mannschaftsplan'
+const TEMPO_STANDARD = 80
+const PUFFER_STANDARD = 25
+const AUTO_SPERRE_STANDARD = 0
 
 module.exports = {
   SID_COOKIE,
   CSRF_COOKIE,
 
   ANZEIGENAME_STANDARD,
+  TEMPO_STANDARD,
+  PUFFER_STANDARD,
+  AUTO_SPERRE_STANDARD,
 
   /** SHA-256 als Hex — die einzige Form, in der Token und Session-IDs gespeichert werden. */
   hash(text) {
@@ -44,16 +50,32 @@ module.exports = {
    * darf an einer Einstellung nicht scheitern. Sie ist der einzige Weg der Mannschaft herein.
    */
   einstellungen(app) {
+    const standard = {
+      anzeigename: ANZEIGENAME_STANDARD,
+      tempo_kmh: TEMPO_STANDARD,
+      puffer_minuten: PUFFER_STANDARD,
+      auto_sperre_stunden: AUTO_SPERRE_STANDARD,
+    }
     try {
       const saetze = app.findAllRecords('settings')
-      if (saetze && saetze.length) {
-        const name = saetze[0].getString('anzeigename')
-        if (name) return { anzeigename: name }
+      if (!saetze || !saetze.length) return standard
+      const satz = saetze[0]
+      // Ein Feld, das die Migration noch nicht angelegt hat, liefert 0. Bei `tempo_kmh` wäre das
+      // eine Division durch null — und weil `puffer_minuten` aus derselben Migration stammt und
+      // 0 dort ein zulässiger Wunsch ist, entscheidet `tempo_kmh` für beide, ob überhaupt schon
+      // etwas dasteht. Halbe Wahrheiten wären hier schlimmer als der Standard.
+      const tempo = satz.getInt('tempo_kmh')
+      const gepflegt = tempo > 0
+      return {
+        anzeigename: satz.getString('anzeigename') || standard.anzeigename,
+        tempo_kmh: gepflegt ? tempo : standard.tempo_kmh,
+        puffer_minuten: gepflegt ? satz.getInt('puffer_minuten') : standard.puffer_minuten,
+        auto_sperre_stunden: Math.max(0, satz.getInt('auto_sperre_stunden')),
       }
     } catch {
       /* siehe oben */
     }
-    return { anzeigename: ANZEIGENAME_STANDARD }
+    return standard
   },
 
   /** Einladungstoken: 22 Zeichen base64url ≈ 132 Bit (R1). */
@@ -263,7 +285,7 @@ module.exports = {
    *
    * @returns ISO-Zeitstempel oder null bei Heimspiel
    */
-  abfahrt(anwurfISO, km, istHeimspiel) {
+  abfahrt(anwurfISO, km, istHeimspiel, tempo, puffer) {
     if (istHeimspiel) return null
 
     // PocketBase liefert "2026-09-05 19:30:00.000Z" — mit Leerzeichen statt „T". Node schluckt
@@ -272,7 +294,14 @@ module.exports = {
     const normalisiert = String(anwurfISO).trim().replace(' ', 'T')
     const anwurf = new Date(/[Zz]|[+-]\d\d:?\d\d$/.test(normalisiert) ? normalisiert : normalisiert + 'Z')
     if (isNaN(anwurf.getTime())) return null
-    const fahrzeit = (Number(km) || 0) / 80 * 60 + 25
+
+    // Tempo und Puffer kommen aus den Einstellungen (Abschnitt 6.3). Die Standardwerte stehen
+    // hier nur als letzte Rückfallebene — wer die Formel ändern will, tut das in der
+    // Kapitänsansicht, nicht hier.
+    const kmh = Number(tempo) > 0 ? Number(tempo) : TEMPO_STANDARD
+    const zuschlag = Number(puffer) >= 0 ? Number(puffer) : PUFFER_STANDARD
+
+    const fahrzeit = ((Number(km) || 0) / kmh) * 60 + zuschlag
     const gerundet = Math.round(fahrzeit / 5) * 5
     return new Date(anwurf.getTime() - gerundet * 60000).toISOString()
   },

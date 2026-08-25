@@ -50,6 +50,43 @@ cronAdd('aufraeumen', '30 3 * * *', () => {
   }
 })
 
+// ── Gespielte Spieltage von selbst schließen ────────────────────────────────────────────────
+// Ein Spieltag, der vorbei ist, soll keine Rückmeldungen mehr annehmen (R-Sperre, T7). Bisher
+// war das ein Handgriff des Kapitäns, den er nach dem Spiel — mit anderem im Kopf — machen
+// musste. Vergisst er ihn, kann jemand seine Zusage nachträglich ändern.
+//
+// Die Frist steht in den Einstellungen. 0 heißt aus: Wer bisher von Hand gesperrt hat, soll
+// nicht plötzlich Spieltage vorfinden, die sich selbst geschlossen haben.
+//
+// Stündlich, nicht minütlich: eine Stunde Ungenauigkeit ist bei einer Frist, die in Stunden
+// gemessen wird, ohne Belang.
+cronAdd('spieltage-sperren', '10 * * * *', () => {
+  const u = require(`${__hooks}/utils.js`)
+
+  const stunden = u.einstellungen($app).auto_sperre_stunden
+  if (!stunden) return
+
+  const grenze = new Date(Date.now() - stunden * 3600000).toISOString().replace('T', ' ').slice(0, 19)
+
+  let gesperrt = 0
+  try {
+    for (const s of $app.findRecordsByFilter('fixtures', 'date < {:g} && locked = false', 'date', 200, 0, {
+      g: grenze,
+    })) {
+      s.set('locked', true)
+      $app.save(s)
+      // Wer den Spieltag geschlossen hat, muss nachvollziehbar bleiben — sonst steht der Kapitän
+      // vor einer Sperre, die er sich nicht erklären kann.
+      u.protokollieren($app, 'system:auto-sperre', 'fixture.lock', s.id, '', `${stunden} h nach Anwurf`)
+      gesperrt += 1
+    }
+  } catch (fehler) {
+    console.log('Automatisches Sperren:', fehler)
+  }
+
+  if (gesperrt) console.log(`${gesperrt} Spieltag(e) automatisch gesperrt.`)
+})
+
 // ── Erinnerung an den Kapitän (Abschnitt 9) ─────────────────────────────────────────────────
 // KEIN WhatsApp — weder offiziell noch über inoffizielle Bibliotheken. Das Sperrrisiko für die
 // private Nummer und der Verstoß gegen die Nutzungsbedingungen sind den Komfort nicht wert.
