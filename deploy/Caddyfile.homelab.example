@@ -16,52 +16,52 @@
 # setzt der Browser es nicht und der Einladungslink funktioniert schlicht nicht.
 
 dart.example.home {
-  # Eigene CA — Let's Encrypt geht für .home nicht. Ein Wildcard-Zertifikat der eigenen Domain
-  # deckt diesen Namen ab. Der Client muss die CA kennen, sonst „nicht sicher".
-  tls /etc/caddy/certs/example.home.fullchain.crt /etc/caddy/certs/example.home.key
+	# Eigene CA — Let's Encrypt geht für .home nicht. Ein Wildcard-Zertifikat der eigenen Domain
+	# deckt diesen Namen ab. Der Client muss die CA kennen, sonst „nicht sicher".
+	tls /etc/caddy/certs/example.home.fullchain.crt /etc/caddy/certs/example.home.key
 
-  encode zstd gzip
+	encode zstd gzip
 
-  header {
-    X-Robots-Tag "noindex, nofollow"
-    Referrer-Policy "no-referrer"
-    Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'"
-    X-Content-Type-Options "nosniff"
-    -Server
-    # Strict-Transport-Security bleibt im Homelab bewusst WEG: HSTS würde den Browser für ein
-    # Jahr auf HTTPS für diesen Namen festnageln, auch wenn hier mal etwas anderes läuft.
-  }
+	header {
+		X-Robots-Tag "noindex, nofollow"
+		Referrer-Policy "no-referrer"
+		Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'"
+		X-Content-Type-Options "nosniff"
+		-Server
+		# Strict-Transport-Security bleibt im Homelab bewusst WEG: HSTS würde den Browser für ein
+		# Jahr auf HTTPS für diesen Namen festnageln, auch wenn hier mal etwas anderes läuft.
+	}
 
-  # R13b · Weg 1 (Netz): an die Stelle des VPN tritt hier das eigene Netz. Damit ist die
-  # Bedingung „nie mit nur einem Passwort" erfüllt — der Bereich MUSS angepasst werden, sonst
-  # sperrt er die falschen Leute aus oder die falschen herein. Antwort 404 statt 403 (R6).
-  #
-  # Ist dieser Name auch von außen erreichbar, gilt R13a: dann gehört `/_/` in einen eigenen
-  # Block, der immer mit 404 antwortet, und der Zugang läuft über einen SSH-Tunnel.
-  @admin path /admin* /_/*
-  handle @admin {
-    @fremd not remote_ip <dein-netzbereich>
-    respond @fremd 404
-    reverse_proxy mannschaftsplan:8090
-  }
+	# R13b · Weg 1 (Netz): an die Stelle des VPN tritt hier das eigene Netz. Damit ist die
+	# Bedingung „nie mit nur einem Passwort" erfüllt — der Bereich MUSS angepasst werden, sonst
+	# sperrt er die falschen Leute aus oder die falschen herein. Antwort 404 statt 403 (R6).
+	#
+	# Ist dieser Name auch von außen erreichbar, gilt R13a: dann gehört `/_/` in einen eigenen
+	# Block, der immer mit 404 antwortet, und der Zugang läuft über einen SSH-Tunnel.
+	@admin path /admin* /_/*
+	handle @admin {
+		@fremd not remote_ip <dein-netzbereich>
+		respond @fremd 404
+		reverse_proxy mannschaftsplan:8090
+	}
 
-  # R8 · Einladungslinks nicht protokollieren — das Token steht im Pfad (Testfall T10).
-  @join path /j/*
-  handle @join {
-    log_skip
-    reverse_proxy mannschaftsplan:8090
-  }
+	# R8 · Einladungslinks nicht protokollieren — das Token steht im Pfad (Testfall T10).
+	@join path /j/*
+	handle @join {
+		log_skip
+		reverse_proxy mannschaftsplan:8090
+	}
 
-  handle {
-    reverse_proxy mannschaftsplan:8090
-  }
+	handle {
+		reverse_proxy mannschaftsplan:8090
+	}
 
-  log {
-    output file /var/log/caddy/mannschaftsplan.log
-    format filter {
-      request>uri query {
-        delete *
-      }
-    }
-  }
+	log {
+		output file /var/log/caddy/mannschaftsplan.log
+		format filter {
+			request>uri query {
+				delete *
+			}
+		}
+	}
 }

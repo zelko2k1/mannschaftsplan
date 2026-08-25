@@ -545,7 +545,13 @@ wer ihn betreibt:
 | Datei | Für wen | Was drin ist | Stand |
 |---|---|---|---|
 | `docker-compose.yaml` | Betreiber mit vorhandenem Proxy (Traefik, nginx, Caddy) | nur die App, kein Host-Port | da |
-| `+ docker-compose.caddy.yaml` | nackter Server, auf dem noch nichts läuft | zusätzlich Caddy mit ACME auf 80/443 | **offen, Schritt 9** |
+| `+ docker-compose.caddy.yaml` | nackter Server, auf dem noch nichts läuft | zusätzlich Caddy mit ACME auf 80/443 | da |
+
+Was sich von Betrieb zu Betrieb unterscheidet, steht in der `.env` und **nicht** in einer
+Konfigurationsdatei: Domain, ACME-Adresse und das Tor aus R13b. Fehlt einer dieser Werte, fährt das
+Overlay nicht an und nennt den fehlenden — besser ein Stack, der nicht startet, als einer, der
+falsch konfiguriert läuft. Im Repo liegt kein Zugang, auch kein erfundener: den bcrypt-Hash für das
+Tor erzeugt der Betreiber selbst mit `caddy hash-password`.
 
 ```bash
 docker compose up -d                                                       # eigener Proxy
@@ -743,12 +749,10 @@ Header, Rate Limits, Log-Filter, Backup mit getestetem Restore, Löschjob, Erinn
 Spielplan-PDF importieren, Tokens erzeugen, per Einzelchat verteilen.
 
 **Schritt 9 — Auslieferbar für Fremde**
-Das Caddy-Overlay aus 7.1 bauen (`docker-compose.caddy.yaml`) und Domain wie den gewählten Weg aus
-R13b über Umgebungsvariablen konfigurierbar machen, damit niemand eine Konfigurationsdatei
-editieren muss. Dazu den zweiten Faktor im Kapitäns-Login nachrüsten — heute geht der eigene Hook
-an PocketBases MFA vorbei, siehe R13.
-Auf demselben Server laufen dann auch die Handprüfungen, die lokal und in der CI nicht möglich
-sind: T8c, T8d, T10, T11 und T12.
+Overlay, `.env`-Konfiguration und die Prüfung der Vorlagen in der CI stehen. Offen bleibt der
+zweite Faktor im Kapitäns-Login: der eigene Hook geht an PocketBases MFA vorbei, siehe R13.
+Auf einem echten Server laufen dann die Handprüfungen, die lokal und in der CI nicht möglich sind:
+T8c, T8d, T10, T11 und T12.
 *Fertig, wenn:* ein nackter Server allein mit den Werten aus einer `.env` zum laufenden HTTPS-Dienst
 wird — und der Weg mit vorhandenem Proxy unverändert weiter funktioniert.
 

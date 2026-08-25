@@ -1,0 +1,52 @@
+# Overlay: stellt Caddy vor die App — für einen Server, auf dem noch kein Reverse Proxy läuft.
+#
+#   docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml up -d
+#
+# Wer bereits einen Proxy betreibt, lässt dieses Overlay weg und nimmt nur docker-compose.yaml;
+# der Block für die vorhandene Konfiguration steht in deploy/Caddyfile.homelab.example.
+#
+# Der App-Service wird hier NICHT wiederholt. Zwei vollständige Compose-Dateien wären zwei
+# Wahrheiten, die auseinanderlaufen.
+services:
+  caddy:
+    # Version gepinnt wie überall sonst — reproduzierbare Deploys. Beim Erhöhen auch den Aufruf
+    # von `caddy hash-password` in deploy/Caddyfile und den CI-Job `proxy` mitziehen.
+    image: caddy:2.11.4-alpine
+    restart: unless-stopped
+    container_name: mannschaftsplan-caddy
+
+    # Die einzigen Ports, die nach außen zeigen. Die App selbst veröffentlicht keinen.
+    ports:
+      - "80:80"
+      - "443:443"
+
+    # Caddy löst {$...} aus SEINER Umgebung auf — die Werte müssen also hier ankommen, nicht nur
+    # in der Compose-Datei. Fehlt einer, bricht `docker compose up` mit dieser Meldung ab, statt
+    # einen Dienst zu starten, der falsch konfiguriert ist.
+    environment:
+      DOMAIN: "${DOMAIN:?DOMAIN fehlt. .env.example nach .env kopieren und ausfuellen.}"
+      ACME_EMAIL: "${ACME_EMAIL:?ACME_EMAIL fehlt. Adresse fuer die Zertifikats-Benachrichtigungen.}"
+      # R13b · Ohne Tor vor /admin faehrt dieser Stack nicht an. Das ist Absicht: die
+      # Kapitaensansicht steht sonst mit nur einem Passwort im Internet.
+      ADMIN_USER: "${ADMIN_USER:?ADMIN_USER fehlt. R13b verlangt ein Tor vor /admin.}"
+      ADMIN_PASSWORD_HASH: "${ADMIN_PASSWORD_HASH:?ADMIN_PASSWORD_HASH fehlt. Erzeugen mit: docker run --rm caddy:2.11.4-alpine caddy hash-password --plaintext '<passwort>'}"
+      # Optional, nur wenn in deploy/Caddyfile die beiden @fremd-Zeilen eingeschaltet sind.
+      ADMIN_ALLOW: "${ADMIN_ALLOW:-}"
+
+    volumes:
+      # Die Vorlage wird nicht editiert, deshalb schreibgeschützt eingehängt.
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Zertifikate und ACME-Konto. OHNE dieses Volume holt Caddy nach jedem Redeploy neue
+      # Zertifikate und läuft in die Ratenbegrenzung von Let's Encrypt.
+      - caddy_data:/data
+      - caddy_config:/config
+      # Das Access-Log, in dem laut T10 kein Token stehen darf.
+      - caddy_logs:/var/log/caddy
+
+    depends_on:
+      - mannschaftsplan
+
+volumes:
+  caddy_data:
+  caddy_config:
+  caddy_logs:

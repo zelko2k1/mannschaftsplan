@@ -14,6 +14,18 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   in der Kapitänsansicht, die Einladungslinks kommen dort aus „Neues Token". Für die
   API-Tests war der Seed ohnehin nie nötig — sie legen ihre eigenen Datensätze an.
 
+### Hinzugefügt
+- **Ein Server, vier Werte, ein Befehl.** `docker-compose.caddy.yaml` stellt Caddy vor die App —
+  für alle, auf deren Server noch kein Reverse Proxy läuft. Domain, ACME-Adresse und das Tor aus
+  R13b kommen aus der `.env`; die Caddy-Vorlage wird nicht mehr editiert. Fehlt einer der Werte,
+  fährt der Stack nicht an und nennt den fehlenden, statt falsch konfiguriert zu laufen. Wer
+  bereits einen Proxy betreibt, nimmt weiterhin nur `docker-compose.yaml` — der App-Service ist
+  in beiden Fällen derselbe und nur einmal definiert.
+- **Die CI prüft die Caddy-Vorlagen.** Beide laufen gegen dieselbe Caddy-Version wie im Betrieb:
+  `caddy validate` für die Overlay-Vorlage in beiden Ausbaustufen von R13b, ein Syntaxcheck für
+  den Block für vorhandene Proxys, dazu die Formatierung. Vorlagen, die Betreiber unverändert
+  übernehmen, waren bis hierher von nichts geprüft.
+
 ### Sicherheit
 - **R13 ist aufgeteilt, und die Caddy-Vorlagen liefern nichts mehr aus, was ungeprüft
   durchgeht.** Bisher standen `/admin` und `/_/` im selben Block hinter einer IP-Allowlist mit

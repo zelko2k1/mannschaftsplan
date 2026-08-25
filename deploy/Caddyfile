@@ -1,75 +1,84 @@
-# Caddy für den öffentlichen Betrieb auf einem eigenen Server: eigene Domain, Zertifikat
-# automatisch über Let's Encrypt. Wer schon einen Reverse Proxy betreibt, nimmt stattdessen den
-# Block aus Caddyfile.homelab.example und hängt ihn in seine vorhandene Konfiguration.
+# Caddy für den öffentlichen Betrieb: eigene Domain, Zertifikat automatisch über Let's Encrypt.
 #
-# Domain eintragen und die VPN-/Allowlist-Adresse in @notvpn anpassen.
+# Diese Datei wird NICHT editiert. Alles, was sich von Betrieb zu Betrieb unterscheidet, kommt aus
+# der Umgebung und damit aus der `.env` neben `docker-compose.yaml`:
+#
+#   DOMAIN                 dart.deinedomain.de
+#   ACME_EMAIL             Adresse für die Zertifikats-Benachrichtigungen
+#   ADMIN_USER             Benutzername für das Tor vor /admin (R13b)
+#   ADMIN_PASSWORD_HASH    dessen bcrypt-Hash
+#   ADMIN_ALLOW            optional, siehe unten
+#
+# Wer Caddy selbst betreibt statt über docker-compose.caddy.yaml, setzt dieselben Variablen in der
+# Umgebung des Caddy-Prozesses — oder trägt die Werte hier direkt ein.
+{
+	email {$ACME_EMAIL}
+}
 
-dart.example.de {
-  encode zstd gzip
+{$DOMAIN} {
+	encode zstd gzip
 
-  # R9 · Kopfzeilen. frame-ancestors 'none' und base-uri 'none' stehen bewusst in der CSP,
-  # style-src 'unsafe-inline' ist nötig, weil React Styles inline setzt.
-  header {
-    X-Robots-Tag "noindex, nofollow"
-    Referrer-Policy "no-referrer"
-    Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'"
-    Strict-Transport-Security "max-age=31536000; includeSubDomains"
-    X-Content-Type-Options "nosniff"
-    -Server
-  }
+	# R9 · Kopfzeilen. frame-ancestors 'none' und base-uri 'none' stehen bewusst in der CSP,
+	# style-src 'unsafe-inline' ist nötig, weil React Styles inline setzt.
+	header {
+		X-Robots-Tag "noindex, nofollow"
+		Referrer-Policy "no-referrer"
+		Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
 
-  # R13a · Das PocketBase-Dashboard ist NIE öffentlich erreichbar. Keine Allowlist, kein
-  # Schalter, keine Ausnahme — es sieht die ganze Datenbank und wird im Betrieb nie gebraucht.
-  # Wer hinein muss (Einrichten, Restore, Notfall), tunnelt: in docker-compose.yaml den an
-  # 127.0.0.1 gebundenen Port aktivieren, dann
-  #     ssh -L 8090:127.0.0.1:8090 <server>
-  # und im Browser http://127.0.0.1:8090/_/ öffnen.
-  # Antwort ist 404, nicht 403 — kein Hinweis darauf, dass es hier etwas gibt (R6).
-  @dashboard path /_/*
-  handle @dashboard {
-    respond 404
-  }
+	# ── R13a · Das PocketBase-Dashboard ist NIE öffentlich erreichbar ───────────────────────────
+	# Keine Allowlist, kein Schalter, keine Ausnahme: es sieht die ganze Datenbank und wird im
+	# Betrieb nie gebraucht. Wer hinein muss (Einrichten, Restore, Notfall), tunnelt — in
+	# docker-compose.yaml den an 127.0.0.1 gebundenen Port aktivieren, dann
+	#     ssh -L 8090:127.0.0.1:8090 <server>
+	# und im Browser http://127.0.0.1:8090/_/ öffnen.
+	# Antwort ist 404, nicht 403 — kein Hinweis darauf, dass es hier etwas gibt (R6).
+	@dashboard path /_/*
+	handle @dashboard {
+		respond 404
+	}
 
-  # R13b · Die Kapitänsansicht ist erreichbar, aber NIE mit nur einem Passwort. Ein Fehler im
-  # Admin-Code soll von außen nicht ansprechbar sein — dafür muss vor dem eigenen Code ein Tor
-  # stehen. GENAU EINEN der beiden Wege einrichten; beide kommen ohne VPN aus.
-  #
-  #   Weg 1 — Netz. Nur sinnvoll mit fester Adresse oder VPN (WireGuard, Tailscale):
-  #       @fremd not remote_ip <dein-bereich>
-  #       respond @fremd 404
-  #
-  #   Weg 2 — Tor. Funktioniert aus jedem Netz, auch vom Handy im Mobilnetz. Ein zweites,
-  #   vom Kapitäns-Passwort unabhängiges Kennwort. Hash erzeugen mit `caddy hash-password`:
-  #       basic_auth {
-  #         <benutzer> <bcrypt-hash>
-  #       }
-  #
-  # Danach die letzte Zeile einkommentieren und das `respond 404` entfernen. Solange nichts
-  # eingerichtet ist, bleibt /admin zu — die Wahl soll bewusst fallen, nicht per Voreinstellung.
-  @admin path /admin*
-  handle @admin {
-    respond 404
-    # reverse_proxy mannschaftsplan:8090
-  }
+	# ── R13b · Vor der Kapitänsansicht steht ein Tor ────────────────────────────────────────────
+	# Nie nur das Kapitäns-Passwort: ein Fehler im Admin-Code soll von außen gar nicht erst
+	# ansprechbar sein. Das Tor ist eine eigene Anmeldung im Proxy, unabhängig von der in der App,
+	# und funktioniert aus jedem Netz — auch vom Handy im Mobilnetz.
+	#
+	# Der Hash gehört dir, nicht dieser Datei. Erzeugen mit:
+	#     docker run --rm caddy:2.11.4-alpine caddy hash-password --plaintext '<dein-passwort>'
+	#
+	# Wer zusätzlich eine feste Adresse oder ein VPN hat, setzt ADMIN_ALLOW und kommentiert die
+	# beiden Zeilen darunter ein — dann muss beides stimmen.
+	@admin path /admin*
+	handle @admin {
+		# @fremd not remote_ip {$ADMIN_ALLOW}
+		# respond @fremd 404
+		basic_auth {
+			{$ADMIN_USER} {$ADMIN_PASSWORD_HASH}
+		}
+		reverse_proxy mannschaftsplan:8090
+	}
 
-  # R8 · Einladungslinks gar nicht protokollieren. Das Token steht im PFAD; der Query-Filter
-  # weiter unten würde es unverändert im Log stehen lassen (Testfall T10).
-  @join path /j/*
-  handle @join {
-    log_skip
-    reverse_proxy mannschaftsplan:8090
-  }
+	# R8 · Einladungslinks gar nicht protokollieren. Das Token steht im PFAD; der Query-Filter
+	# weiter unten würde es unverändert im Log stehen lassen (Testfall T10).
+	@join path /j/*
+	handle @join {
+		log_skip
+		reverse_proxy mannschaftsplan:8090
+	}
 
-  handle {
-    reverse_proxy mannschaftsplan:8090
-  }
+	handle {
+		reverse_proxy mannschaftsplan:8090
+	}
 
-  log {
-    output file /var/log/caddy/mannschaftsplan.log
-    format filter {
-      request>uri query {
-        delete *
-      }
-    }
-  }
+	log {
+		output file /var/log/caddy/mannschaftsplan.log
+		format filter {
+			request>uri query {
+				delete *
+			}
+		}
+	}
 }

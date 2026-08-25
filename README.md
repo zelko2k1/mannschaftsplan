@@ -87,17 +87,55 @@ Läuft als ein einziger Container: PocketBase mit dem gebauten Frontend in `pb_p
 und Hooks fest im Image. Davor gehört ein Reverse Proxy, der HTTPS terminiert — das ist keine Kür,
 ohne HTTPS wird das `Secure`-Cookie nicht gesetzt und der Einladungslink funktioniert nicht.
 
-Der Stack steht in [`docker-compose.yaml`](docker-compose.yaml) in der Repo-Wurzel — dort und
-nicht in `deploy/`, weil der Build-Kontext die Wurzel ist und ein Kontext oberhalb der
-Compose-Datei je nach Werkzeug nicht auflöst. Er veröffentlicht bewusst **keinen Host-Port**: der
-Proxy hängt sich ans Netz `mannschaftsplan` und erreicht den Dienst als `http://mannschaftsplan:8090`.
+Zwei Wege, je nachdem, ob auf dem Server schon ein Proxy läuft.
 
-In [`deploy/`](deploy/) liegen zwei Caddy-Vorlagen. [`Caddyfile`](deploy/Caddyfile) ist für den
-eigenen Server mit echter Domain und automatischem Zertifikat.
-[`Caddyfile.homelab.example`](deploy/Caddyfile.homelab.example) ist der Block für einen **bereits
-vorhandenen** Caddy, etwa im eigenen Netz. Wer nginx oder Traefik betreibt, bildet dieselben vier
-Punkte dort nach: Sicherheitskopfzeilen, Admin-Sperre, `/j/*` nicht protokollieren, Query-Filter
-im Log.
+### Server ohne Proxy — Caddy kommt mit
+
+Du brauchst einen Server mit Docker und einen Namen, dessen A-Record darauf zeigt. Vier Werte, ein
+Befehl:
+
+```bash
+cp .env.example .env         # DOMAIN, ACME_EMAIL, ADMIN_USER, ADMIN_PASSWORD_HASH ausfüllen
+docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml up -d
+```
+
+Den Hash für `ADMIN_PASSWORD_HASH` erzeugst du dir selbst — im Repo liegt keiner:
+
+```bash
+docker run --rm caddy:2.11.4-alpine caddy hash-password --plaintext 'dein-passwort'
+```
+
+Fehlt einer der vier Werte, fährt der Stack nicht an und sagt welcher. Das Zertifikat holt Caddy
+selbst. Danach steht die App unter deinem Namen — leer, ohne Mitglieder, ohne Spieltage. Weiter
+geht es mit dem Superuser und `/admin`, wie oben unter [Einrichten](#einrichten).
+
+### Server mit vorhandenem Proxy
+
+Nur die App, ohne Overlay:
+
+```bash
+docker compose up -d
+```
+
+Der Stack veröffentlicht bewusst **keinen Host-Port** — es gibt also nichts, was mit deinen
+anderen Diensten um einen Port streiten könnte. Der Proxy hängt sich ans Netz `mannschaftsplan`
+und erreicht die App als `http://mannschaftsplan:8090`:
+
+```bash
+docker network connect mannschaftsplan <dein-proxy-container>
+```
+
+Den passenden Block liefert [`deploy/Caddyfile.homelab.example`](deploy/Caddyfile.homelab.example).
+Wer nginx oder Traefik betreibt, bildet dieselben vier Punkte nach: Sicherheitskopfzeilen, das Tor
+vor `/admin` (R13b), `/j/*` nicht protokollieren und den Query-Filter im Log.
+
+### Wo was liegt
+
+[`docker-compose.yaml`](docker-compose.yaml) steht in der Repo-Wurzel und nicht in `deploy/`, weil
+der Build-Kontext die Wurzel ist und ein Kontext oberhalb der Compose-Datei je nach Werkzeug nicht
+auflöst. [`deploy/Caddyfile`](deploy/Caddyfile) wird vom Overlay eingehängt und **nicht editiert** —
+alles Veränderliche kommt aus der `.env`. Beide Vorlagen prüft die CI mit `caddy validate` gegen
+dieselbe Caddy-Version, die auch im Betrieb läuft.
 
 ## Tests
 

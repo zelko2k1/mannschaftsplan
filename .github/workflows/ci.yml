@@ -65,6 +65,73 @@ jobs:
       - name: Shell-Skripte auf Syntaxfehler prüfen
         run: for f in scripts/*.sh; do bash -n "$f"; done
 
+  # Die Caddy-Vorlagen landen unverändert im Betrieb — die eine wird ins Overlay eingehängt, die
+  # andere kopieren Betreiber in ihre vorhandene Konfiguration. Ein Syntaxfehler darin fiele sonst
+  # erst dem auf, der sie einsetzt. Geprüft wird gegen dieselbe Caddy-Version wie im Overlay.
+  proxy:
+    name: Caddy-Vorlagen
+    runs-on: ubuntu-latest
+    env:
+      CADDY_IMAGE: caddy:2.11.4-alpine
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: deploy/Caddyfile — wie das Overlay ihn startet
+        run: |
+          set -euo pipefail
+          # Der Hash wird hier erzeugt und nicht abgelegt: im Repo hat kein Zugang etwas verloren,
+          # auch kein erfundener. Nebenbei belegt der Aufruf, dass die Anleitung in .env.example
+          # stimmt.
+          hash="$(docker run --rm "$CADDY_IMAGE" caddy hash-password --plaintext 'nur-fuer-die-ci')"
+          docker run --rm \
+            -e DOMAIN=dart.example.de \
+            -e ACME_EMAIL=ci@example.com \
+            -e ADMIN_USER=ci \
+            -e ADMIN_PASSWORD_HASH="$hash" \
+            -v "$PWD/deploy:/vorlagen:ro" "$CADDY_IMAGE" \
+            caddy validate --adapter caddyfile --config /vorlagen/Caddyfile
+
+      - name: deploy/Caddyfile — mit eingeschalteter Allowlist (R13b, Weg 1)
+        run: |
+          set -euo pipefail
+          mkdir -p ci-vorlagen
+          sed -e 's|# @fremd|@fremd|' -e 's|# respond @fremd|respond @fremd|' \
+            deploy/Caddyfile > ci-vorlagen/Caddyfile
+          hash="$(docker run --rm "$CADDY_IMAGE" caddy hash-password --plaintext 'nur-fuer-die-ci')"
+          docker run --rm \
+            -e DOMAIN=dart.example.de \
+            -e ACME_EMAIL=ci@example.com \
+            -e ADMIN_USER=ci \
+            -e ADMIN_PASSWORD_HASH="$hash" \
+            -e ADMIN_ALLOW=10.8.0.0/24 \
+            -v "$PWD/ci-vorlagen:/vorlagen:ro" "$CADDY_IMAGE" \
+            caddy validate --adapter caddyfile --config /vorlagen/Caddyfile
+
+      - name: deploy/Caddyfile.homelab.example — Syntax
+        run: |
+          set -euo pipefail
+          # Hier nur `adapt` statt `validate`: die Datei nennt ein Zertifikat, das es auf dem
+          # Runner nicht gibt, und `validate` würde daran scheitern statt an der Syntax. Der
+          # Platzhalter für den Netzbereich wird für die Prüfung ersetzt — im Repo bleibt er
+          # stehen, damit ihn niemand unbesehen übernimmt.
+          mkdir -p ci-vorlagen
+          sed 's|<dein-netzbereich>|192.168.1.0/24|' \
+            deploy/Caddyfile.homelab.example > ci-vorlagen/homelab.Caddyfile
+          docker run --rm -v "$PWD/ci-vorlagen:/vorlagen:ro" "$CADDY_IMAGE" \
+            caddy adapt --adapter caddyfile --config /vorlagen/homelab.Caddyfile > /dev/null
+
+      - name: Formatierung
+        run: |
+          set -euo pipefail
+          docker run --rm -v "$PWD/deploy:/vorlagen:ro" "$CADDY_IMAGE" \
+            caddy fmt --diff /vorlagen/Caddyfile | tee /tmp/fmt1
+          docker run --rm -v "$PWD/deploy:/vorlagen:ro" "$CADDY_IMAGE" \
+            caddy fmt --diff /vorlagen/Caddyfile.homelab.example | tee /tmp/fmt2
+          if grep -qE '^[-+]' /tmp/fmt1 /tmp/fmt2; then
+            echo "::error::Caddy-Vorlage nicht formatiert — 'caddy fmt --overwrite' laufen lassen."
+            exit 1
+          fi
+
   # Das Deployment ist EIN Image: PocketBase mit dem gebauten Frontend in pb_public, Migrationen
   # und Hooks fest eingebacken. Auf dem Entwicklungsrechner läuft kein Docker — deshalb wird das
   # hier gebaut UND angefahren. Ein Dockerfile, das nur im Repo liegt und nie gestartet wurde,
@@ -77,8 +144,18 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Compose-Datei prüfen
-        run: docker compose -f docker-compose.yaml config > /dev/null
+      - name: Compose-Dateien prüfen — beide Varianten aus 7.1
+        env:
+          # Das Overlay verlangt diese Werte (`${VAR:?...}`) und fährt ohne sie bewusst nicht an.
+          # Hier stehen Wegwerf-Werte, nur damit `config` durchläuft.
+          DOMAIN: dart.example.de
+          ACME_EMAIL: ci@example.com
+          ADMIN_USER: ci
+          ADMIN_PASSWORD_HASH: nur-fuer-die-ci
+        run: |
+          set -euo pipefail
+          docker compose -f docker-compose.yaml config > /dev/null
+          docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml config > /dev/null
 
       - name: Image bauen
         run: docker build -f deploy/Dockerfile -t mannschaftsplan:ci .
