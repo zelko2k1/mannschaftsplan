@@ -1,4 +1,4 @@
-# Dartzentrale — Umsetzungsplan
+# Mannschaftsplan — Umsetzungsplan
 
 Terminplanung und Fahrdienst für eine Dartmannschaft (8–10 Personen).
 Design: **Abfahrtsplan** (Fahrplanaushang-Optik).
@@ -254,7 +254,7 @@ Dazu `robots.txt` mit `Disallow: /`.
 
 ### R10 · Linkvorschau
 `GET /j/:token` darf keine fachliche Nebenwirkung haben (WhatsApp ruft die URL serverseitig
-ab). Statische OpenGraph-Tags: Titel „Dartzentrale — Termine", keine personalisierten Daten.
+ab). Statische OpenGraph-Tags: Titel „Mannschaftsplan — Termine", keine personalisierten Daten.
 
 Deshalb legt der GET **keine Session an** — er liefert nur das Formular, das Einlösen passiert im
 `POST /api/session` (siehe Abschnitt 5). Der Crawler führt kein JS aus, erzeugt also weder Session
@@ -784,6 +784,6 @@ nur im Arbeitsspeicher.
 | T8d | `/_/` von außen, in jeder Lage | 404 — R13a kennt keine Ausnahme, **Handprüfung** |
 | T9 | 6× falsches Admin-Passwort | gesperrt, auch für das richtige Passwort; kein Hinweis auf Existenz |
 | T10 | Access-Log nach `/j/`-Aufruf durchsuchen | kein Token im Klartext |
-| T11 | Link in WhatsApp einfügen | Vorschau „Dartzentrale — Termine", nichts Personalisiertes |
+| T11 | Link in WhatsApp einfügen | Vorschau „Mannschaftsplan — Termine", nichts Personalisiertes |
 | T12 | Backup einspielen | Datenstand vollständig wiederhergestellt |
 | T13 | `GET /j/<gültig>` allein aufrufen (wie der Crawler, ohne JS) | keine neue Zeile in `sessions`, kein Cookie — Beleg für R10 |

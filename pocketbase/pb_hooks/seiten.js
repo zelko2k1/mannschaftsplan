@@ -14,7 +14,7 @@ const GRUNDGERUEST = (titel, inhalt) => `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>${titel}</title>
-<meta property="og:title" content="Dartzentrale — Termine">
+<meta property="og:title" content="Mannschaftsplan — Termine">
 <meta property="og:description" content="Termine und Fahrdienst der Mannschaft.">
 <meta property="og:type" content="website">
 <style>
@@ -60,8 +60,8 @@ module.exports = {
    */
   einloesen(tokenEscaped) {
     return GRUNDGERUEST(
-      'Dartzentrale — Termine',
-      `<h1>Dartzentrale</h1>
+      'Mannschaftsplan — Termine',
+      `<h1>Mannschaftsplan</h1>
 <p>Einen Moment, du wirst angemeldet.</p>
 <form method="POST" action="/api/session">
   <input type="hidden" name="token" value="${tokenEscaped}">
@@ -77,7 +77,7 @@ module.exports = {
    */
   ungueltig() {
     return GRUNDGERUEST(
-      'Dartzentrale — Termine',
+      'Mannschaftsplan — Termine',
       `<h1>Link ungültig</h1>
 <p>Dieser Link funktioniert nicht mehr. Frag den Mannschaftsführer nach einem neuen.</p>`,
     )

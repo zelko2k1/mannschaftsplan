@@ -45,6 +45,12 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   in Schritt 9; bis dahin deckt das Tor aus R13b diese Stelle.
 
 ### Behoben
+- **Die Einladungsseite trug den Namen der falschen App.** Wer seinen Link antippte, sah
+  „Dartzentrale" als Überschrift, und die Vorschau in WhatsApp meldete „Dartzentrale — Termine"
+  — übernommen aus [DartsZentrale](https://github.com/zelko2k1/dartszentrale), aus der die
+  Seitenvorlage stammt, und dort auch noch falsch geschrieben. Überschrift, Seitentitel und
+  OpenGraph-Titel nennen jetzt diese App. Derselbe Name stand im Titel des Umsetzungsplans und in
+  der Erwartung zu Testfall T11; die CI prüft die Vorschau ab sofort mit.
 - **Der Deploy unter Arcane brach ab, bevor gebaut wurde** — „dockerfile not found:
   `<projekt>/Dockerfile`". Die Compose-Datei lag in `deploy/` und baute mit `context: ..`,
   also aus einem Verzeichnis oberhalb ihrer selbst. Arcane löst relative Pfade gegen das
