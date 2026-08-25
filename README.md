@@ -1,30 +1,265 @@
 # Mannschaftsplan
 
-Terminplanung und Fahrdienst für **eine** Dartmannschaft (8–10 Personen). Spielplan, Zu- und Absage
-pro Spieltag, Fahrdienst mit berechneter Abfahrtszeit — in der Optik eines Fahrplanaushangs.
+Wer fährt, wer kommt mit, wer sagt ab — für **eine** Dartmannschaft von acht bis zehn Leuten.
+Der Spielplan sieht aus wie ein Fahrplanaushang am Bahnsteig: eine Zeile pro Spieltag, mit
+Abfahrtszeit, Gegner und der Frage, ob noch ein Platz im Auto frei ist.
 
-Mitglieder kommen **ohne Anmeldung** über einen persönlichen Token-Link herein, der Kapitän über
-einen Admin-Login. Selbst gehostet, keine externen CDNs, keine Tracker.
+**Die Mannschaft muss sich nirgends anmelden.** Jedes Mitglied bekommt einen persönlichen Link,
+den es sich einmal aufs Handy legt. Kein Konto, kein Passwort, keine App aus dem Store. Nur der
+Kapitän meldet sich an.
 
-Die vollständige Vorgabe steht in [`docs/umsetzungsplan.md`](docs/umsetzungsplan.md) — Datenmodell,
-die verbindlichen Sicherheitsregeln R1–R14, API, Design-Tokens und die Testfälle T1–T13.
+Die App läuft auf deinem eigenen Server. Keine Werbung, keine Statistik-Dienste, keine Daten bei
+Dritten.
 
-**Nicht zu verwechseln** mit [DartsZentrale](https://github.com/zelko2k1/dartszentrale): das ist die
-große Vereins-App mit Darts-Counter. Dieses Repo ist eine eigenständige kleine App für eine einzelne
-Mannschaft und kennt weder Ergebnisse noch Statistiken.
+> **Nicht zu verwechseln** mit [DartsZentrale](https://github.com/zelko2k1/dartszentrale) — das ist
+> die große Vereins-App mit Counter, Ligen und Statistik. Diese hier kann nur eines: Termine und
+> Fahrdienst für eine einzige Mannschaft. Sie kennt keine Ergebnisse.
 
-## Lokal starten (ohne Docker)
+---
+
+## Für Betreiber
+
+Dieser Teil richtet sich an den, der die App aufsetzt und betreut — Kapitän, Schriftführer oder
+wer im Verein sich damit befasst. Programmierkenntnisse braucht es nicht. Wer die App
+weiterentwickeln will, findet alles Weitere unter [Für Entwickler](#für-entwickler).
+
+### Was du brauchst
+
+| | |
+|---|---|
+| **Einen kleinen Server** | Bei einem Anbieter deiner Wahl. Das kleinste Angebot reicht — die App ist für zehn Leute gedacht, nicht für zehntausend. Darauf muss **Docker** installiert sein. |
+| **Einen Namen im Internet** | Etwa `dart.mein-verein.de`. Eine Subdomain einer Domain, die du schon hast, genügt völlig. |
+| **Eine E-Mail-Adresse** | Nur für die automatischen Hinweise, wenn das Sicherheitszertifikat abläuft. |
+| **Eine halbe Stunde** | |
+
+Warum ein Server im Internet und nicht der Rechner zu Hause: Die Mannschaft tippt ihre Links
+unterwegs an, aus dem Mobilnetz. Was nur im heimischen WLAN erreichbar ist, hilft am Spieltag
+niemandem.
+
+### Einrichten
+
+**1 · Den Namen auf den Server zeigen lassen**
+
+Bei deinem Domain-Anbieter einen sogenannten A-Record anlegen: `dart.mein-verein.de` → die
+IP-Adresse deines Servers. Das dauert je nach Anbieter ein paar Minuten, bis es überall bekannt
+ist. Ohne diesen Schritt bekommt die App im nächsten Schritt kein Sicherheitszertifikat.
+
+**2 · Die App auf den Server holen**
+
+Auf dem Server einloggen und:
+
+```bash
+git clone https://github.com/zelko2k1/mannschaftsplan.git
+cd mannschaftsplan
+cp .env.example .env
+```
+
+**3 · Ein Passwort für die Kapitänsseite festlegen**
+
+Bevor überhaupt jemand die Kapitänsseite zu sehen bekommt, fragt der Webserver nach einem
+Passwort. Das ist eine zusätzliche Tür vor der eigentlichen Anmeldung — sie sorgt dafür, dass
+Fremde die Verwaltung gar nicht erst zu Gesicht bekommen.
+
+Dieses Passwort wird nicht im Klartext gespeichert, sondern als unlesbare Prüfsumme. Die lässt du
+dir ausrechnen:
+
+```bash
+docker run --rm caddy:2.11.4-alpine caddy hash-password --plaintext 'dein-passwort'
+```
+
+Heraus kommt eine kryptische Zeile, die mit `$2a$` beginnt. Die brauchst du gleich.
+
+**4 · Die vier Werte eintragen**
+
+Die Datei `.env` öffnen (`nano .env`) und ausfüllen:
+
+```
+DOMAIN=dart.mein-verein.de
+ACME_EMAIL=du@mein-verein.de
+ADMIN_USER=kapitaen
+ADMIN_PASSWORD_HASH=$2a$14$…die Zeile von eben…
+```
+
+Mehr ist es nicht. In der Datei stehen keine Vorgaben, die du übernehmen könntest — jeder Wert ist
+deiner.
+
+**5 · Starten**
+
+```bash
+docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml up -d
+```
+
+Der erste Start dauert ein paar Minuten, weil die App gebaut wird. Das Sicherheitszertifikat holt
+sie sich danach selbst; du musst dich darum nie kümmern, auch nicht um die Verlängerung.
+
+Fehlt einer der vier Werte, startet nichts und du bekommst gesagt, welcher fehlt. Das ist Absicht:
+lieber gar nicht starten als halb eingerichtet im Internet stehen.
+
+**6 · Deinen Kapitänszugang anlegen**
+
+```bash
+docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml exec mannschaftsplan \
+  /usr/local/bin/pocketbase superuser upsert deine@adresse.de dein-passwort --dir=/pb_data
+```
+
+Das ist die Anmeldung für die Kapitänsseite — eine andere als die aus Schritt 3. Die Adresse muss
+wie eine echte E-Mail-Adresse aussehen. Das Passwort steht danach in der Befehls-Historie deiner
+Shell; wenn dich das stört, lösche sie mit `history -c`.
+
+**7 · Die Mannschaft eintragen**
+
+`https://dart.mein-verein.de/admin` aufrufen. Es kommen **zwei** Abfragen nacheinander: erst das
+Passwort aus Schritt 3 (der Browser fragt in einem kleinen Fenster), dann die Anmeldung aus
+Schritt 6 auf der Seite selbst.
+
+Dort legst du die Mitglieder an. Bei jedem gibt es den Knopf **„Neues Token"** — der erzeugt den
+persönlichen Link für dieses Mitglied.
+
+> **Wichtig:** Dieser Link wird **genau einmal** angezeigt. Danach ist er nicht wieder
+> hervorzuholen, auch nicht von dir. Das ist kein Versehen, sondern Absicht: gespeichert wird nur
+> ein Fingerabdruck des Links, nicht der Link selbst. Wer bei uns einbricht, findet keine gültigen
+> Zugänge vor. Kopiere ihn also gleich in den Einzelchat des Mitglieds. Ist er weg, drückst du
+> einfach noch einmal auf „Neues Token".
+
+Danach die Spieltage eintragen — Datum, Anwurfzeit, Gegner, Ort, Entfernung. Fertig.
+
+### Der Alltag
+
+**Ein Mitglied hat seinen Link verloren.** In der Kapitänsansicht auf „Neues Token". Der alte Link
+ist damit sofort tot, und alle Geräte, auf denen dieses Mitglied angemeldet war, fliegen raus.
+
+**Ein Link ist in falsche Hände geraten.** Dasselbe. Wer den Link eines Mitglieds hat, *ist* dieses
+Mitglied — das ist der Preis dafür, dass sich niemand anmelden muss. Deshalb: Links immer im
+Einzelchat verschicken, nie in der Mannschaftsgruppe, und keine Bildschirmfotos davon herumzeigen.
+
+**Jemand verlässt die Mannschaft.** Das Mitglied auf inaktiv setzen. Es verschwindet aus den
+Listen und ist sofort von allen Geräten abgemeldet.
+
+**Ein Spieltag ist gelaufen.** Auf „gesperrt" setzen — dann kann niemand mehr nachträglich seine
+Zusage ändern.
+
+### Sicherungen
+
+Die App bringt ein Sicherungsskript mit. Es lässt die Datenbank ein Backup erzeugen, holt es ab,
+verschlüsselt es und wirft Stände älter als 30 Tage weg:
+
+```bash
+PB_SUPERUSER_EMAIL=… PB_SUPERUSER_PASSWORD=… BACKUP_DIR=/backup GPG_EMPFAENGER=… \
+  ./scripts/backup.sh
+```
+
+Zwei Dinge dazu, die erfahrungsgemäß schiefgehen:
+
+- **Die Sicherung gehört auf eine andere Maschine als den Server.** Eine Sicherung, die neben dem
+  Original liegt, ist im Ernstfall genauso weg wie das Original. Am besten als nächtlicher
+  Cronjob auf einem Rechner bei dir zu Hause.
+- **Ohne `GPG_EMPFAENGER` liegt die Datei unverschlüsselt herum.** Darin stehen die Namen deiner
+  Mannschaft. Das Skript sagt es dir, aber es hindert dich nicht daran.
+
+Und: **eine Rücksicherung einmal ausprobieren**, bevor du sie brauchst. Eine ungetestete Sicherung
+ist keine.
+
+### Wenn schon ein Reverse Proxy läuft
+
+Läuft auf dem Server bereits ein Webserver, der andere Dienste ausliefert — Caddy, nginx,
+Traefik —, dann lässt du den zweiten Teil des Startbefehls weg:
+
+```bash
+docker compose up -d
+```
+
+Die App belegt dann **keinen einzigen Port** auf dem Server; sie kann sich also mit nichts in die
+Quere kommen, was dort schon läuft. Dein vorhandener Webserver muss sie nur finden können:
+
+```bash
+docker network connect mannschaftsplan <name-deines-proxy-containers>
+```
+
+Danach ist die App für ihn unter `http://mannschaftsplan:8090` erreichbar. Einen fertigen
+Konfigurationsblock für Caddy findest du in
+[`deploy/Caddyfile.homelab.example`](deploy/Caddyfile.homelab.example); für nginx oder Traefik
+bildest du dieselben vier Punkte nach — Sicherheitskopfzeilen, die Tür vor `/admin`, Einladungs-
+links nicht mitschreiben, und keine Adresszusätze im Protokoll.
+
+### Wenn etwas nicht klappt
+
+**„Der Browser sagt, die Verbindung sei nicht sicher."** Meist zeigt der Name noch nicht auf den
+Server, oder er zeigt erst seit ein paar Minuten dorthin. Nachsehen, warum das Zertifikat nicht
+kommt:
+
+```bash
+docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml logs caddy
+```
+
+> Die beiden `-f`-Angaben gehören bei **jedem** `docker compose`-Befehl dazu, sonst kennt Docker
+> nur die halbe Anlage. Wer das lästig findet, schreibt einmalig
+> `COMPOSE_FILE=docker-compose.yaml:docker-compose.caddy.yaml` in die `.env` — dann genügt
+> überall `docker compose …` ohne Angaben.
+
+**„Der Einladungslink tut nichts."** Die Links funktionieren nur über `https://`. Über eine nackte
+IP-Adresse oder über `http://` weigert sich der Browser, die nötige Sitzung zu speichern — das
+lässt sich nicht abstellen, es ist eine Schutzmaßnahme des Browsers.
+
+**„Ich komme nicht auf `/admin`."** Zwei Passwörter, zwei Schritte: erst das aus Einrichtungs-
+schritt 3 im Browser-Fenster, dann das aus Schritt 6 auf der Seite. Nach fünf Fehlversuchen ist
+die Anmeldung eine Viertelstunde gesperrt — auch für das richtige Passwort.
+
+**„Ich habe mein Kapitäns-Passwort vergessen."** Schritt 6 noch einmal ausführen; `upsert`
+überschreibt den vorhandenen Zugang.
+
+**Neue Version einspielen:**
+
+```bash
+git pull
+docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml up -d --build
+```
+
+Die Daten bleiben dabei erhalten — sie liegen außerhalb der App in einem eigenen Datenspeicher.
+
+### Was die App für deine Sicherheit tut
+
+Damit du weißt, worauf du dich verlässt — und worauf nicht:
+
+- **Von den Einladungslinks wird nichts gespeichert**, nur ein Fingerabdruck. Ein Einbruch in die
+  Datenbank liefert keine funktionierenden Zugänge.
+- **Die Links stehen in keinem Protokoll.** Der Webserver schreibt genau diese Adressen nicht mit.
+- **Die Verwaltungsoberfläche der Datenbank ist von außen gar nicht erreichbar** — nicht
+  eingeschränkt, sondern abgeschaltet. Für den Alltag brauchst du sie nie.
+- **Vor der Kapitänsseite steht eine zusätzliche Tür**, unabhängig von der Anmeldung in der App.
+  Deshalb die zwei Passwörter.
+- **Falsche Zugangsdaten verraten nichts** — ob eine Adresse existiert oder nicht, sieht von außen
+  gleich aus.
+
+Was die App **nicht** leisten kann: Wer den Link eines Mitglieds bekommt, ist dieses Mitglied.
+Diesen Preis zahlt sie dafür, dass sich niemand anmelden muss. Der Schutz liegt darin, wie du die
+Links verteilst.
+
+Findest du eine Sicherheitslücke, melde sie bitte **vertraulich** und nicht als öffentliches
+Issue — siehe [`SECURITY.md`](SECURITY.md).
+
+---
+
+## Für Entwickler
+
+### Lokal starten, ohne Docker
 
 Zwei Terminals:
 
 ```bash
-./scripts/dev-pb.sh          # holt PocketBase 0.39.5 beim ersten Mal, serve auf 127.0.0.1:8090
+./scripts/dev-pb.sh                    # holt PocketBase 0.39.5 beim ersten Mal, serve auf 127.0.0.1:8090
 cd app && npm install && npm run dev   # Vite auf 127.0.0.1:5173, proxyt nach 8090
 ```
 
-Dann **`http://localhost:5173`** öffnen — nicht die LAN-IP. Das Session-Cookie ist laut R2 `Secure`;
-Browser akzeptieren das auf `localhost` auch über HTTP, über eine LAN-IP dagegen nicht. Der
-Login-Link funktioniert dort also schlicht nicht.
+Dann **`http://localhost:5173`** öffnen — nicht die LAN-IP. Das Session-Cookie ist laut R2
+`Secure`; Browser akzeptieren das auf `localhost` auch über HTTP, über eine LAN-IP dagegen nicht.
+Der Login-Link funktioniert dort also schlicht nicht. Für ein echtes Handy hilft Port-Forwarding
+über `chrome://inspect` — dann ist es auch dort `localhost`.
+
+Superuser anlegen:
+
+```bash
+cd pocketbase && ./pocketbase superuser upsert <deine-adresse> <dein-passwort> --dir=pb_data
+```
 
 Produktionsnaher Schnelltest ohne Docker — alles same-origin auf `:8090`:
 
@@ -32,164 +267,80 @@ Produktionsnaher Schnelltest ohne Docker — alles same-origin auf `:8090`:
 cd app && npm run build      # baut nach ../pocketbase/pb_public/
 ```
 
-## Einrichten
+### Aufbau
 
-Die App startet leer: keine Mitglieder, keine Spieltage, keine vorgegebenen Konten. Alles legst du
-selbst an, und zwar in der Kapitänsansicht.
+Ein Container: PocketBase liefert das gebaute Frontend aus `pb_public` gleich mit, Migrationen und
+Hooks liegen fest im Image. Eine Origin, damit die Cookies aus R2/R11 ohne CORS auskommen.
+Persistent ist genau ein Volume, `pb_data`.
 
-Einzige Ausnahme ist der Superuser — den braucht PocketBase für sich selbst, und dieselbe Anmeldung
-öffnet auch seine Oberfläche unter `http://127.0.0.1:8090/_/`. Beim ersten Start schreibt
-PocketBase einen Einrichtungslink auf die Konsole; wer lieber im Terminal bleibt:
-
-```bash
-cd pocketbase && ./pocketbase superuser upsert <deine-adresse> <dein-passwort> --dir=pb_data
-```
-
-Die Adresse muss eine gültige Form haben, `dev@localhost` lehnt PocketBase ab.
-
-Danach `http://localhost:5173/admin` öffnen und die Mannschaft eintragen. Jedes Mitglied bekommt
-dort über **„Neues Token"** seinen Einladungslink. Der Klartext erscheint **genau einmal** — in der
-Datenbank steht nur `sha256(token)` (R1). Wer seinen Link verliert, bekommt am selben Knopf einen
-neuen.
-
-## Kapitänsansicht
-
-`/admin`, Anmeldung mit dem PocketBase-Superuser (derselbe Zugang wie für `/_/`). Dort werden
-Spieltage und Mitglieder gepflegt, Token neu ausgestellt und das Protokoll gelesen.
-
-Getrennt vom Mitgliederteil: eigener Cookie, eigene Sitzungstabelle, eigene Prüflogik (R5). Ohne
-Anmeldung antwortet `/admin/api` mit **404**, nicht mit 403 — kein Hinweis darauf, dass es hier
-etwas gibt (R6).
-
-Im Betrieb kommt ein Tor davor, und zwar unabhängig vom Passwort (R13b): entweder eine
-IP-Allowlist im Reverse Proxy oder eine dem Admin-Code vorgeschaltete Proxy-Anmeldung. Eines von
-beiden muss eingerichtet sein — ohne bleibt `/admin` in den Vorlagen zu. Der Sinn: ein Fehler im
-Admin-Code soll von außen gar nicht erst ansprechbar sein.
-
-Das PocketBase-Dashboard unter `/_/` ist davon getrennt und bleibt **immer** zu (R13a). Es wird im
-Betrieb nie gebraucht; für Einrichtung, Restore und Notfälle führt der Weg über einen SSH-Tunnel,
-siehe die Kommentare in [`docker-compose.yaml`](docker-compose.yaml).
-
-## Backup
-
-```bash
-PB_SUPERUSER_EMAIL=… PB_SUPERUSER_PASSWORD=… BACKUP_DIR=/backup GPG_EMPFAENGER=… \
-  ./scripts/backup.sh
-```
-
-Gehört in einen Cronjob auf einer **anderen** Maschine als dem Server. Ohne `GPG_EMPFAENGER`
-bleibt die Datei unverschlüsselt liegen — das Skript sagt es dann auch. Wiederherstellen über
-`POST /api/backups/<datei>/restore`; PocketBase startet dabei neu.
-
-## Im Betrieb
-
-Läuft als ein einziger Container: PocketBase mit dem gebauten Frontend in `pb_public`, Migrationen
-und Hooks fest im Image. Davor gehört ein Reverse Proxy, der HTTPS terminiert — das ist keine Kür,
-ohne HTTPS wird das `Secure`-Cookie nicht gesetzt und der Einladungslink funktioniert nicht.
-
-Zwei Wege, je nachdem, ob auf dem Server schon ein Proxy läuft.
-
-### Server ohne Proxy — Caddy kommt mit
-
-Du brauchst einen Server mit Docker und einen Namen, dessen A-Record darauf zeigt. Vier Werte, ein
-Befehl:
-
-```bash
-cp .env.example .env         # DOMAIN, ACME_EMAIL, ADMIN_USER, ADMIN_PASSWORD_HASH ausfüllen
-docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml up -d
-```
-
-Den Hash für `ADMIN_PASSWORD_HASH` erzeugst du dir selbst — im Repo liegt keiner:
-
-```bash
-docker run --rm caddy:2.11.4-alpine caddy hash-password --plaintext 'dein-passwort'
-```
-
-Fehlt einer der vier Werte, fährt der Stack nicht an und sagt welcher. Das Zertifikat holt Caddy
-selbst. Danach steht die App unter deinem Namen — leer, ohne Mitglieder, ohne Spieltage. Weiter
-geht es mit dem Superuser und `/admin`, wie oben unter [Einrichten](#einrichten).
-
-### Server mit vorhandenem Proxy
-
-Nur die App, ohne Overlay:
-
-```bash
-docker compose up -d
-```
-
-Der Stack veröffentlicht bewusst **keinen Host-Port** — es gibt also nichts, was mit deinen
-anderen Diensten um einen Port streiten könnte. Der Proxy hängt sich ans Netz `mannschaftsplan`
-und erreicht die App als `http://mannschaftsplan:8090`:
-
-```bash
-docker network connect mannschaftsplan <dein-proxy-container>
-```
-
-Den passenden Block liefert [`deploy/Caddyfile.homelab.example`](deploy/Caddyfile.homelab.example).
-Wer nginx oder Traefik betreibt, bildet dieselben vier Punkte nach: Sicherheitskopfzeilen, das Tor
-vor `/admin` (R13b), `/j/*` nicht protokollieren und den Query-Filter im Log.
-
-### Wo was liegt
-
-[`docker-compose.yaml`](docker-compose.yaml) steht in der Repo-Wurzel und nicht in `deploy/`, weil
+Der Stack veröffentlicht keinen Host-Port (`expose` statt `ports`) — der einzige Weg hinein führt
+über den Reverse Proxy, der sich ans Netz `mannschaftsplan` hängt.
+[`docker-compose.yaml`](docker-compose.yaml) liegt in der Repo-Wurzel und nicht in `deploy/`, weil
 der Build-Kontext die Wurzel ist und ein Kontext oberhalb der Compose-Datei je nach Werkzeug nicht
-auflöst. [`deploy/Caddyfile`](deploy/Caddyfile) wird vom Overlay eingehängt und **nicht editiert** —
-alles Veränderliche kommt aus der `.env`. Beide Vorlagen prüft die CI mit `caddy validate` gegen
-dieselbe Caddy-Version, die auch im Betrieb läuft.
+auflöst. [`deploy/Caddyfile`](deploy/Caddyfile) wird schreibgeschützt eingehängt und **nicht
+editiert**; alles Veränderliche kommt aus der `.env`.
 
-## Tests
+Ausgeliefert wird in zwei Varianten, geschnitten danach, ob der Stack seinen eigenen Proxy
+mitbringt — Einzelheiten in Abschnitt 7.1 des Umsetzungsplans.
 
-Die API-Tests melden sich als Superuser an; dafür braucht es eine `.env` mit deinem eigenen Zugang:
+### Tests
 
 ```bash
-cp .env.example .env         # Adresse und Passwort deines Superusers eintragen
+cp .env.example .env         # Adresse und Passwort des Superusers eintragen
 set -a && . ./.env && set +a
 node scripts/api-tests.mjs   # Testfälle aus Abschnitt 11, gegen ein laufendes PocketBase
 cd app && npm test           # Logik im Frontend
 ```
 
 Die API-Tests legen eigene Datensätze an (Präfix `test-`) und räumen sie wieder weg — vorbereitet
-werden muss dafür nichts. Dieselbe Suite läuft in der CI gegen ein Wegwerf-PocketBase.
+werden muss dafür nichts. Dieselbe Suite läuft in der CI gegen ein Wegwerf-PocketBase **und** gegen
+das gebaute Container-Image. Die CI prüft außerdem beide Caddy-Vorlagen mit `caddy validate` gegen
+dieselbe Version, die im Betrieb läuft.
 
-T8, T10, T11 und T12 (Admin-Sperre, Access-Log, Linkvorschau, Backup-Restore) lassen sich nicht
-sinnvoll automatisieren und stehen als Handprüfung in Abschnitt 11 des Umsetzungsplans.
+T8c, T8d, T10, T11 und T12 (Tür vor `/admin`, Dashboard von außen, Access-Log, Linkvorschau,
+Rücksicherung) lassen sich nicht sinnvoll automatisieren und stehen als Handprüfung in Abschnitt 11
+des Umsetzungsplans. Sie brauchen einen öffentlich erreichbaren Server.
 
-## Token neu ausstellen
+### Sicherheitsregeln
 
-Wenn jemand seinen Link verloren hat oder er in falsche Hände geraten ist (R12):
+Verbindlich, nicht verhandelbar, vollständig in Abschnitt 4 des Umsetzungsplans. Die beiden, die
+den Betrieb am stärksten prägen:
+
+- **R13a** — `/_/` ist nie öffentlich erreichbar. Keine Allowlist, kein Schalter. Zugang über einen
+  SSH-Tunnel auf einen an `127.0.0.1` gebundenen Port, siehe die Kommentare in
+  [`docker-compose.yaml`](docker-compose.yaml).
+- **R13b** — vor `/admin` steht ein Tor, das nicht das Kapitäns-Passwort ist: IP-Allowlist oder
+  vorgeschaltete Proxy-Anmeldung. Ohne eines von beiden bleibt `/admin` zu.
+
+**Bekannte Lücke:** Der Kapitäns-Login prüft in [`admin.pb.js`](pocketbase/pb_hooks/admin.pb.js)
+das Passwort direkt und geht an PocketBases MFA vorbei. Der zweite Faktor schützt heute nur `/_/`,
+nicht `/admin`; bis das nachgerüstet ist, deckt das Tor aus R13b diese Stelle.
+
+### Token per Skript neu ausstellen
+
+Denselben Knopf gibt es in der Kapitänsansicht — das Skript bleibt als Rettungsanker:
 
 ```bash
 node pocketbase/rotate-token.mjs "<Name des Mitglieds>"
 ```
 
-Das macht in einem Rutsch den alten Link tot, meldet alle Geräte des Mitglieds ab und schreibt
-einen Protokolleintrag. Ab Schritt 6 gibt es denselben Knopf in der Kapitänsansicht; das Skript
-bleibt als Rettungsanker daneben bestehen.
+Macht den alten Link tot, meldet alle Geräte des Mitglieds ab und schreibt einen Protokolleintrag.
 
-## Was wo liegt
+### Was wo liegt
 
 | Datei | Inhalt |
 |---|---|
-| [`docs/umsetzungsplan.md`](docs/umsetzungsplan.md) | Die verbindliche Vorgabe: Datenmodell, Sicherheitsregeln R1–R14, API, Design-Tokens, Testfälle T1–T13. |
+| [`docs/umsetzungsplan.md`](docs/umsetzungsplan.md) | Die verbindliche Vorgabe: Datenmodell, Sicherheitsregeln R1–R14, API, Design-Tokens, Testfälle. |
 | [`PRODUCT.md`](PRODUCT.md) | Was die App sein will, in Prosa — daraus abgeleitet. |
 | [`CHANGELOG.md`](CHANGELOG.md) | Was sich von Version zu Version geändert hat. |
+| [`docker-compose.yaml`](docker-compose.yaml) | Der Stack. Ohne Overlay: App allein, hinter vorhandenem Proxy. |
+| [`docker-compose.caddy.yaml`](docker-compose.caddy.yaml) | Overlay, das Caddy danebenstellt. |
+| [`deploy/`](deploy/) | Dockerfile und die beiden Caddy-Vorlagen. |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) · [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Mitmachen und Umgangston. |
 | [`SECURITY.md`](SECURITY.md) | Sicherheitslücken vertraulich melden. |
 | [`LICENSE`](LICENSE) | MIT — frei nutzbar. |
-| [`docker-compose.yaml`](docker-compose.yaml) | Der Stack für Arcane bzw. den Server. |
-| [`deploy/`](deploy/) | Dockerfile und die beiden Caddy-Vorlagen. |
 
-## Mitmachen
-
-Fehler, Ideen und Doku-Korrekturen sind willkommen — auch ohne eine Zeile Code. Am besten
-über [Issues](../../issues/new/choose); Ablauf, Entwicklungsumgebung und Commit-Stil stehen in
-[`CONTRIBUTING.md`](CONTRIBUTING.md).
-
-**Sicherheitslücken bitte nicht als öffentliches Issue**, sondern vertraulich — siehe
-[`SECURITY.md`](SECURITY.md). Der Zugang der Mitglieder ist ein Link ohne Passwort; ein Fund
-darin trifft sofort alle Betreiber.
-
-## Veröffentlichen
+### Veröffentlichen
 
 Eine neue Version entsteht ohne Terminal: **Actions → „Release starten" → „Run workflow"**,
 Versionsnummer eingeben. Der Workflow prüft den Stand, zählt die Version hoch, stempelt den
@@ -197,6 +348,17 @@ Abschnitt „Unveröffentlicht" im Changelog, setzt Commit und Tag und legt das 
 
 Ausgeliefert wird kein Paket, sondern der Stand selbst: Der Betreiber baut daraus sein
 Container-Image. Der Tag sagt, welcher Stand läuft.
+
+---
+
+## Mitmachen
+
+Fehler, Ideen und Doku-Korrekturen sind willkommen — auch ohne eine Zeile Code. Am besten über
+[Issues](../../issues/new/choose); Ablauf, Entwicklungsumgebung und Commit-Stil stehen in
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+Für Berichte aus dem Betrieb gilt: **keine echten Namen und keine gültigen Einladungslinks**
+mitschicken. Ein Link auf einem Bildschirmfoto ist ein gültiger Zugang.
 
 ## Lizenz
 

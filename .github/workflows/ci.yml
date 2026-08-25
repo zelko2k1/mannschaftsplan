@@ -107,6 +107,24 @@ jobs:
             -v "$PWD/ci-vorlagen:/vorlagen:ro" "$CADDY_IMAGE" \
             caddy validate --adapter caddyfile --config /vorlagen/Caddyfile
 
+      - name: Kommt der bcrypt-Hash unversehrt in Caddy an?
+        run: |
+          set -euo pipefail
+          # Ein bcrypt-Hash steckt voller '$', und Compose löst '$' in .env-Dateien auf. Käme der
+          # Hash verstümmelt im Container an, wäre die Anleitung in der README falsch und der
+          # Betreiber stünde vor einer Tür, die sein Passwort nicht annimmt. Also nachgesehen.
+          hash="$(docker run --rm "$CADDY_IMAGE" caddy hash-password --plaintext 'nur-fuer-die-ci')"
+          printf 'DOMAIN=dart.example.de\nACME_EMAIL=ci@example.com\nADMIN_USER=ci\nADMIN_PASSWORD_HASH=%s\n' "$hash" > .env
+          angekommen="$(docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml \
+            config --format json | jq -r '.services.caddy.environment.ADMIN_PASSWORD_HASH')"
+          echo "erzeugt:   $hash"
+          echo "angekommen: $angekommen"
+          rm -f .env
+          if [ "$hash" != "$angekommen" ]; then
+            echo "::error::Der bcrypt-Hash überlebt den Weg durch die .env nicht — README und .env.example stimmen dann nicht."
+            exit 1
+          fi
+
       - name: deploy/Caddyfile.homelab.example — Syntax
         run: |
           set -euo pipefail
