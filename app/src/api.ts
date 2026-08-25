@@ -34,6 +34,9 @@ export type Board = {
   me: string
   members: { id: string; name: string }[]
   fixtures: Spieltag[]
+  /** Ob der Betreiber einen Text hinterlegt hat — nur dann wird im Fuß darauf verlinkt. */
+  impressum: boolean
+  datenschutz: boolean
 }
 
 /** Wird geworfen, wenn die Sitzung weg ist — die App zeigt dann die „Link ungültig"-Seite. */

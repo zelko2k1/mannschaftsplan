@@ -55,6 +55,9 @@ module.exports = {
       tempo_kmh: TEMPO_STANDARD,
       puffer_minuten: PUFFER_STANDARD,
       auto_sperre_stunden: AUTO_SPERRE_STANDARD,
+      // Leer heißt: es gibt die Seite nicht, und der Link erscheint gar nicht erst.
+      impressum: '',
+      datenschutz: '',
     }
     try {
       const saetze = app.findAllRecords('settings')
@@ -71,6 +74,8 @@ module.exports = {
         tempo_kmh: gepflegt ? tempo : standard.tempo_kmh,
         puffer_minuten: gepflegt ? satz.getInt('puffer_minuten') : standard.puffer_minuten,
         auto_sperre_stunden: Math.max(0, satz.getInt('auto_sperre_stunden')),
+        impressum: satz.getString('impressum') || '',
+        datenschutz: satz.getString('datenschutz') || '',
       }
     } catch {
       /* siehe oben */

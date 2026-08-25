@@ -17,8 +17,49 @@ routerAdd('GET', '/j/{token}', (e) => {
   // R6 · Das Token wird hier NICHT nachgeschlagen. Die Antwort ist für jede Zeichenkette
   // identisch, es gibt also nichts, woran man ein gültiges Token erkennen könnte.
   const token = e.request.pathValue('token')
-  const name = u.escape(u.einstellungen(e.app).anzeigename)
-  return e.blob(200, 'text/html; charset=utf-8', seiten.einloesen(u.escape(token), name))
+  const einst = u.einstellungen(e.app)
+  const name = u.escape(einst.anzeigename)
+  return e.blob(200, 'text/html; charset=utf-8', seiten.einloesen(u.escape(token), name, einst))
+})
+
+// ── GET /impressum und /datenschutz ─────────────────────────────────────────────────────────
+// Bewusst OHNE Sitzung erreichbar. Ein Impressum, das man erst nach der Anmeldung zu sehen
+// bekommt, erfüllt seinen Zweck nicht — und der Datenschutzhinweis muss jemand lesen können,
+// BEVOR er auf einen Link tippt und damit eine Sitzung anlegt.
+//
+// Ist nichts hinterlegt, gibt es die Seite auch nicht: 404 statt einer leeren Seite. Auf sie
+// verlinkt dann ohnehin nichts.
+//
+// Zweimal ausgeschrieben statt in einer Schleife registriert: Jeder Handler läuft in einer
+// eigenen, isolierten JS-Laufzeit, in der die Schleifenvariablen nicht existieren. Der Handler
+// bräche mit einem ReferenceError ab, und PocketBase meldete nach außen ein nichtssagendes
+// „400 Something went wrong" — siehe den Kopf von adminauth.js.
+routerAdd('GET', '/impressum', (e) => {
+  const u = require(`${__hooks}/utils.js`)
+  const seiten = require(`${__hooks}/seiten.js`)
+
+  const einst = u.einstellungen(e.app)
+  if (!einst.impressum) return e.json(404, { message: 'Nicht gefunden.' })
+
+  return e.blob(
+    200,
+    'text/html; charset=utf-8',
+    seiten.rechtstext(u.escape(einst.anzeigename), 'Impressum', u.escape(einst.impressum), einst),
+  )
+})
+
+routerAdd('GET', '/datenschutz', (e) => {
+  const u = require(`${__hooks}/utils.js`)
+  const seiten = require(`${__hooks}/seiten.js`)
+
+  const einst = u.einstellungen(e.app)
+  if (!einst.datenschutz) return e.json(404, { message: 'Nicht gefunden.' })
+
+  return e.blob(
+    200,
+    'text/html; charset=utf-8',
+    seiten.rechtstext(u.escape(einst.anzeigename), 'Datenschutz', u.escape(einst.datenschutz), einst),
+  )
 })
 
 // ── POST /api/session — Token einlösen ──────────────────────────────────────────────────────
@@ -51,8 +92,8 @@ routerAdd('POST', '/api/session', (e) => {
   // Jeder Fehlschlag zählt gegen die Grenze oben.
   const abweisen = () => {
     limit.pruefen(e.app, `session:${e.realIP()}`, 10, 60)
-    const name = u.escape(u.einstellungen(e.app).anzeigename)
-    return e.blob(200, 'text/html; charset=utf-8', seiten.ungueltig(name))
+    const einst = u.einstellungen(e.app)
+    return e.blob(200, 'text/html; charset=utf-8', seiten.ungueltig(u.escape(einst.anzeigename), einst))
   }
 
   if (!token) return abweisen()

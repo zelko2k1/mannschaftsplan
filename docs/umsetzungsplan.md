@@ -184,7 +184,20 @@ eine Whitelist (R4).
 | `tempo_kmh` | number, 20–200 | Durchschnittsgeschwindigkeit für die Fahrzeit (6.3). Standard 80 |
 | `puffer_minuten` | number, 0–180 | Zuschlag vor dem Anwurf (6.3). Standard 25 |
 | `auto_sperre_stunden` | number, 0–168 | Frist, nach der ein Spieltag von selbst schließt. **0 = aus**, und das ist der Standard |
+| `impressum` | text, max 8000 | Freitext, kein HTML. Leer = die Seite gibt es nicht |
+| `datenschutz` | text, max 8000 | dito |
 | `updated` | autodate | |
+
+**Impressum und Datenschutz sind Freitext, ausdrücklich kein HTML.** Die CSP aus R9 verbietet
+Inline-Skripte; ein Rich-Text-Feld wäre eine Einladung, daran zu rütteln. Der Text wird escaped
+ausgegeben und über `white-space: pre-wrap` mit seinen Absätzen dargestellt. Aus demselben Grund
+steht im Protokoll nur die Länge des Textes, nicht sein Inhalt.
+
+Beide Seiten (`/impressum`, `/datenschutz`) sind **ohne Sitzung erreichbar**. Ein Impressum, das
+man erst nach der Anmeldung sieht, erfüllt seinen Zweck nicht, und den Datenschutzhinweis muss
+jemand lesen können, bevor er auf einen Link tippt und damit eine Sitzung anlegt. Ist nichts
+hinterlegt, antwortet die Route mit 404 — und weder der Aushang noch die Einladungsseite verlinken
+dann darauf.
 
 Die Grenzen stehen zweimal: in der Migration und in der Admin-Route. Ohne die zweite lehnte erst
 die Datenbank ab, mit einer Meldung, die dem Kapitän nichts sagt.
@@ -432,9 +445,17 @@ POST   /admin/api/members
 PATCH  /admin/api/members/:id
 POST   /admin/api/members/:id/rotate-token   → { token: "<Klartext, einmalig>" }
 PUT    /admin/api/response/:fixtureId/:memberId    // Korrektur durch den Kapitän
-GET    /admin/api/settings   → { anzeigename, tempo_kmh, puffer_minuten, auto_sperre_stunden }
+GET    /admin/api/settings   → { anzeigename, tempo_kmh, puffer_minuten, auto_sperre_stunden,
+                                 impressum, datenschutz }
 PATCH  /admin/api/settings     dieselben Felder, alle einzeln   // R4-Whitelist, je Feld eine
                                                                 // Protokollzeile
+```
+
+Öffentlich, ohne Sitzung — beide nur, wenn hinterlegt, sonst 404:
+
+```
+GET    /impressum
+GET    /datenschutz
 GET    /admin/api/audit?limit=100
 ```
 
@@ -822,6 +843,7 @@ nur im Arbeitsspeicher.
 | T11 | Link in WhatsApp einfügen | Vorschau zeigt den Anzeigename aus `settings`, nichts Personalisiertes |
 | A9 | Anzeigename ändern, Einladungsseite abrufen | Name steht in Überschrift und OpenGraph-Titel; HTML darin wird escaped — **automatisiert** |
 | A10 | Tempo und Puffer ändern, `/api/board` abrufen | Abfahrtszeit folgt der Formel aus 6.3; Werte außerhalb der Grenzen → 400 — **automatisiert** |
-| A11 | Frist setzen, Cron `spieltage-sperren` auslösen | vergangener Spieltag wird gesperrt, künftiger nicht, Protokollzeile mit `system:auto-sperre`; bei 0 passiert nichts. Auslösen über `POST /api/crons/spieltage-sperren` als Superuser — **Handprüfung** |
+| A11 | Impressum und Datenschutz hinterlegen, Seiten ohne Anmeldung abrufen | 200 mit dem Text, HTML darin wird angezeigt statt ausgewertet; leer → 404 und keine Links im Fuß — **automatisiert** |
+| A12 | Frist setzen, Cron `spieltage-sperren` auslösen | vergangener Spieltag wird gesperrt, künftiger nicht, Protokollzeile mit `system:auto-sperre`; bei 0 passiert nichts. Auslösen über `POST /api/crons/spieltage-sperren` als Superuser — **Handprüfung** |
 | T12 | Backup einspielen | Datenstand vollständig wiederhergestellt |
 | T13 | `GET /j/<gültig>` allein aufrufen (wie der Crawler, ohne JS) | keine neue Zeile in `sessions`, kein Cookie — Beleg für R10 |

@@ -146,6 +146,23 @@ annehmen, sonst ändert jemand hinterher seine Zusage. Trägst du hier eine Stun
 erledigt das die App; bei **0** bleibt es bei deinem Handgriff nach dem Spiel. Geprüft wird
 stündlich, ein Spieltag schließt also bis zu eine Stunde nach Ablauf der Frist.
 
+**Impressum und Datenschutzhinweis.** Zwei Textfelder, aus denen je eine eigene Seite wird —
+verlinkt im Fuß des Aushangs und auf der Einladungsseite, erreichbar auch ohne Anmeldung. Bleibt
+ein Feld leer, gibt es die Seite nicht und es wird auch nicht darauf verlinkt; ein leeres
+Impressum ist schlechter als keins. Geschrieben wird reiner Text: Absätze durch Leerzeilen,
+HTML wird angezeigt statt ausgewertet.
+
+> Ob und was du dort hineinschreiben musst, ist eine Rechtsfrage, und dieser Text ist **keine
+> Rechtsberatung.** Grobe Orientierung: Ein Impressum nach § 5 DDG trifft vor allem
+> geschäftsmäßige Angebote — diese App ist nicht öffentlich auffindbar und richtet sich an einen
+> geschlossenen Kreis, was dagegen spricht. Der **Datenschutzhinweis** ist der wichtigere Teil:
+> Sobald du Namen und Rückmeldungen von Menschen speicherst, greift die DSGVO, unabhängig von der
+> Größe. Dazu gehören ein Auftragsverarbeitungsvertrag mit deinem Server-Anbieter (Hetzner und
+> IONOS stellen ihn fertig ins Kundenkonto) und die Information der Mitglieder darüber, was wozu
+> und wie lange gespeichert wird. Beim Löschen hilft die App: Spieltage verschwinden nach einem
+> Jahr, das Protokoll nach 90 Tagen, Sitzungen nach einem halben Jahr. Im Zweifel jemanden fragen,
+> der beraten darf — viele Landessportbünde tun das für ihre Vereine kostenlos.
+
 ### Der Alltag
 
 **Ein Mitglied hat seinen Link verloren.** In der Kapitänsansicht auf „Neues Token". Der alte Link

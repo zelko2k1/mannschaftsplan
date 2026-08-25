@@ -132,7 +132,8 @@
   color: var(--grau);
 }
 .feld input,
-.feld select {
+.feld select,
+.feld textarea {
   min-height: 44px;
   padding: 0.4rem 0.55rem;
   background: #fff;
@@ -140,6 +141,12 @@
   border-radius: 0;
   color: var(--tinte);
   font: inherit;
+}
+/* Rechtstexte werden gelesen, nicht überflogen: senkrecht wachsen lassen, waagerecht nicht —
+   sonst schiebt eine lange Zeile das ganze Formular aus dem Bild. */
+.feld textarea {
+  resize: vertical;
+  line-height: 1.45;
 }
 .feld input[type='checkbox'] {
   min-height: 0;

@@ -556,7 +556,9 @@ function Einstellungen({ abgemeldet }: { abgemeldet: () => void }) {
     name !== daten.anzeigename ||
     entwurf.tempo_kmh !== daten.tempo_kmh ||
     entwurf.puffer_minuten !== daten.puffer_minuten ||
-    entwurf.auto_sperre_stunden !== daten.auto_sperre_stunden
+    entwurf.auto_sperre_stunden !== daten.auto_sperre_stunden ||
+    entwurf.impressum.trim() !== daten.impressum ||
+    entwurf.datenschutz.trim() !== daten.datenschutz
 
   const speichern = (ereignis: React.FormEvent) => {
     ereignis.preventDefault()
@@ -569,6 +571,8 @@ function Einstellungen({ abgemeldet }: { abgemeldet: () => void }) {
     if (entwurf.auto_sperre_stunden !== daten.auto_sperre_stunden) {
       aenderung.auto_sperre_stunden = entwurf.auto_sperre_stunden
     }
+    if (entwurf.impressum.trim() !== daten.impressum) aenderung.impressum = entwurf.impressum.trim()
+    if (entwurf.datenschutz.trim() !== daten.datenschutz) aenderung.datenschutz = entwurf.datenschutz.trim()
 
     setLaeuft(true)
     setFehler('')
@@ -696,6 +700,50 @@ function Einstellungen({ abgemeldet }: { abgemeldet: () => void }) {
               ? `Gesperrt wird stündlich geprüft — ein Spieltag schließt also bis zu eine Stunde nach Ablauf der Frist.`
               : 'Ausgeschaltet.'}
           </span>
+        </div>
+      </div>
+
+      {/* ── Impressum und Datenschutz ────────────────────────────────────────────────────── */}
+      <div className="satz">
+        <div className="satz__kopf">
+          <span className="satz__name">Impressum und Datenschutz</span>
+          <span className="satz__zusatz">
+            Jeder Text bekommt eine eigene Seite, verlinkt im Fuß des Aushangs und auf der
+            Einladungsseite. <strong>Leer heißt: es gibt die Seite nicht</strong> und es wird auch
+            nicht darauf verlinkt. Beide Seiten sind ohne Anmeldung erreichbar — ein Hinweis, den
+            man erst nach dem Anmelden zu sehen bekommt, erfüllt seinen Zweck nicht.
+          </span>
+        </div>
+
+        <div className="satz__aktionen" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+          <label className="feld">
+            <span>Impressum</span>
+            <textarea
+              rows={6}
+              maxLength={8000}
+              value={entwurf.impressum}
+              onChange={(x) => setzen({ impressum: x.target.value })}
+            />
+          </label>
+          <label className="feld">
+            <span>Datenschutzhinweis</span>
+            <textarea
+              rows={10}
+              maxLength={8000}
+              value={entwurf.datenschutz}
+              onChange={(x) => setzen({ datenschutz: x.target.value })}
+            />
+          </label>
+        </div>
+
+        <div className="token">
+          <p className="token__hinweis">Reiner Text, keine Formatierung</p>
+          <p style={{ margin: 0, fontSize: '0.85rem' }}>
+            Absätze entstehen durch Leerzeilen. HTML wird nicht ausgewertet, sondern angezeigt wie
+            getippt — das ist Absicht und schließt eine ganze Klasse von Angriffen aus. Was
+            hineingehört, ist eine Rechtsfrage: die App kann dir dabei nicht helfen, und dieser
+            Hinweis ist keine Rechtsberatung.
+          </p>
         </div>
       </div>
 

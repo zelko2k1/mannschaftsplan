@@ -888,6 +888,70 @@ await pruefe('A10', 'Die Fahrzeit-Formel folgt den Einstellungen', async () => {
   }
 })
 
+await pruefe('A11', 'Impressum und Datenschutz: eigene Seiten, ohne Anmeldung, ohne HTML', async () => {
+  const { jar } = await adminAnmelden()
+  const ruf = alsKapitaen(jar)
+  const vorher = await (await ruf('/admin/api/settings')).json()
+
+  try {
+    // Leer heißt: es gibt die Seite nicht. Ein leeres Impressum täuscht Vollständigkeit vor.
+    await ruf('/admin/api/settings', {
+      method: 'PATCH',
+      body: JSON.stringify({ impressum: '', datenschutz: '' }),
+    })
+    gleich((await roh('/impressum')).status, 404, 'leeres Impressum → 404')
+    gleich((await roh('/datenschutz')).status, 404, 'leerer Datenschutz → 404')
+    stimmt(!(await (await roh('/j/beliebiges-token')).text()).includes('/impressum'), 'kein Link im Fuß')
+
+    gleich(
+      (
+        await ruf('/admin/api/settings', {
+          method: 'PATCH',
+          body: JSON.stringify({
+            impressum: 'test-Verein\nMusterweg 1\n\n<b>nicht fett</b>',
+            datenschutz: 'test-Wir speichern Namen und Zusagen.',
+          }),
+        })
+      ).status,
+      200,
+      'speichern',
+    )
+
+    // OHNE Sitzung erreichbar — ein Impressum hinter der Anmeldung erfüllt seinen Zweck nicht.
+    const seite = await roh('/impressum')
+    gleich(seite.status, 200, 'Impressum ohne Anmeldung')
+    const html = await seite.text()
+    stimmt(html.includes('test-Verein'), 'Text steht auf der Seite')
+    stimmt(html.includes('&lt;b&gt;nicht fett&lt;/b&gt;'), 'HTML wird angezeigt, nicht ausgewertet')
+    stimmt(!html.includes('<b>nicht fett</b>'), 'kein ausgewertetes HTML')
+
+    gleich((await roh('/datenschutz')).status, 200, 'Datenschutz ohne Anmeldung')
+
+    // Jetzt verlinkt der Fuß der Einladungsseite auf beide.
+    const einladung = await (await roh('/j/beliebiges-token')).text()
+    stimmt(einladung.includes('href="/impressum"'), 'Link auf das Impressum')
+    stimmt(einladung.includes('href="/datenschutz"'), 'Link auf den Datenschutz')
+
+    // Zu lang wird abgewiesen, statt dass die Datenbank es tut.
+    gleich(
+      (await ruf('/admin/api/settings', { method: 'PATCH', body: JSON.stringify({ impressum: 'x'.repeat(8001) }) }))
+        .status,
+      400,
+      '8001 Zeichen',
+    )
+
+    // Im Protokoll steht die Länge, nicht der Text — sonst stünde er dort in voller Länge.
+    const protokoll = await (await ruf('/admin/api/audit?limit=50')).json()
+    const zeile = protokoll.items.find((z) => z.action === 'settings.update' && z.target === 'impressum')
+    stimmt(!!zeile && !zeile.new_value.includes('Musterweg'), 'Protokoll ohne den Textinhalt')
+  } finally {
+    await ruf('/admin/api/settings', {
+      method: 'PATCH',
+      body: JSON.stringify({ impressum: vorher.impressum, datenschutz: vorher.datenschutz }),
+    })
+  }
+})
+
 // ── T9 · MUSS ALS LETZTES LAUFEN ───────────────────────────────────────────────────────────
 // Die Sperre gilt 15 Minuten für diese IP und würde jede weitere Anmeldung blockieren. Der
 // Zähler liegt im Arbeitsspeicher: ein Neustart von PocketBase räumt ihn weg.

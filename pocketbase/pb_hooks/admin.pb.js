@@ -422,6 +422,19 @@ routerAdd('PATCH', '/admin/api/settings', (e) => {
     satz.set('anzeigename', name)
   }
 
+  // Impressum und Datenschutz dürfen leer sein — dann gibt es die Seite nicht und nichts
+  // verlinkt darauf. Im Protokoll steht nur, DASS sich etwas geändert hat: der Text selbst
+  // gehörte sonst in voller Länge in jede Zeile.
+  for (const feld of ['impressum', 'datenschutz']) {
+    if (!(feld in koerper)) continue
+    const text = String(koerper[feld] === null || koerper[feld] === undefined ? '' : koerper[feld]).trim()
+    if (text.length > 8000) return e.json(400, { message: 'Der Text ist zu lang.' })
+    if (text !== vorher[feld]) {
+      geaendert.push([feld, vorher[feld] ? `${vorher[feld].length} Zeichen` : 'leer', text ? `${text.length} Zeichen` : 'leer'])
+    }
+    satz.set(feld, text)
+  }
+
   for (const feld in ZAHLEN) {
     if (!(feld in koerper)) continue
     const wert = Number(koerper[feld])

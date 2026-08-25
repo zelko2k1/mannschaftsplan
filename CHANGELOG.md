@@ -15,6 +15,14 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   API-Tests war der Seed ohnehin nie nötig — sie legen ihre eigenen Datensätze an.
 
 ### Hinzugefügt
+- **Impressum und Datenschutzhinweis lassen sich hinterlegen.** Zwei Textfelder unter
+  Einstellungen, aus denen je eine eigene Seite wird — verlinkt im Fuß des Aushangs und auf der
+  Einladungsseite, und **ohne Anmeldung erreichbar**: Ein Impressum, das man erst nach dem
+  Anmelden sieht, erfüllt seinen Zweck nicht, und den Datenschutzhinweis muss jemand lesen
+  können, bevor er auf einen Link tippt. Bleibt ein Feld leer, gibt es die Seite nicht und nichts
+  verlinkt darauf. Geschrieben wird reiner Text — HTML wird angezeigt statt ausgewertet, was eine
+  ganze Klasse von Angriffen ausschließt. Im Protokoll steht nur, dass sich etwas geändert hat,
+  und wie lang der Text jetzt ist; sein Inhalt gehört dort nicht hinein.
 - **Die Abfahrtszeit rechnet nicht mehr mit fest verdrahteten Zahlen.** Tempo und Puffer standen
   bei 80 km/h und 25 Minuten im Code — für eine Mannschaft, die über Land fährt, zu niedrig, für
   eine in der Stadt zu hoch. Beide stehen jetzt unter Einstellungen. Die Formel selbst bleibt im

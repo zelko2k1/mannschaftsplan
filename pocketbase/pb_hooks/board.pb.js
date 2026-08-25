@@ -84,6 +84,10 @@ routerAdd('GET', '/api/board', (e) => {
   }
 
   return e.json(200, {
+    // Nur ob es die Seiten gibt, nicht ihr Inhalt: der Aushang blendet die Links sonst auf
+    // Seiten ein, die mit 404 antworten.
+    impressum: !!einst.impressum,
+    datenschutz: !!einst.datenschutz,
     me: sitzung.mitglied.id,
     members: mitglieder.map((m) => ({ id: m.id, name: m.getString('name') })),
     fixtures: ausgabe,

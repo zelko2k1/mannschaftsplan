@@ -253,6 +253,15 @@ function Abfahrtsplan() {
         Gelb = auswärts · Weiß = heim
         <br />
         Änderungen sind sofort für alle sichtbar.
+        {/* Nur verlinken, was hinterlegt ist — sonst führt der Fuß auf eine 404. */}
+        {(board.impressum || board.datenschutz) && (
+          <>
+            <br />
+            {board.impressum && <a href="/impressum">Impressum</a>}
+            {board.impressum && board.datenschutz && ' · '}
+            {board.datenschutz && <a href="/datenschutz">Datenschutz</a>}
+          </>
+        )}
       </footer>
     </div>
   )

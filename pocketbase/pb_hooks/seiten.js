@@ -11,7 +11,7 @@
 // sowohl im Text als auch in einem Attributwert. Ein Anführungszeichen darin bräche sonst aus
 // `content="…"` aus. Gesetzt wird er nur vom Kapitän; das ändert nichts daran, dass hier escaped
 // gehört, was in HTML geschrieben wird.
-const GRUNDGERUEST = (name, inhalt) => `<!doctype html>
+const GRUNDGERUEST = (name, inhalt, fuss = '') => `<!doctype html>
 <html lang="de">
 <head>
 <meta charset="utf-8">
@@ -43,17 +43,34 @@ const GRUNDGERUEST = (name, inhalt) => `<!doctype html>
     cursor: pointer;
   }
   button:focus-visible { outline: 3px solid #17150f; outline-offset: 3px }
+  .rechtstext { text-align: left; white-space: pre-wrap; color: #17150f; margin: 0 0 1.5rem }
+  .fuss { margin: 0; font-size: .85rem; color: #6e6a5e }
+  .fuss a { color: inherit }
 </style>
 </head>
 <body>
 <main>
 ${inhalt}
+${fuss}
 </main>
 </body>
 </html>
 `
 
+/**
+ * Die Zeile mit Impressum und Datenschutz. Verlinkt wird nur, was auch hinterlegt ist — ein Link
+ * auf ein leeres Impressum täuscht Vollständigkeit vor, wo keine ist.
+ */
+const FUSS = (einst) => {
+  const teile = []
+  if (einst.impressum) teile.push('<a href="/impressum">Impressum</a>')
+  if (einst.datenschutz) teile.push('<a href="/datenschutz">Datenschutz</a>')
+  return teile.length ? `<p class="fuss">${teile.join(' · ')}</p>` : ''
+}
+
 module.exports = {
+  FUSS,
+
   /**
    * Die Seite hinter dem Einladungslink. Sie schlägt das Token NICHT nach und hat keinerlei
    * Nebenwirkung (R10) — sie reicht es nur an POST /api/session weiter. Der WhatsApp-Crawler
@@ -62,8 +79,9 @@ module.exports = {
    *
    * @param tokenEscaped bereits durch utils.escape() gelaufen
    * @param nameEscaped  eingestellter Anzeigename, ebenfalls bereits escaped
+   * @param einst        die Einstellungen, für die Fußzeile
    */
-  einloesen(tokenEscaped, nameEscaped) {
+  einloesen(tokenEscaped, nameEscaped, einst) {
     return GRUNDGERUEST(
       nameEscaped,
       `<h1>${nameEscaped}</h1>
@@ -73,6 +91,7 @@ module.exports = {
   <button type="submit">Termine öffnen</button>
 </form>
 <script src="/j.js" defer></script>`,
+      FUSS(einst || {}),
     )
   },
 
@@ -80,11 +99,27 @@ module.exports = {
    * R6 · Immer dieselbe Antwort, HTTP 200, kein Hinweis auf den Grund. „Gibt es nicht" und
    * „ist inaktiv" dürfen sich nicht unterscheiden lassen.
    */
-  ungueltig(nameEscaped) {
+  ungueltig(nameEscaped, einst) {
     return GRUNDGERUEST(
       nameEscaped,
       `<h1>Link ungültig</h1>
 <p>Dieser Link funktioniert nicht mehr. Frag den Mannschaftsführer nach einem neuen.</p>`,
+      FUSS(einst || {}),
+    )
+  },
+
+  /**
+   * Impressum bzw. Datenschutzhinweis. Freitext des Betreibers, escaped ausgegeben und über
+   * `white-space: pre-wrap` mit seinen Absätzen dargestellt — kein HTML, keine Auszeichnung.
+   *
+   * @param textEscaped bereits durch utils.escape() gelaufen
+   */
+  rechtstext(nameEscaped, ueberschrift, textEscaped, einst) {
+    return GRUNDGERUEST(
+      nameEscaped,
+      `<h1>${ueberschrift}</h1>
+<p class="rechtstext">${textEscaped}</p>`,
+      FUSS(einst || {}),
     )
   },
 }

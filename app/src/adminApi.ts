@@ -35,6 +35,9 @@ export type Einstellungen = {
   puffer_minuten: number
   /** Stunden nach dem Anwurf, nach denen ein Spieltag von selbst schließt. 0 = aus. */
   auto_sperre_stunden: number
+  /** Freitext, kein HTML. Leer = die Seite gibt es nicht und nichts verlinkt darauf. */
+  impressum: string
+  datenschutz: string
 }
 
 export type Protokollzeile = {
