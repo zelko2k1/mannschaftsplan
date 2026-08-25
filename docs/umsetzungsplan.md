@@ -15,6 +15,13 @@ gefallen ist, steht sie hier als Vorgabe, nicht als Vorschlag.
 > Betriebsziel bis auf Weiteres: lokal ohne Docker entwickeln und im Homelab unter dem dort
 > vergebenen Namen testen — siehe `README.md`. Der Hetzner-Betrieb aus Abschnitt 7 bleibt das
 > Fernziel.
+>
+> **Nachtrag 2026-08-25.** Abschnitt 7.1 beschrieb bis hierher zwei Services mit Bind-Mounts —
+> das entspricht dem gebauten Stand nicht mehr und ist auf das tatsächliche Betriebsmodell
+> umgeschrieben: ein Image, ein Service, kein Host-Port, zwei Compose-Varianten je nachdem, ob
+> ein Reverse Proxy schon da ist. Die Auslieferung enthält außerdem keine Daten und keine Konten
+> mehr; das Seed-Skript aus Schritt 2 ist ersatzlos entfallen. Neu als offener Punkt: R13 hat im
+> öffentlichen Betrieb kein Netz, auf das es sich stützen kann (7.2.1).
 
 ---
 
@@ -55,8 +62,8 @@ gefallen ist, steht sie hier als Vorgabe, nicht als Vorschlag.
 | Backend | PocketBase (aktuelle Version), Custom Routes in `pb_hooks/` | ein Binary, SQLite, Admin-UI für Datenpflege inklusive |
 | Frontend | React + Vite, TypeScript | vorhandene Erfahrung |
 | Auslieferung | Frontend-Build nach `pb_public/` | gleiche Origin → Cookies ohne CORS-Gefummel, keine `VITE_PB_URL` nötig |
-| Reverse Proxy | Caddy | automatisches TLS, Header, Log-Filter, Admin-Sperre |
-| Betrieb | Docker Compose auf dem Hetzner-Server | |
+| Reverse Proxy | Caddy als mitgelieferte Vorlage, aber austauschbar | automatisches TLS, Header, Log-Filter, Admin-Sperre — wer Traefik oder nginx betreibt, hängt sie stattdessen davor |
+| Betrieb | Docker Compose, ein Container | überall gleich: Homelab zum Testen, Server für den echten Betrieb (Abschnitt 7) |
 | Schriften | **selbst gehostet** via `@fontsource` | keine Google-Fonts-Einbindung — in Deutschland abmahnfähig |
 
 **Keine** externen CDNs, keine Tracker, keine Analytics.
@@ -470,32 +477,57 @@ Zonenversatz.
 
 ## 7. Deployment
 
-### 7.1 Compose
+### 7.1 Betriebsmodell
 
-```yaml
-services:
-  pocketbase:
-    image: <pocketbase-image>            # oder eigenes Dockerfile mit dem Release-Binary
-    restart: unless-stopped
-    volumes:
-      - ./pb_data:/pb/pb_data
-      - ./pb_hooks:/pb/pb_hooks
-      - ./pb_public:/pb/pb_public
-    expose: ["8090"]                     # KEIN ports: — nur intern erreichbar
-  caddy:
-    image: caddy:2
-    restart: unless-stopped
-    ports: ["80:80", "443:443"]
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-volumes: { caddy_data: {} }
+Die App ist nur über das Internet sinnvoll zu betreiben — Terminabsprache passiert unterwegs, nicht
+im Vereins-WLAN. Betrieben wird deshalb ausschließlich in Docker, und zwar überall gleich: dieselbe
+Datei, dasselbe Image, ob im Homelab oder auf einem Server.
+
+**Ein Service.** PocketBase liefert das Frontend aus `pb_public` gleich mit — eine Origin, damit die
+Cookies aus R2/R11 ohne CORS auskommen. Migrationen, Hooks und der Frontend-Build liegen **im Image**,
+nicht in Bind-Mounts: relative Mounts greifen je nach Arbeitsverzeichnis nicht und liefern
+stillschweigend leere Ordner. Persistent ist genau ein Volume, `pb_data` — SQLite, Uploads, Backups.
+
+**Kein `ports:`, nur `expose: ["8090"]`.** Ein veröffentlichter Host-Port wäre Klartext-HTTP am
+TLS-Proxy vorbei und legte `/admin` und `/_/` aus R13 offen. Der einzige Weg hinein führt über den
+Reverse Proxy, der sich ans Netz `mannschaftsplan` hängt und den Dienst als
+`http://mannschaftsplan:8090` erreicht. Nebenbei ist das die Bedingung dafür, dass der Stack neben
+anderen Diensten auf demselben Host koexistiert, ohne sich um Ports zu streiten.
+
+**Zwei Varianten**, geschnitten danach, ob der Stack seinen eigenen Proxy mitbringt — nicht danach,
+wer ihn betreibt:
+
+| Datei | Für wen | Was drin ist | Stand |
+|---|---|---|---|
+| `docker-compose.yaml` | Betreiber mit vorhandenem Proxy (Traefik, nginx, Caddy) | nur die App, kein Host-Port | da |
+| `+ docker-compose.caddy.yaml` | nackter Server, auf dem noch nichts läuft | zusätzlich Caddy mit ACME auf 80/443 | **offen, Schritt 9** |
+
+```bash
+docker compose up -d                                                       # eigener Proxy
+docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml up -d   # mit Caddy
 ```
+
+Der App-Service ist dabei **einmal** definiert; das Overlay stellt nur den Proxy daneben. Zwei
+vollständige Compose-Dateien wären zwei Wahrheiten, die auseinanderlaufen.
+
+Das **Homelab ist Testumgebung, kein Betrieb.** Es fährt die Basisdatei hinter dem dort bereits
+vorhandenen Caddy — also genau die Konfiguration, die auch ein Betreiber mit eigenem Proxy fährt.
+Damit testet das Homelab einen echten Auslieferungsweg und keinen Sonderfall. Was es
+prinzipbedingt nicht abdeckt: die Absicherung aus R13, die sich dort aufs LAN stützt.
+
+`docker-compose.yaml` liegt in der **Repo-Wurzel**, nicht in `deploy/`: der Build-Kontext ist die
+Wurzel, und ein Kontext oberhalb der Compose-Datei (`context: ..`) bricht, sobald das Werkzeug
+relative Pfade gegen das Projektverzeichnis auflöst statt gegen den Ort der Datei — Arcane tut das.
 
 ### 7.2 Caddyfile (Gerüst)
 
+Zwei Vorlagen liegen in `deploy/`: `Caddyfile` für den öffentlichen Betrieb mit eigener Domain und
+ACME, `Caddyfile.homelab.example` als Block für einen bereits vorhandenen Caddy. Wer nginx oder
+Traefik betreibt, bildet dieselben vier Punkte dort nach — Kopfzeilen (R9), Admin-Sperre (R13),
+`/j/*` nicht protokollieren (R8), Query-Filter im Log.
+
 ```
-dart.example.de {
+<deine-domain> {
   encode zstd gzip
 
   header {
@@ -507,12 +539,13 @@ dart.example.de {
     -Server
   }
 
-  # Admin nur aus dem VPN
+  # Admin nur aus dem VPN bzw. LAN. Der Bereich ist ein PLATZHALTER — siehe die offene
+  # Frage unter 7.2.1.
   @admin path /admin* /_/*
   handle @admin {
-    @notvpn not remote_ip 10.0.0.0/24
+    @notvpn not remote_ip <dein-vpn-bereich>
     respond @notvpn 404
-    reverse_proxy pocketbase:8090
+    reverse_proxy mannschaftsplan:8090
   }
 
   # Token-Route: gar nicht protokollieren. Das Token steht im PFAD — ein Query-Filter
@@ -520,17 +553,30 @@ dart.example.de {
   @join path /j/*
   handle @join {
     log_skip
-    reverse_proxy pocketbase:8090
+    reverse_proxy mannschaftsplan:8090
   }
 
-  handle { reverse_proxy pocketbase:8090 }
+  handle { reverse_proxy mannschaftsplan:8090 }
 
   log {
-    output file /var/log/caddy/dz.log
+    output file /var/log/caddy/mannschaftsplan.log
     format filter { request>uri query { delete * } }
   }
 }
 ```
+
+#### 7.2.1 Offen: R13 ohne LAN
+
+R13 stützt sich darauf, dass `/admin` und `/_/` nur aus einem vertrauenswürdigen Netz erreichbar
+sind. Im Homelab ist das das LAN. Auf einem öffentlichen Server gibt es beides nicht, und ein
+beliebiger Betreiber hat kein VPN. Damit steht die wirksamste Einzelmaßnahme der App im
+öffentlichen Betrieb ohne Fundament da.
+
+Zur Wahl stehen: Standard geschlossen (ohne gesetzten Bereich antwortet `/admin` für alle mit 404,
+Öffnen ist ein bewusster Eintrag) oder Standard offen (es schützen nur das Superuser-Passwort und
+die Sperre nach sechs Fehlversuchen, T9). **Bis zur Entscheidung bleibt der Bereich in beiden
+Vorlagen ein Platzhalter, den der Betreiber ausfüllen muss.** Zu entscheiden, bevor die App
+öffentlich angeboten wird.
 **Rate Limiting** läuft primär über den in PocketBase eingebauten Rate-Limiter (Einstellungen →
 Rate limiting) — ein bewegliches Teil weniger als das `caddy-ratelimit`-Plugin, und es greift auch
 lokal ohne Caddy. Reichen die Regeln pro Route nicht, kommt der In-Memory-Zähler im Hook als zweite
@@ -623,6 +669,13 @@ Header, Rate Limits, Log-Filter, Backup mit getestetem Restore, Löschjob, Erinn
 
 **Schritt 8 — Echtdaten**
 Spielplan-PDF importieren, Tokens erzeugen, per Einzelchat verteilen.
+
+**Schritt 9 — Auslieferbar für Fremde**
+Das Caddy-Overlay aus 7.1 bauen (`docker-compose.caddy.yaml`), Domain und Allowlist über
+Umgebungsvariablen konfigurierbar machen, damit niemand eine Konfigurationsdatei editieren muss,
+und die offene Frage aus 7.2.1 entscheiden.
+*Fertig, wenn:* ein nackter Server allein mit den Werten aus einer `.env` zum laufenden HTTPS-Dienst
+wird — und der Weg mit vorhandenem Proxy unverändert weiter funktioniert.
 
 ---
 
