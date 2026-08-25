@@ -23,21 +23,25 @@ services:
     # Caddy löst {$...} aus SEINER Umgebung auf — die Werte müssen also im Container ankommen,
     # nicht nur in der Compose-Datei.
     #
-    # WARUM env_file UND NICHT environment: Ein bcrypt-Hash steckt voller '$'. Über
-    # `${ADMIN_PASSWORD_HASH}` liefe der Wert durch die Variablen-Auflösung von Compose, und die
-    # frisst jedes '$', auf das ein Buchstabe folgt — aus
+    # `format: raw` IST HIER PFLICHT, nicht Geschmack. Ein bcrypt-Hash steckt voller '$', und
+    # Compose löst Variablen sowohl in der Compose-Datei als auch in .env-Dateien auf. Ohne
+    # `raw` wird aus
     #     $2a$14$I21rRT1Q3VhcaAm5NB6NVuE/pXam…
-    # wurde nachweislich
+    # nachweislich
     #     $2a$14/pXam…
-    # Der Betreiber stünde dann vor einer Tür, die sein eigenes Passwort nicht annimmt. env_file
-    # reicht die Datei an den Container durch, statt sie zu deuten. Der CI-Job `Caddy-Vorlagen`
-    # prüft das bei jedem Lauf nach.
+    # weil `$I21rRT1Q3Vhc…` wie ein Variablenname aussieht und durch nichts ersetzt wird. '$2a'
+    # und '$14' überleben nur, weil Variablennamen nicht mit einer Ziffer beginnen. Der
+    # Betreiber stünde vor einer Tür, die sein eigenes Passwort nicht annimmt. Der CI-Job
+    # `Caddy-Vorlagen` misst bei jedem Lauf nach, was tatsächlich im Container ankommt.
+    #
+    # Setzt Docker Compose 2.24 oder neuer voraus — davor gibt es `format` nicht.
     #
     # Nebenwirkung: der Caddy-Container sieht damit auch die Skript-Variablen aus der .env. Das
     # ist hinnehmbar — wer die Umgebung dieses Containers lesen kann, kann auch die .env auf dem
     # Host lesen.
     env_file:
-      - .env
+      - path: .env
+        format: raw
 
     # Fehlt einer der Werte, soll `docker compose up` abbrechen und sagen WELCHER — env_file
     # allein würde Caddy mit leeren Angaben starten lassen. Diese Schilder werden nie gelesen;
