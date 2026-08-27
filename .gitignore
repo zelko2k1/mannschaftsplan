@@ -15,3 +15,21 @@ pocketbase/pb_public/
 .env.local
 
 .DS_Store
+
+# Werkzeuge der KI-Assistenten, die über einen Installer beschafft werden (`npx impeccable
+# install` und dergleichen). Fremde Dateien mit eigener Versionierung, kein Bestandteil der App:
+# Eine Kopie im Repo veraltet still, bläht jeden Klon auf und wirft beim Veröffentlichen eine
+# Lizenzfrage auf, die niemand gestellt hat.
+#
+# Hier stehen die einzelnen Verzeichnisse und NICHT `.claude/skills/` als Ganzes: Ein selbst
+# geschriebenes Skill gehört ins Repo, weil es zu diesem Projekt gehört. Kommt ein weiteres
+# beschafftes dazu, bekommt es hier eine eigene Zeile — das ist die Stelle, an der man sieht,
+# was fremd ist.
+.claude/skills/impeccable/
+.github/skills/
+.github/agents/
+.github/hooks/
+
+# Lokale Einstellungen des Assistenten und sein Arbeitsverzeichnis.
+.claude/settings.local.json
+.impeccable/
