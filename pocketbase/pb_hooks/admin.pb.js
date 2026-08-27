@@ -651,8 +651,20 @@ routerAdd('DELETE', '/admin/api/backup/{name}', (e) => {
 //      zurück — sonst wäre der Fehlgriff endgültig.
 //
 // PocketBase nennt `restoreBackup` ausdrücklich experimentell und UNIX-only und will doppelt so
-// viel freien Plattenplatz wie die Sicherung. Der Prozess startet danach neu; die Antwort geht
-// deshalb VOR dem Aufruf raus.
+// viel freien Plattenplatz wie die Sicherung.
+//
+// ZWEI EIGENHEITEN, die man kennen muss:
+//
+// 1. Der Prozess startet NOCH IM AUFRUF neu. Das `return` unten wird im Erfolgsfall nie
+//    erreicht, die Verbindung reißt vorher ab. Der Client wertet genau diesen Abriss als
+//    Erfolg — siehe `sicherungZurueckspielen` in adminApi.ts. Es hilft nicht, die Antwort
+//    vorher rauszuschreiben: Ob sie den Browser noch erreicht, bevor execve zuschlägt, ist
+//    nicht zugesichert.
+// 2. Der Protokolleintrag unten liegt in der Datenbank, die gleich ersetzt wird — er überlebt
+//    den Vorgang also NICHT. Ein Zurückspielen bleibt im Protokoll unsichtbar. Das lässt sich
+//    nicht beheben, solange die Datenbank die Datenbank ersetzt; er wird trotzdem geschrieben,
+//    weil er bei einem FEHLGESCHLAGENEN Versuch stehen bleibt und dann das Einzige ist, was
+//    davon zeugt.
 routerAdd('POST', '/admin/api/backup/{name}/restore', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const raus = a.abweisen(e)

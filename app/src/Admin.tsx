@@ -823,7 +823,8 @@ function Sicherungen({ abgemeldet }: { abgemeldet: () => void }) {
           <span className="satz__name">Wird zurückgespielt …</span>
           <span className="satz__zusatz">
             Die App startet gerade neu und ist ein paar Sekunden lang nicht erreichbar. Diese Seite
-            lädt sich gleich von selbst neu.
+            lädt sich gleich von selbst neu. Danach musst du dich wahrscheinlich neu anmelden — die
+            Sitzungen stammen jetzt aus der zurückgespielten Sicherung.
           </span>
         </div>
       </div>

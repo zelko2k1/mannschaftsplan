@@ -165,11 +165,34 @@ export const adminApi = {
   sicherungLoeschen: (name: string) =>
     ruf<unknown>(`/backup/${encodeURIComponent(name)}`, { method: 'DELETE' }),
 
-  sicherungZurueckspielen: (name: string) =>
-    ruf<{ name: string; sicherheitskopie: string }>(`/backup/${encodeURIComponent(name)}/restore`, {
-      method: 'POST',
-      body: JSON.stringify({ bestaetigung: name }),
-    }),
+  /**
+   * Sonderfall, und ein unangenehmer: Gelingt das Zurückspielen, startet PocketBase noch im
+   * Handler neu. Die Antwort erreicht den Browser dann nie — `fetch` wirft stattdessen einen
+   * Netzwerkfehler. Ein Abriss der Verbindung ist hier also das *Erfolgszeichen*, nicht der
+   * Fehlerfall. Wer das nicht abfängt, meldet dem Kapitän „hat nicht geklappt", während im
+   * Hintergrund alles ersetzt wurde.
+   *
+   * Echte Ablehnungen (fehlende Bestätigung, unbekannte Datei) kommen weiterhin als richtige
+   * HTTP-Antwort an und werden ganz normal gemeldet.
+   */
+  sicherungZurueckspielen: async (name: string) => {
+    let antwort: Response
+    try {
+      antwort = await fetch(`/admin/api/backup/${encodeURIComponent(name)}/restore`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
+        body: JSON.stringify({ bestaetigung: name }),
+      })
+    } catch {
+      return
+    }
+    if (antwort.ok) return
+    if (antwort.status === 404) {
+      throw new Error('Diese Sicherung gibt es nicht mehr, oder die Sitzung ist abgelaufen.')
+    }
+    const koerper = await antwort.json().catch(() => null)
+    throw new Error(koerper?.message || 'Das Zurückspielen hat nicht geklappt.')
+  },
 
   /** Gewöhnlicher Link — der Browser legt die Datei in den Download-Ordner. */
   sicherungUrl: (name: string) => `/admin/api/backup/${encodeURIComponent(name)}`,
