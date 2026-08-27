@@ -76,6 +76,15 @@
   border-bottom: var(--linie-innen);
 }
 .satz:last-child { border-bottom: 0; }
+/* Ein abgeschlossener Spieltag nimmt keine Rückmeldungen mehr an — an ihm ist nichts mehr zu
+   tun. Abgeblendet UND mit einer Kante links: Die Blässe allein liest sich wie „unwichtig",
+   die Kante sagt „hier ist zu". Auf beides zusammen kommt es an, weil Blässe je nach
+   Bildschirm und Umgebungslicht kaum auffällt. */
+.satz--abgeschlossen {
+  opacity: 0.6;
+  border-left: 4px solid var(--grau);
+  padding-left: 0.6rem;
+}
 .satz__kopf {
   display: flex;
   flex-wrap: wrap;

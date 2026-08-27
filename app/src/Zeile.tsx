@@ -73,6 +73,7 @@ export default function Zeile({
     'zeile',
     spieltag.is_home ? 'zeile--heim' : 'zeile--auswaerts',
     vorbei ? 'zeile--vorbei' : '',
+    spieltag.locked ? 'zeile--abgeschlossen' : '',
   ]
     .filter(Boolean)
     .join(' ')
@@ -117,6 +118,14 @@ export default function Zeile({
           </span>
 
           <span className="zeile__stand">
+            {/* Vor dem Zählstand, nicht dahinter: Wenn nichts mehr zu ändern ist, ist das die
+                erste Information, die zählt. */}
+            {spieltag.locked && (
+              <>
+                <span className="zeile__geschlossen">abgeschlossen</span>
+                {' · '}
+              </>
+            )}
             {zugesagt}/{spieltag.needed_players} zugesagt
             {!spieltag.is_home && (
               <>

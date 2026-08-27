@@ -65,6 +65,19 @@
   --rot: var(--rot-auf-gelb);
 }
 .zeile--vorbei { opacity: 0.55; }
+/* „Vorbei" und „abgeschlossen" sind zweierlei: Ein Spieltag von gestern kann noch offen sein,
+   und ein künftiger kann geschlossen sein. Für das Mitglied zählt das zweite — es beantwortet
+   die Frage, ob es seine Zusage noch ändern kann. Deshalb eine eigene Kennzeichnung, die auch
+   dann zu sehen ist, wenn beides zusammenfällt: eine Kante, die nicht mit abblendet. */
+.zeile--abgeschlossen { opacity: 0.55; }
+.zeile--abgeschlossen .zeile__knopf {
+  border-left: 4px solid var(--grau);
+}
+.zeile__geschlossen {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
 
 .zeile__knopf {
   display: grid;

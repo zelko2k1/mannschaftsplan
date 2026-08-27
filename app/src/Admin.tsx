@@ -362,7 +362,7 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
       {items.length === 0 && !entwurf && <p className="namen">Noch keine Termine eingetragen.</p>}
 
       {items.map((s) => (
-        <div key={s.id} className="satz">
+        <div key={s.id} className={`satz${s.locked ? ' satz--abgeschlossen' : ''}`}>
           <div className="satz__kopf">
             <span className="satz__name">{s.opponent_club || s.opponent_town}</span>
             <span className="satz__zusatz">
