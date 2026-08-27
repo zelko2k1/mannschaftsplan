@@ -436,7 +436,7 @@ GET  /j/:token
 POST /api/session          { token }
      → sha256 bilden, in members.token_hash suchen
      → Treffer & active: Session anlegen, dz_sid + dz_csrf setzen, 302 auf /
-     → sonst: HTML-Seite „Link ungültig — frag den Mannschaftsführer", HTTP 200
+     → sonst: HTML-Seite „Link ungültig — frag den Kapitän", HTTP 200
      → einzige schreibende Route ohne CSRF-Prüfung (sie stellt die Session ja erst her)
 
 GET  /api/me

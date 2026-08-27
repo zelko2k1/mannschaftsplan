@@ -103,7 +103,7 @@ module.exports = {
     return GRUNDGERUEST(
       nameEscaped,
       `<h1>Link ungültig</h1>
-<p>Dieser Link funktioniert nicht mehr. Frag den Mannschaftsführer nach einem neuen.</p>`,
+<p>Dieser Link funktioniert nicht mehr. Frag den Kapitän nach einem neuen.</p>`,
       FUSS(einst || {}),
     )
   },

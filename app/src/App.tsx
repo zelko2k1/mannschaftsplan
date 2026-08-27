@@ -29,7 +29,7 @@ function LinkUngueltig() {
         Link ungültig
       </h1>
       <p>Öffne den Link aus deinem Chat noch einmal.</p>
-      <p>Wenn er nicht mehr funktioniert, frag den Mannschaftsführer nach einem neuen.</p>
+      <p>Wenn er nicht mehr funktioniert, frag den Kapitän nach einem neuen.</p>
     </div>
   )
 }
