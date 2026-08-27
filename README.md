@@ -177,11 +177,14 @@ Danach die Spieltage eintragen — Datum, Anwurfzeit, Gegner, Ort, Entfernung. F
 
 Der Reiter **Einstellungen** hat vier Dinge:
 
-**Name des Vereins.** Er erscheint auf der Seite, die ein Mitglied beim Antippen des Links
-sieht, und in der Vorschau, die WhatsApp und andere Messenger erzeugen. Voreingestellt ist
-„Mannschaftsplan". Wie die einzelne **Mannschaft** heißt, steht unter *Diese Mannschaft* —
-absichtlich getrennt: Die Einladungsseite schlägt das Token nicht nach und darf deshalb nicht
-verraten, zu welcher Mannschaft es gehört.
+**Name des Vereins.** Er steht dort, wo es um die Anwendung als Ganzes geht: über Impressum und
+Datenschutzhinweis, auf der Seite „Link ungültig", und als Herausgeber in der Authenticator-App.
+Voreingestellt ist „Mannschaftsplan".
+
+Auf der **Einladungsseite** steht dagegen der Name der Mannschaft, zu der der Link gehört — den
+erwartet das Mitglied, und er landet in der Vorschau, die WhatsApp und andere Messenger erzeugen.
+Ist der Link tot oder das Mitglied deaktiviert, erscheint dort der Vereinsname; die beiden Fälle
+bleiben damit ununterscheidbar.
 
 > Diese Vorschau entsteht auf den Servern des Messengers, **bevor** ein Mensch den Link antippt.
 > Was dort steht, sieht also jeder, dem ein Link weitergeleitet wird. Der Mannschafts- oder

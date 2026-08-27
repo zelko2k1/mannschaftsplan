@@ -756,16 +756,18 @@ function Einstellungen({ abgemeldet, rolle }: { abgemeldet: () => void; rolle: '
       {/* ── Name ─────────────────────────────────────────────────────────────────────────── */}
       <div className="satz">
         <div className="satz__kopf">
-          <span className="satz__name">Name der Mannschaft</span>
+          <span className="satz__name">Name des Vereins</span>
           <span className="satz__zusatz">
-            Steht auf der Einladungsseite und in der Vorschau, die Messenger beim Verschicken eines
-            Links erzeugen.
+            Der Name eures Vereins — er steht dort, wo es um die Anwendung als Ganzes geht: über
+            Impressum und Datenschutzhinweis, auf der Seite „Link ungültig", und als Herausgeber in
+            der Authenticator-App. Auf der <strong>Einladungsseite</strong> steht dagegen der Name
+            der Mannschaft, zu der der Link gehört.
           </span>
         </div>
 
         <div className="satz__aktionen">
           <label className="feld" style={{ flex: '1 1 14rem' }}>
-            <span>Anzeigename</span>
+            <span>Vereinsname</span>
             <input
               value={entwurf.anzeigename}
               maxLength={60}

@@ -30,6 +30,17 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   die Einladungslinks und der Aushang sind unberührt.
 
 ### Geändert
+- **Auf der Einladungsseite steht jetzt die Mannschaft, nicht der Verein.** Den Namen erwartet
+  das Mitglied, und er landet in der Vorschau, die Messenger beim Weiterleiten erzeugen.
+  Das ist eine bewusste Abweichung von R6: Bis hierher wurde das Token auf dieser Seite gar nicht
+  nachgeschlagen, die Antwort war für jede Zeichenkette identisch. Vertretbar ist sie, weil ein
+  Token aus 16 zufälligen Bytes besteht — raten ist ausgeschlossen, und wer eines hat, braucht
+  kein Orakel, er kann es benutzen. Ein **totes Token und ein deaktiviertes Mitglied** zeigen
+  weiterhin beide den Vereinsnamen und bleiben ununterscheidbar. R10 ist unberührt: gelesen,
+  nicht geschrieben — es entsteht keine Sitzung, und der Abruf durch den Messenger verbraucht
+  die Einladung nicht.
+- **Das Feld „Name der Mannschaft" in den Einstellungen heißt jetzt „Name des Vereins".** Es war
+  seit dem Mannschafts-Umbau falsch beschriftet und mit dem Mannschaftsnamen zu verwechseln.
 - **Tempo und Rüstzeit stehen nur noch am Spieltag.** Es gab drei Stufen — zentral, Mannschaft,
   Spieltag —, gedacht als Bequemlichkeit: einmal einstellen, überall gültig. In der Bedienung war
   es das Gegenteil. Wer eine Abfahrtszeit erklären wollte, musste an drei Stellen nachsehen, und

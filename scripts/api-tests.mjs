@@ -207,11 +207,36 @@ await pruefe('T13', 'GET /j/<gültig> legt keine Sitzung an und setzt kein Cooki
   if (!html.includes('action="/api/session"')) throw new Error('Formular fehlt in der Seite')
 })
 
-await pruefe('T13b', 'GET /j/… antwortet für jedes Token gleich (R6)', async () => {
-  const { klartext } = await testMitglied('r6')
-  const a = (await (await roh(`/j/${klartext}`)).text()).replaceAll(klartext, 'X')
-  const b = (await (await roh('/j/voellig-erfunden')).text()).replaceAll('voellig-erfunden', 'X')
-  if (a !== b) throw new Error('Antworten unterscheiden sich — gültige Token wären erkennbar')
+await pruefe('T13b', 'GET /j/… nennt die Mannschaft, verrät aber nichts über tote Token', async () => {
+  // Seit Abschnitt 12 steht auf der Einladungsseite der Name der Mannschaft — das Mitglied
+  // erwartet ihn, und er landet in der Vorschau des Messengers. Damit unterscheidet sich die
+  // Seite für ein gültiges Token, und das ist eine bewusste Abweichung von R6: Ein Token besteht
+  // aus 16 zufälligen Bytes, es zu raten ist ausgeschlossen, und wer eines hat, kann es
+  // ohnehin benutzen.
+  const mannschaft = await zweiteMannschaft()
+  await pb(`/api/collections/teams/records/${mannschaft.id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name: 'test-Sichtbare-Mannschaft' }),
+  })
+  const aktiv = await testMitglied('r6-aktiv', true, mannschaft.id)
+  const inaktiv = await testMitglied('r6-inaktiv', false, mannschaft.id)
+
+  const seite = async (token) => (await (await roh(`/j/${token}`)).text()).replaceAll(token, 'X')
+
+  const gueltig = await seite(aktiv.klartext)
+  stimmt(gueltig.includes('test-Sichtbare-Mannschaft'), 'Der Mannschaftsname fehlt auf der Seite')
+
+  // Was NICHT unterscheidbar sein darf: ein unbekanntes Token und das eines deaktivierten
+  // Mitglieds. Beide zeigen den Vereinsnamen (T2b).
+  const unbekannt = await seite('voellig-erfunden')
+  const deaktiviert = await seite(inaktiv.klartext)
+  if (unbekannt !== deaktiviert) {
+    throw new Error('Unbekannt und deaktiviert unterscheiden sich — inaktive Mitglieder wären erkennbar')
+  }
+  stimmt(
+    !unbekannt.includes('test-Sichtbare-Mannschaft'),
+    'Ein totes Token verrät trotzdem die Mannschaft',
+  )
 })
 
 // ── T1 · Einlösen ──────────────────────────────────────────────────────────────────────────

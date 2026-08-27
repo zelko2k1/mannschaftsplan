@@ -14,12 +14,42 @@ routerAdd('GET', '/j/{token}', (e) => {
   const u = require(`${__hooks}/utils.js`)
   const seiten = require(`${__hooks}/seiten.js`)
 
-  // R6 · Das Token wird hier NICHT nachgeschlagen. Die Antwort ist für jede Zeichenkette
-  // identisch, es gibt also nichts, woran man ein gültiges Token erkennen könnte.
+  // Abschnitt 12 · Hier steht der Name der MANNSCHAFT, zu der das Token gehört — er ist es, den
+  // das Mitglied erwartet, und er landet im Seitentitel und damit in der Vorschau des Messengers.
+  //
+  // DAS IST EINE ABWEICHUNG VON R6, und zwar eine bewusste. Bis hierher wurde das Token gar nicht
+  // nachgeschlagen: Die Antwort war für jede Zeichenkette identisch, ein gültiges Token also
+  // nicht als gültig zu erkennen. Jetzt unterscheidet sich die Überschrift.
+  //
+  // Warum das vertretbar ist: Ein Token besteht aus 16 zufälligen Bytes. Es zu raten ist
+  // ausgeschlossen, und wer eines hat, braucht kein Orakel — er kann es benutzen. Preisgegeben
+  // wird damit nur, zu welcher Mannschaft ein weitergeleiteter Link gehört; bisher stand dort
+  // der Vereinsname, der für alle derselbe ist.
+  //
+  // Was NICHT preisgegeben wird: Ein unbekanntes Token und das eines deaktivierten Mitglieds
+  // liefern beide den Vereinsname — die beiden bleiben ununterscheidbar (T2b).
+  //
+  // R10 bleibt unberührt: gelesen, nicht geschrieben. Es entsteht keine Sitzung, das Token wird
+  // nicht verbraucht, und der Abruf durch den Messenger ändert nichts.
   const token = e.request.pathValue('token')
   const einst = u.einstellungen(e.app)
-  const name = u.escape(einst.anzeigename)
-  return e.blob(200, 'text/html; charset=utf-8', seiten.einloesen(u.escape(token), name, einst))
+
+  let name = einst.anzeigename
+  try {
+    const mitglied = e.app.findFirstRecordByData('members', 'token_hash', $security.sha256(token))
+    if (mitglied && mitglied.getBool('active')) {
+      const mannschaft = u.mannschaft(e.app, mitglied.getString('team'))
+      if (mannschaft.name) name = mannschaft.name
+    }
+  } catch {
+    // Unbekanntes Token — es bleibt beim Vereinsnamen.
+  }
+
+  return e.blob(
+    200,
+    'text/html; charset=utf-8',
+    seiten.einloesen(u.escape(token), u.escape(name), einst),
+  )
 })
 
 // ── GET /impressum und /datenschutz ─────────────────────────────────────────────────────────
