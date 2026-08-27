@@ -1725,7 +1725,7 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
         <p className="namen">Einen Moment …</p>
       ) : (
         <>
-          <h3 className="detail__titel">Admins</h3>
+          <h3 className="satz__gruppe">Admins</h3>
           {admins.length === 0 ? (
             <p className="namen">
               Keins. Du selbst bist als Superuser angemeldet — der ist immer Admin.
@@ -1736,21 +1736,26 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
             </ul>
           )}
 
-          {(teams ?? []).map((t) => {
-            const ihre = items.filter((v) => v.rolle === 'kapitaen' && v.team === t.id)
-            return (
-              <div key={t.id}>
-                <h3 className="detail__titel">{t.name}</h3>
-                {ihre.length === 0 ? (
-                  <p className="namen">Noch kein Kapitän — du betreust sie selbst.</p>
-                ) : (
-                  <ul className="namen" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                    {ihre.map(zeile)}
-                  </ul>
-                )}
-              </div>
-            )
-          })}
+          <h3 className="satz__gruppe">Kapitäne</h3>
+          {(teams ?? []).length === 0 ? (
+            <p className="namen">Noch keine Mannschaft angelegt — siehe Reiter „Verein".</p>
+          ) : (
+            (teams ?? []).map((t) => {
+              const ihre = items.filter((v) => v.rolle === 'kapitaen' && v.team === t.id)
+              return (
+                <div key={t.id}>
+                  <h3 className="satz__untergruppe">{t.name}</h3>
+                  {ihre.length === 0 ? (
+                    <p className="namen">Noch kein Kapitän — du betreust sie selbst.</p>
+                  ) : (
+                    <ul className="namen" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                      {ihre.map(zeile)}
+                    </ul>
+                  )}
+                </div>
+              )
+            })
+          )}
         </>
       )}
     </div>

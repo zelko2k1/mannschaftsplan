@@ -89,6 +89,29 @@
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
+/* Abschnitte INNERHALB eines Satzes. „Admins" und „Kapitäne" stehen gleichrangig neben dem
+   Namen des Satzes und bekommen deshalb dieselbe Größe — kleiner gesetzt sähen sie wie Beiwerk
+   aus, dabei sind sie die Gliederung.
+   `--untergruppe` ist die Stufe darunter, für die einzelnen Mannschaften. Beide hier und nicht
+   aus dem Aushang-Stylesheet geliehen: Dass dessen Klassen hier wirken, liegt nur daran, dass
+   alles in eine Datei gebündelt wird. */
+.satz__gruppe {
+  margin: 1.4rem 0 0.4rem;
+  font-family: var(--schrift-eng);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.satz__untergruppe {
+  margin: 0.9rem 0 0.2rem;
+  font-family: var(--schrift-eng);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--grau);
+}
 .satz__zusatz {
   font-family: var(--schrift-mono);
   font-size: 0.78rem;

@@ -253,8 +253,12 @@ zwei Rollen:
 Jeder Reiter hat genau ein Thema, und die **Auswahl oben** entscheidet, welche Mannschaft
 gemeint ist. *Mannschaft* zeigt bei beiden Rollen dasselbe — ihren Namen und ihre Spieler; der
 Unterschied liegt nur darin, wie viele Mannschaften zur Auswahl stehen. *Konten* trägt alle
-Verwalterkonten, nach Mannschaft gruppiert, und zeigt auch, welche Mannschaft noch keinen
-Kapitän hat. *Verein* trägt, was für alle gilt: Vereinsname, Sperrfrist, Rechtstexte, die Liste
+Verwalterkonten in zwei Abschnitten — Admins und Kapitäne, letztere nach Mannschaft gruppiert —
+und zeigt auch, welche Mannschaft noch keinen Kapitän hat.
+
+> **Ein Konto zu löschen nimmt den Spieler nicht mit.** Weg sind das Konto, seine offenen
+> Sitzungen und sein zweiter Faktor. Der Spielereintrag bleibt, mitsamt Einladungslink,
+> Rückmeldungen und Mannschaft: Wer aufhört, Kapitän zu sein, spielt weiter. *Verein* trägt, was für alle gilt: Vereinsname, Sperrfrist, Rechtstexte, die Liste
 der Mannschaften und die Sicherungen.
 
 Beide erreichen über ihren Namen im Kopf **Mein Konto** — zweiter Faktor und eigenes Passwort.
