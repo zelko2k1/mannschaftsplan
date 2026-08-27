@@ -7,6 +7,30 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+### Behoben
+- **Die Kapitänsansicht scrollte auf dem Handy zur Seite.** Fünf Reiter brauchten bei 320 px
+  Breite 372 px — die ganze Seite ließ sich 54 px nach rechts schieben, und „Protokoll" lag halb
+  außerhalb. Der Streifen bricht jetzt um: drei Reiter, dann zwei, jeder weiterhin 44 px hoch.
+  Ab etwa 500 px stehen wieder alle fünf nebeneinander. Die Trennlinien sind dabei von Rahmen zu
+  Lücken geworden — ein Rahmen müsste beim Umbruch wissen, ob er am Zeilenende steht, eine Lücke
+  weiß das von selbst.
+- **Der Stempel „Komplett" schob den Aushang 8 px aus dem Bild.** Seine Drehung um 7 Grad macht
+  den Malbereich breiter als den Platz im Layout; bei 320 px ragte die obere rechte Ecke hinaus.
+  Er rückt jetzt weit genug herein, und der Rahmen des Aushangs schneidet zusätzlich ab, was über
+  ihn hinausragt.
+- **Berührungsziele halten die eigene 44-px-Zusage aus PRODUCT.md.** „Abmelden" im Kopfbalken war
+  26 px hoch, die Verweise auf Impressum und Datenschutz im Fuß 15 px, die Mannschaftsauswahl
+  26 px. Alle drei sind auf 44 px gewachsen — aber **nur bei Bedienung mit dem Finger**
+  (`pointer: coarse`) und nur in der Fläche zum Antippen: Innenabstand hinaus, negativer
+  Außenabstand zurück, das Bild bleibt gleich. An der Maus ändert sich nichts.
+- **Angetippte Knöpfe bleiben nicht mehr „gedrückt".** Auf einem Handy hängt ein `:hover` nach
+  dem Antippen fest, bis irgendwo anders getippt wird. Die Schwebezustände gelten jetzt nur noch,
+  wo es ein Zeigegerät gibt, das schweben kann.
+- **Safari zoomt beim Antippen der Mannschaftsauswahl nicht mehr hinein.** Sie war 13,6 px groß;
+  unter 16 px vergrößert iOS die ganze Seite, sobald ein Bedienelement den Fokus bekommt — der
+  Kopfbalken sprang dabei aus dem Bild.
+- **Die Seitenhöhe rechnet die Browserleiste mit** (`100dvh` mit `100vh` als Rückfall).
+
 ### Geändert
 - **Wiederkehrende Stilangaben sind jetzt Teil des Entwurfs statt Beiwerk im Bauteil.** In
   `Admin.tsx` standen 48 Stilangaben direkt am Element; 31 davon waren Wiederholungen derselben

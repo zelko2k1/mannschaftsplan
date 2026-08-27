@@ -6,8 +6,10 @@
   max-width: 52rem;
   margin: 0 auto;
   min-height: 100vh;
+  min-height: 100dvh;
   border-inline: var(--linie);
   background: var(--papier);
+  overflow-x: clip;
 }
 
 /* Papierfarbe, schmale Schrift, Versalien und Sperrung kommen aus `.balken`. Der Unterschied zum
@@ -43,17 +45,31 @@
   font-family: var(--schrift-mono);
 }
 
+/* Fünf Reiter passen bei 320 px nicht nebeneinander: Sie brauchten 372 px und schoben die ganze
+   Seite 54 px zur Seite — auf einem Handy scrollte die Kapitänsansicht quer, und „Protokoll" lag
+   halb außerhalb. Drei und zwei ist die ehrlichere Antwort als ein Reiter, der aus dem Bild ragt.
+
+   Die Trennlinien sind deshalb keine Rahmen mehr, sondern Lücken: Der Streifen ist eine Tafel in
+   Tinte, die Reiter sind Papierkacheln darauf. Ein Rahmen müsste beim Umbruch wissen, ob er am
+   Zeilenende steht; eine Lücke weiß das von selbst, und zwar in beide Richtungen. Der gewählte
+   Reiter ist dann kein gefülltes Kästchen mehr, sondern ein Loch in der Kachelreihe — dieselbe
+   Wirkung, ein einfacherer Gedanke. */
 .reiter {
   display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  background: var(--tinte);
   border-bottom: var(--linie);
 }
 .reiter__knopf {
-  flex: 1 1 0;
+  /* Wächst in seine Zeile, bricht aber um, statt sich unter die Lesbarkeit zu quetschen.
+     6rem ist die Breite, unter der „Mannschaft" in dieser Schrift nicht mehr trägt. */
+  flex: 1 1 auto;
+  min-width: 6rem;
   min-height: 44px;
   padding: 0.6rem 0.4rem;
-  background: none;
+  background: var(--papier);
   border: 0;
-  border-right: var(--linie);
   font-family: var(--schrift-eng);
   font-size: 0.95rem;
   font-weight: 600;
@@ -62,7 +78,6 @@
   color: var(--grau);
   cursor: pointer;
 }
-.reiter__knopf:last-child { border-right: 0; }
 .reiter__knopf[aria-current='true'] {
   background: var(--tinte);
   color: var(--papier);
@@ -162,9 +177,11 @@
   border-color: var(--rot);
   color: var(--rot);
 }
-.knopf--gefahr:hover:not(:disabled) {
-  background: var(--rot);
-  color: var(--papier);
+@media (hover: hover) {
+  .knopf--gefahr:hover:not(:disabled) {
+    background: var(--rot);
+    color: var(--papier);
+  }
 }
 
 .feldreihe {
@@ -211,6 +228,17 @@
   border: 2px solid var(--tinte);
   color: var(--tinte);
   max-width: 12rem;
+}
+/* Zwei Gründe, beide nur am Handy: Safari zoomt die ganze Seite hinein, sobald ein Bedienelement
+   mit weniger als 16 px angetippt wird — der Kopfbalken sprang dann aus dem Bild. Und 26 px sind
+   für einen Daumen zu wenig. An der Maus bleibt die Auswahl klein; dort ist sie eine Angabe im
+   Kopf und soll nicht wie ein Formularfeld wirken. */
+@media (pointer: coarse) {
+  .admin__mannschaft {
+    font-size: 16px;
+    min-height: 44px;
+    padding: 0.2rem 0.4rem;
+  }
 }
 .feld__hinweis {
   font-family: var(--schrift-mono);

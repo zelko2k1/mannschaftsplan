@@ -7,8 +7,16 @@
   margin: 0 auto;
   /* Zwei durchgehende Linien am Rand — der Aushang hat einen Rahmen, kein Karten-Raster. */
   border-inline: var(--linie);
+  /* `dvh` rechnet die ein- und ausfahrende Browserleiste mit; `vh` bleibt als Rückfall für
+     Browser, die es nicht kennen. */
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--papier);
+  /* Der Rahmen ist eine echte Kante: Was darüber hinausragt, wird abgeschnitten statt die Seite
+     zu verbreitern. Der Stempel „Komplett" tat genau das — seine Drehung um 7 Grad macht seinen
+     Malbereich breiter als seinen Platz, und bei 320 px ragte er 8 px aus dem Bild. `clip`
+     statt `hidden`: Es macht keinen Scrollbereich auf, der Kopfbalken klebt weiter. */
+  overflow-x: clip;
 }
 
 /* ── Kopfbalken ──────────────────────────────────────────────────────────────────────────── */
@@ -50,7 +58,24 @@
   text-underline-offset: 3px;
   cursor: pointer;
 }
-.kopf__abmelden:hover { color: var(--tinte); }
+/* Ein Zeigegerät, das schweben kann, gibt es nur an der Maus. Auf einem Handy bleibt ein
+   :hover nach dem Antippen hängen, bis irgendwo anders getippt wird — der Knopf sieht dann aus,
+   als sei er noch gedrückt. */
+@media (hover: hover) {
+  .kopf__abmelden:hover { color: var(--tinte); }
+}
+
+/* Der Finger trifft nicht, was die Maus trifft. PRODUCT.md verlangt 44 px; dieser Textknopf im
+   Kopfbalken war 26 px hoch. Das Ziel wächst über Innenabstand und wird über einen negativen
+   Außenabstand wieder eingesammelt: Die Fläche zum Antippen wird größer, das Bild bleibt gleich.
+   Nur bei grobem Zeigegerät — an der Maus wäre der Kopfbalken sonst grundlos hoch. */
+@media (pointer: coarse) {
+  /* 0,8 rem Schrift bei Zeilenhöhe 1,4 ergibt 18 px Inhalt; für 44 px fehlen 13 px je Seite. */
+  .kopf__abmelden {
+    padding: 0.82rem 0.5rem;
+    margin: -0.82rem -0.5rem;
+  }
+}
 
 /* ── Eine Zeile = ein Spieltag ───────────────────────────────────────────────────────────── */
 .zeile {
@@ -212,7 +237,11 @@
 .stempel {
   display: block;
   width: fit-content;
-  margin: 0.4rem 0.1rem 0 auto;
+  /* Rechts 0,75 rem statt 0,1: Die Drehung um 7 Grad hebt die rechte Seite an, und die obere
+     rechte Ecke ragte damit 10 px über den Platz hinaus, den das Layout ihr gibt — bei 320 px
+     aus dem Bild. Der Rahmen des Aushangs schneidet das inzwischen ab, aber abgeschnittene
+     Tinte ist ein Fehler und keine Gestaltung. Also so weit hinein, dass nichts anliegt. */
+  margin: 0.4rem 0.75rem 0 auto;
   padding: 0.15rem 0.5rem;
   border: 2px solid var(--stempel);
   color: var(--stempel);
@@ -276,7 +305,9 @@
   text-transform: uppercase;
   cursor: pointer;
 }
-.knopf:hover:not(:disabled) { background: color-mix(in srgb, var(--tinte) 12%, transparent); }
+@media (hover: hover) {
+  .knopf:hover:not(:disabled) { background: color-mix(in srgb, var(--tinte) 12%, transparent); }
+}
 .knopf[aria-pressed='true'] {
   background: var(--tinte);
   color: var(--papier);
@@ -368,6 +399,18 @@
   line-height: 1.6;
   color: var(--grau);
   text-align: center;
+}
+/* Impressum und Datenschutz sind Textverweise in einer 0,72-rem-Zeile — 15 px hoch, und damit
+   für einen Daumen zu wenig. Dieselbe Bauweise wie beim Abmelden: Innenabstand hinaus,
+   Außenabstand zurück. Die Zeile darüber ist kein Verweis, überlappende Ziele gibt es also
+   nicht. */
+@media (pointer: coarse) {
+  /* 0,72 rem bei Zeilenhöhe 1,6 ergibt 18,4 px; für 44 px fehlen 12,8 px je Seite. */
+  .fuss a {
+    display: inline-block;
+    padding: 0.8rem 0.5rem;
+    margin: -0.8rem -0.2rem;
+  }
 }
 
 .gesperrt {
