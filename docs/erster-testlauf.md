@@ -188,11 +188,35 @@ Der Tunnel ist für den Notfall gedacht, nicht für den Betrieb.
 Drei Dinge, die nicht zu den Testfällen gehören, aber vor dem ersten echten Mitglied erledigt sein
 sollten:
 
-- **T12 · Eine Sicherung zurückspielen.** `scripts/backup.sh` laufen lassen, die Datei auf einen
-  anderen Rechner holen, dann über `POST /api/backups/<datei>/restore` (durch den Tunnel)
-  einspielen. Danach prüfen, ob der Datenstand **und** die App wieder da sind — Hooks, Migrationen
-  und die Auslieferung aus `pb_public` müssen den Neustart überstehen. Eine ungetestete Sicherung
-  ist keine.
+- **T12 · Eine Sicherung zurückspielen.** Eine ungetestete Sicherung ist keine. Der Ablauf hat
+  eine Stelle, die man beim ersten Mal nicht errät:
+
+  1. **Port öffnen** wie in A12 Schritt 1 — auch wenn du auf dem Server selbst arbeitest.
+     `backup.sh` spricht `http://127.0.0.1:8090` an, und ohne die `ports`-Zeile lauscht dort
+     nichts.
+  2. **`scripts/backup.sh` laufen lassen.** Es erzeugt die Sicherung, lädt sie herunter — und
+     **löscht den Serverstand danach wieder**. Das ist Absicht, damit `pb_data` nicht wächst.
+  3. **Die Datei auf einen anderen Rechner holen** (`scp`) und den Stand auf dem Server löschen.
+     Solange sie die Maschine nicht verlassen hat, prüfst du nichts.
+  4. **Etwas anlegen, das verschwinden muss** — etwa ein Mitglied namens `RESTORE-TEST`. Ohne das
+     siehst du hinterher denselben Datenstand wie vorher und weißt nicht, ob überhaupt etwas
+     passiert ist.
+  5. **Datei zurückschieben und hochladen.** Weil Schritt 2 den Serverstand gelöscht hat, kennt
+     PocketBase die Datei nicht mehr — sie muss erst wieder hinein:
+
+     ```bash
+     curl -s -o /dev/null -w '%{http_code}
+' -X POST http://127.0.0.1:8090/api/backups/upload        -H "Authorization: $TOKEN" -F "file=@$HOME/backup/<datei>"
+     ```
+
+     Erst danach greift `POST /api/backups/<datei>/restore`. Beide antworten mit `204`.
+  6. **Nachsehen, und zwar zweimal.** Sind Mitglieder und Spieltage zurück und `RESTORE-TEST` weg?
+     Und läuft die **App** noch — Aushang, Einladungslink, Datenschutzseite? Hooks, Migrationen
+     und die Auslieferung aus `pb_public` müssen den Neustart überstehen. Das ist der Teil, den
+     man übersieht.
+
+  Danach die `ports`-Zeile wieder schließen und die Sicherungsdatei vom Server nehmen — sie liegt
+  dort unverschlüsselt und enthält alles.
 - **Auftragsverarbeitungsvertrag** mit dem Anbieter abschließen.
 - **Impressum und Datenschutzhinweis** unter Einstellungen eintragen und beide Seiten einmal ohne
   Anmeldung aufrufen.
