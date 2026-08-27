@@ -15,7 +15,31 @@ import {
 import { ausEingabe, fuerEingabe, systemDatum, systemDatumZeit } from './format'
 import './admin.css'
 
-type Reiter = 'spieltage' | 'mannschaften' | 'einstellungen' | 'protokoll'
+type Reiter = 'spieltage' | 'mannschaften' | 'einstellungen' | 'protokoll' | 'konto'
+
+/**
+ * Welche Reiter sieht welche Rolle? — Abschnitt 12.
+ *
+ * Der Kapitän sieht die Arbeit seiner Mannschaft: Spieltage, die Mannschaft selbst, und das
+ * Protokoll, mit dem sich eine strittige Zusage klären lässt. Die zentralen Einstellungen gehen
+ * ihn nichts an, und der Server gäbe sie ihm auch nicht.
+ *
+ * `konto` steht in keiner Liste: Es gehört zur Person, nicht zur Mannschaft, und wird über den
+ * eigenen Namen im Kopf geöffnet.
+ */
+const REITER: Record<'admin' | 'kapitaen', [Reiter, string][]> = {
+  admin: [
+    ['spieltage', 'Spieltage'],
+    ['mannschaften', 'Mannschaften'],
+    ['einstellungen', 'Einstellungen'],
+    ['protokoll', 'Protokoll'],
+  ],
+  kapitaen: [
+    ['spieltage', 'Spieltage'],
+    ['mannschaften', 'Mannschaft'],
+    ['protokoll', 'Protokoll'],
+  ],
+}
 
 export default function Admin() {
   const [ich, setIch] = useState<Wer | null>(null)
@@ -60,7 +84,7 @@ export default function Admin() {
   return (
     <div className="admin">
       <header className="admin__kopf">
-        <h1>{ich.rolle === 'gesamt' ? 'Verwaltung' : 'Kapitän'}</h1>
+        <h1>{ich.rolle === 'admin' ? 'Verwaltung' : 'Kapitän'}</h1>
         <span className="admin__wer">
           {/* Ein Kapitän hat genau eine Mannschaft — dann ist eine Auswahl mit einem Eintrag
               keine Auswahl, sondern eine Irreführung. Er sieht den Namen. */}
@@ -81,7 +105,16 @@ export default function Admin() {
             <strong>{ich.teams[0]?.name ?? '—'}</strong>
           )}
           {' · '}
-          {ich.email}
+          {/* Das eigene Konto gehört zur Person, nicht zur Mannschaft — deshalb hier und nicht
+              in einem Reiter. Der Kapitän erreicht darüber seinen zweiten Faktor. */}
+          <button
+            type="button"
+            className="kopf__abmelden"
+            aria-current={reiter === 'konto'}
+            onClick={() => setReiter('konto')}
+          >
+            {ich.email}
+          </button>
           {' · '}
           <button
             type="button"
@@ -97,14 +130,7 @@ export default function Admin() {
       </header>
 
       <nav className="reiter">
-        {(
-          [
-            ['spieltage', 'Spieltage'],
-            ['mannschaften', 'Mannschaften'],
-            ['einstellungen', 'Einstellungen'],
-            ['protokoll', 'Protokoll'],
-          ] as [Reiter, string][]
-        ).map(([wert, text]) => (
+        {REITER[ich.rolle].map(([wert, text]) => (
           <button
             key={wert}
             type="button"
@@ -129,13 +155,14 @@ export default function Admin() {
             neuLaden={() => void werBinIch()}
           />
         )}
-        {reiter === 'einstellungen' && (
-          <Einstellungen abgemeldet={abgemeldet} rolle={ich.rolle} />
+        {reiter === 'einstellungen' && ich.rolle === 'admin' && (
+          <Einstellungen abgemeldet={abgemeldet} />
         )}
+        {reiter === 'konto' && <MeinKonto abgemeldet={abgemeldet} />}
         {/* Der Gesamt-Admin sieht das ganze Protokoll — die zentralen Ereignisse gehören zu
             keiner Mannschaft und fielen sonst durch jeden Filter. */}
         {reiter === 'protokoll' && (
-          <Protokoll abgemeldet={abgemeldet} team={ich.rolle === 'gesamt' ? '' : gewaehlt} />
+          <Protokoll abgemeldet={abgemeldet} team={ich.rolle === 'admin' ? '' : gewaehlt} />
         )}
       </div>
     </div>
@@ -662,10 +689,10 @@ function Mitglieder({ abgemeldet, team }: { abgemeldet: () => void; team: string
 // Ein Formular, ein Knopf. Geschickt wird nur, was sich geändert hat — der Server schreibt je
 // geändertem Feld eine Protokollzeile, und eine Zeile „80 → 80" wäre Rauschen.
 /**
- * Was für ALLE Mannschaften gilt — plus der eigene zweite Faktor, der zu keiner gehört, sondern
- * zur angemeldeten Person. Was einer einzelnen Mannschaft gehört, steht im Reiter „Mannschaften".
+ * Was für ALLE Mannschaften gilt — Sache des Admins. Was einer einzelnen Mannschaft gehört,
+ * steht im Reiter „Mannschaften"; was zur angemeldeten Person gehört, unter „Mein Konto".
  */
-function Einstellungen({ abgemeldet, rolle }: { abgemeldet: () => void; rolle: 'gesamt' | 'kapitaen' }) {
+function Einstellungen({ abgemeldet }: { abgemeldet: () => void }) {
   const [daten, setDaten] = useState<EinstellungenDaten | null>(null)
   const [entwurf, setEntwurf] = useState<EinstellungenDaten | null>(null)
   const [fehler, setFehler] = useState('')
@@ -743,9 +770,6 @@ function Einstellungen({ abgemeldet, rolle }: { abgemeldet: () => void; rolle: '
 
   return (
     <>
-    {/* Die zentralen Einstellungen gehen alle Mannschaften an — ein Kapitän sieht sie gar nicht
-        erst. Der Server lehnt sie ihm ohnehin ab; hier steht, dass es kein Versehen ist. */}
-    {rolle === 'gesamt' && (
     <form onSubmit={speichern}>
       {fehler && (
         <p className="fehler" role="status">
@@ -881,10 +905,131 @@ function Einstellungen({ abgemeldet, rolle }: { abgemeldet: () => void; rolle: '
         </div>
       </div>
     </form>
-    )}
-    <ZweiterFaktor abgemeldet={abgemeldet} />
-    {rolle === 'gesamt' && <Sicherungen abgemeldet={abgemeldet} />}
+    <Sicherungen abgemeldet={abgemeldet} />
     </>
+  )
+}
+
+/**
+ * „Mein Konto" — was zur angemeldeten Person gehört und zu keiner Mannschaft: der zweite Faktor
+ * und das eigene Passwort.
+ *
+ * Steht bewusst nicht in der Reiterleiste, sondern hinter dem eigenen Namen im Kopf. Ein Kapitän
+ * sieht sonst nur Spieltage, Mannschaft und Protokoll — sein Konto ist keine vierte Aufgabe,
+ * sondern eine Eigenschaft von ihm.
+ */
+function MeinKonto({ abgemeldet }: { abgemeldet: () => void }) {
+  return (
+    <>
+      <ZweiterFaktor abgemeldet={abgemeldet} />
+      <Passwort abgemeldet={abgemeldet} />
+    </>
+  )
+}
+
+/**
+ * Das eigene Passwort ändern. Kapitäne bekommen ein erzeugtes und sollen es ersetzen können,
+ * ohne dafür jemanden zu fragen.
+ */
+function Passwort({ abgemeldet }: { abgemeldet: () => void }) {
+  const [alt, setAlt] = useState('')
+  const [neu, setNeu] = useState('')
+  const [wiederholt, setWiederholt] = useState('')
+  const [fehler, setFehler] = useState('')
+  const [fertig, setFertig] = useState('')
+  const [laeuft, setLaeuft] = useState(false)
+
+  const passt = neu.length >= 10 && neu === wiederholt && alt.length > 0
+
+  return (
+    <div className="satz">
+      <div className="satz__kopf">
+        <span className="satz__name">Passwort ändern</span>
+        <span className="satz__zusatz">
+          Mindestens zehn Zeichen. Das bisherige muss mit — sonst genügte eine übernommene
+          Sitzung, um dich dauerhaft auszusperren. Deine anderen angemeldeten Geräte fliegen
+          dabei heraus; das ist meist der Grund, warum man ein Passwort ändert.
+        </span>
+      </div>
+
+      {fehler && (
+        <p className="fehler" role="status">
+          {fehler}
+        </p>
+      )}
+      {fertig && (
+        <p className="satz__zusatz" role="status">
+          {fertig}
+        </p>
+      )}
+
+      <div className="satz__aktionen" style={{ flexWrap: 'wrap' }}>
+        <label className="feld" style={{ flex: '1 1 12rem' }}>
+          <span>Bisheriges Passwort</span>
+          <input
+            type="password"
+            autoComplete="current-password"
+            value={alt}
+            onChange={(x) => setAlt(x.target.value)}
+          />
+        </label>
+        <label className="feld" style={{ flex: '1 1 12rem' }}>
+          <span>Neues Passwort</span>
+          <input
+            type="password"
+            autoComplete="new-password"
+            value={neu}
+            onChange={(x) => setNeu(x.target.value)}
+          />
+        </label>
+        <label className="feld" style={{ flex: '1 1 12rem' }}>
+          <span>Noch einmal</span>
+          <input
+            type="password"
+            autoComplete="new-password"
+            value={wiederholt}
+            onChange={(x) => setWiederholt(x.target.value)}
+          />
+          {neu.length > 0 && neu.length < 10 && (
+            <span className="feld__hinweis">Noch zu kurz.</span>
+          )}
+          {neu.length >= 10 && wiederholt.length > 0 && neu !== wiederholt && (
+            <span className="feld__hinweis">Die beiden stimmen nicht überein.</span>
+          )}
+        </label>
+      </div>
+
+      <div className="satz__aktionen">
+        <button
+          type="button"
+          className="knopf"
+          disabled={!passt || laeuft}
+          onClick={async () => {
+            setLaeuft(true)
+            setFehler('')
+            setFertig('')
+            try {
+              const d = await adminApi.passwortAendern(alt, neu)
+              setAlt('')
+              setNeu('')
+              setWiederholt('')
+              setFertig(
+                d.sitzungen_beendet
+                  ? `Geändert. ${d.sitzungen_beendet} weitere Anmeldung(en) beendet.`
+                  : 'Geändert.',
+              )
+            } catch (x) {
+              if (x instanceof NichtAngemeldet) return abgemeldet()
+              setFehler(x instanceof Error ? x.message : 'Das hat nicht geklappt.')
+            } finally {
+              setLaeuft(false)
+            }
+          }}
+        >
+          {laeuft ? 'Ändert …' : 'Passwort ändern'}
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -1110,15 +1255,15 @@ function MannschaftenReiter({
 }: {
   abgemeldet: () => void
   team: string
-  rolle: 'gesamt' | 'kapitaen'
+  rolle: 'admin' | 'kapitaen'
   neuLaden: () => void
 }) {
   return (
     <>
       <Mannschaftseinstellungen abgemeldet={abgemeldet} team={team} neuLaden={neuLaden} />
       <Mitglieder abgemeldet={abgemeldet} team={team} />
-      {rolle === 'gesamt' && <Kapitaene abgemeldet={abgemeldet} team={team} />}
-      {rolle === 'gesamt' && <Mannschaften abgemeldet={abgemeldet} neuLaden={neuLaden} />}
+      {rolle === 'admin' && <Kapitaene abgemeldet={abgemeldet} team={team} />}
+      {rolle === 'admin' && <Mannschaften abgemeldet={abgemeldet} neuLaden={neuLaden} />}
     </>
   )
 }
@@ -1338,7 +1483,14 @@ function Mannschaften({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLad
  */
 function Kapitaene({ abgemeldet, team }: { abgemeldet: () => void; team: string }) {
   const { items, fehler, setFehler, laden } = useListe<Verwalterkonto>(adminApi.verwalter, abgemeldet)
+  // Für die Verknüpfung zum Spielereintrag — das Vorbild ist `playerId` in der Dartszentrale.
+  const { items: spieler } = useListe<AdminMitglied>(
+    () => adminApi.mitglieder(team),
+    abgemeldet,
+    team,
+  )
   const [email, setEmail] = useState('')
+  const [mitglied, setMitglied] = useState('')
   const [laeuft, setLaeuft] = useState(false)
   const [gezeigt, setGezeigt] = useState<{ email: string; passwort: string } | null>(null)
 
@@ -1412,15 +1564,30 @@ function Kapitaene({ abgemeldet, team }: { abgemeldet: () => void; team: string 
             onChange={(x) => setEmail(x.target.value)}
           />
         </label>
+        <label className="feld" style={{ flex: '0 1 12rem' }}>
+          <span>Spielt als</span>
+          <select value={mitglied} onChange={(x) => setMitglied(x.target.value)}>
+            <option value="">— spielt nicht mit —</option>
+            {(spieler ?? []).map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+          <span className="feld__hinweis">
+            Sein Eintrag in dieser Mannschaft. Wer nur organisiert, bleibt unverknüpft.
+          </span>
+        </label>
         <button
           type="button"
           className="knopf"
           disabled={!email.trim() || !team || laeuft}
           onClick={() =>
             fuehreAus(async () => {
-              const d = await adminApi.verwalterAnlegen(email.trim(), 'kapitaen', team)
+              const d = await adminApi.verwalterAnlegen(email.trim(), 'kapitaen', team, mitglied)
               setGezeigt({ email: d.email, passwort: d.passwort })
               setEmail('')
+              setMitglied('')
             })
           }
         >
@@ -1448,7 +1615,15 @@ function Kapitaene({ abgemeldet, team }: { abgemeldet: () => void; team: string 
                 borderTop: 'var(--linie)',
               }}
             >
-              <span style={{ flex: '1 1 14rem' }}>{v.email}</span>
+              <span style={{ flex: '1 1 14rem' }}>
+                {v.email}
+                {v.mitglied && (
+                  <span className="satz__zusatz">
+                    {' · spielt als '}
+                    {(spieler ?? []).find((m) => m.id === v.mitglied)?.name ?? '—'}
+                  </span>
+                )}
+              </span>
               <span className="satz__zusatz">
                 {v.totp ? 'zweiter Faktor an' : 'nur Passwort'}
               </span>

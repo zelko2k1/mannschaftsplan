@@ -1629,6 +1629,141 @@ await pruefe('T17', 'Der Gesamt-Admin sieht den zweiten Faktor der Kapitäne und
   )
 })
 
+await pruefe('T18', 'Der Admin ist weder Kapitän noch Spieler, und ein Kapitän spielt in seiner Mannschaft', async () => {
+  const { jar } = await adminAnmelden()
+  const ruf = alsKapitaen(jar)
+  const eigenes = await testTeam()
+  const fremde = await zweiteMannschaft()
+
+  const meiner = await testMitglied('t18-eigen')
+  const fremder = await testMitglied('t18-fremd', true, fremde.id)
+
+  const adresse = () => `test-t18-${randomBytes(4).toString('hex')}@example.org`
+
+  // Vorbild Dartszentrale: Ein Konto verweist OPTIONAL auf einen Spieler. Beim Admin nie —
+  // er verwaltet, er spielt nicht.
+  gleich(
+    (
+      await ruf('/admin/api/verwalter', {
+        method: 'POST',
+        body: JSON.stringify({ email: adresse(), rolle: 'admin', team: eigenes }),
+      })
+    ).status,
+    400,
+    'Admin mit Mannschaft',
+  )
+  gleich(
+    (
+      await ruf('/admin/api/verwalter', {
+        method: 'POST',
+        body: JSON.stringify({ email: adresse(), rolle: 'admin', mitglied: meiner.satz.id }),
+      })
+    ).status,
+    400,
+    'Admin mit Spielereintrag',
+  )
+
+  // Ein Kapitän darf nur mit einem Spieler SEINER Mannschaft verknüpft werden — sonst stünde er
+  // in einer fremden, und die Trennung wäre wieder offen.
+  gleich(
+    (
+      await ruf('/admin/api/verwalter', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: adresse(),
+          rolle: 'kapitaen',
+          team: eigenes,
+          mitglied: fremder.satz.id,
+        }),
+      })
+    ).status,
+    400,
+    'Kapitän mit fremdem Spieler',
+  )
+
+  const verknuepft = await (
+    await ruf('/admin/api/verwalter', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: adresse(),
+        rolle: 'kapitaen',
+        team: eigenes,
+        mitglied: meiner.satz.id,
+      }),
+    })
+  ).json()
+  aufraeumen.push(['verwalter', verknuepft.id])
+
+  const finde = async () =>
+    (await (await ruf('/admin/api/verwalter')).json()).items.find((v) => v.id === verknuepft.id)
+  gleich((await finde()).mitglied, meiner.satz.id, 'Verknüpfung steht')
+
+  // Ein Konto, das zum Admin wird, verliert Mannschaft UND Spielereintrag.
+  gleich(
+    (await ruf(`/admin/api/verwalter/${verknuepft.id}`, { method: 'PATCH', body: '{"rolle":"admin"}' })).status,
+    200,
+    'zum Admin machen',
+  )
+  const danach = await finde()
+  gleich(danach.rolle, 'admin', 'Rolle')
+  gleich(danach.team, '', 'keine Mannschaft mehr')
+  gleich(danach.mitglied, '', 'kein Spielereintrag mehr')
+})
+
+await pruefe('T19', 'Jeder ändert sein eigenes Passwort, aber nur mit dem bisherigen', async () => {
+  const { jar } = await adminAnmelden()
+  const ruf = alsKapitaen(jar)
+
+  const email = `test-t19-${randomBytes(4).toString('hex')}@example.org`
+  const konto = await (
+    await ruf('/admin/api/verwalter', {
+      method: 'POST',
+      body: JSON.stringify({ email, rolle: 'kapitaen', team: await testTeam() }),
+    })
+  ).json()
+  aufraeumen.push(['verwalter', konto.id])
+
+  const anmelden2 = async (passwort) =>
+    roh('/admin/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: passwort }),
+    })
+
+  const ersteAnmeldung = await anmelden2(konto.passwort)
+  gleich(ersteAnmeldung.status, 200, 'Anmeldung mit dem erzeugten Passwort')
+  const alsKap = alsKapitaen(kekse(ersteAnmeldung).jar)
+
+  gleich(
+    (await alsKap('/admin/api/passwort', { method: 'PATCH', body: '{"alt":"falsch","neu":"NeuesPasswort123"}' })).status,
+    400,
+    'falsches bisheriges Passwort',
+  )
+  gleich(
+    (
+      await alsKap('/admin/api/passwort', {
+        method: 'PATCH',
+        body: JSON.stringify({ alt: konto.passwort, neu: 'kurz' }),
+      })
+    ).status,
+    400,
+    'zu kurzes neues Passwort',
+  )
+  gleich(
+    (
+      await alsKap('/admin/api/passwort', {
+        method: 'PATCH',
+        body: JSON.stringify({ alt: konto.passwort, neu: 'NeuesPasswort123' }),
+      })
+    ).status,
+    200,
+    'Passwort ändern',
+  )
+
+  gleich((await anmelden2(konto.passwort)).status, 401, 'altes Passwort gilt nicht mehr')
+  gleich((await anmelden2('NeuesPasswort123')).status, 200, 'neues Passwort gilt')
+})
+
 await pruefe('T9', '6× falsches Passwort → gesperrt, auch für das richtige', async () => {
   let letzter = null
   for (let i = 0; i < 6; i++) letzter = (await adminAnmelden('immer-falsch')).antwort

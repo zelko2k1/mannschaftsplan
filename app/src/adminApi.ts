@@ -78,8 +78,10 @@ export type Mannschaft = {
 export type Verwalterkonto = {
   id: string
   email: string
-  rolle: 'gesamt' | 'kapitaen'
+  rolle: 'admin' | 'kapitaen'
   team: string
+  /** Der Spielereintrag, falls die Person mitspielt. Beim Admin immer leer. */
+  mitglied: string
   /** Ob dieses Konto einen zweiten Faktor eingerichtet hat. Nie das Geheimnis selbst. */
   totp: boolean
 }
@@ -87,8 +89,10 @@ export type Verwalterkonto = {
 /** Wer angemeldet ist und was er darf. Kommt aus `/admin/api/me`. */
 export type Wer = {
   email: string
-  rolle: 'gesamt' | 'kapitaen'
+  rolle: 'admin' | 'kapitaen'
   team: string
+  /** Der eigene Spielereintrag, falls verknüpft. */
+  mitglied: string
   /** Zur Auswahl: alle Mannschaften, für einen Kapitän genau seine eine. */
   teams: { id: string; name: string }[]
 }
@@ -168,6 +172,13 @@ export const adminApi = {
     return antwort.json() as Promise<{ email: string }>
   },
 
+  /** Das eigene Passwort ändern. Das bisherige muss mit — sonst genügte eine übernommene Sitzung. */
+  passwortAendern: (alt: string, neu: string) =>
+    ruf<{ sitzungen_beendet: number }>('/passwort', {
+      method: 'PATCH',
+      body: JSON.stringify({ alt, neu }),
+    }),
+
   zweiterFaktor: () => ruf<{ aktiv: boolean; ausstehend: boolean }>('/totp'),
   /** Legt ein noch nicht geltendes Geheimnis an. Es verlässt den Server genau hier, ein Mal. */
   zweiterFaktorBeginnen: () => ruf<{ geheimnis: string; uri: string }>('/totp', { method: 'POST' }),
@@ -218,12 +229,20 @@ export const adminApi = {
 
   verwalter: () => ruf<{ items: Verwalterkonto[] }>('/verwalter'),
   /** Das Passwort kommt genau einmal zurück — wie der Einladungslink eines Mitglieds (R1). */
-  verwalterAnlegen: (email: string, rolle: 'gesamt' | 'kapitaen', team: string) =>
+  verwalterAnlegen: (
+    email: string,
+    rolle: 'admin' | 'kapitaen',
+    team: string,
+    mitglied = '',
+  ) =>
     ruf<{ id: string; email: string; passwort: string }>('/verwalter', {
       method: 'POST',
-      body: JSON.stringify({ email, rolle, team }),
+      body: JSON.stringify({ email, rolle, team, mitglied }),
     }),
-  verwalterAendern: (id: string, daten: { rolle?: string; team?: string; neues_passwort?: boolean }) =>
+  verwalterAendern: (
+    id: string,
+    daten: { rolle?: string; team?: string; mitglied?: string; neues_passwort?: boolean },
+  ) =>
     ruf<{ id: string; passwort: string | null }>(`/verwalter/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(daten),

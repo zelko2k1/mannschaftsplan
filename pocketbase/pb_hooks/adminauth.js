@@ -112,7 +112,7 @@ module.exports = {
   /**
    * Wer ist angemeldet, und was darf er? — Abschnitt 12.
    *
-   * @returns null ohne Sitzung, sonst { email, rolle: 'gesamt'|'kapitaen', team }
+   * @returns null ohne Sitzung, sonst { email, rolle: 'admin'|'kapitaen', team }
    */
   kontext(e) {
     const satz = this.sitzung(e)
@@ -124,18 +124,22 @@ module.exports = {
       if (v) {
         return {
           email,
-          rolle: v.getString('rolle') === 'kapitaen' ? 'kapitaen' : 'gesamt',
+          rolle: v.getString('rolle') === 'kapitaen' ? 'kapitaen' : 'admin',
           team: v.getString('team') || '',
+          // Der Spielereintrag, falls diese Person mitspielt (Abschnitt 12). Beim Admin immer
+          // leer — er verwaltet, er spielt nicht.
+          mitglied: v.getString('mitglied') || '',
+          konto: v.id,
         }
       }
     } catch {
       /* kein Verwalterkonto zu dieser Adresse */
     }
 
-    // Ein Superuser ohne Verwalterkonto ist immer Gesamt-Admin. Das ist der Rettungsanker: Wer
-    // sich beim Verteilen der Rollen vergreift — etwa das eigene Konto zum Kapitän macht —,
-    // kommt über den Superuser wieder herein und kann es geradeziehen.
-    return { email, rolle: 'gesamt', team: '' }
+    // Ein Superuser ohne Verwalterkonto ist immer Admin. Das ist der Rettungsanker: Wer sich
+    // beim Verteilen der Rollen vergreift — etwa das eigene Konto zum Kapitän macht —, kommt
+    // über den Superuser wieder herein und kann es geradeziehen.
+    return { email, rolle: 'admin', team: '', mitglied: '', konto: '' }
   },
 
   /**
@@ -168,8 +172,32 @@ module.exports = {
    * Zweifel ist zu wenig Recht besser als zu viel.
    */
   darfTeam(kontext, teamId) {
-    if (kontext.rolle === 'gesamt') return true
+    if (kontext.rolle === 'admin') return true
     return !!kontext.team && String(teamId) === kontext.team
+  },
+
+  /**
+   * Darf dieses Konto mit diesem Spielereintrag verbunden werden? — Abschnitt 12.
+   *
+   * Ein leerer Bezug ist immer in Ordnung: Wer nur organisiert, hat kein Spielerprofil. Ist
+   * einer gesetzt, muss er zu derselben Mannschaft gehören wie das Konto — sonst stünde ein
+   * Kapitän der Herren in der Damenmannschaft, und die Trennung wäre wieder offen.
+   *
+   * @returns null wenn es passt, sonst der Text für die Meldung
+   */
+  mitgliedPruefen(app, mitgliedId, teamId) {
+    if (!mitgliedId) return null
+    let satz
+    try {
+      satz = app.findRecordById('members', mitgliedId)
+    } catch {
+      return 'Diesen Spieler gibt es nicht.'
+    }
+    if (!satz) return 'Diesen Spieler gibt es nicht.'
+    if (satz.getString('team') !== teamId) {
+      return 'Der Spieler gehört zu einer anderen Mannschaft.'
+    }
+    return null
   },
 
   protokoll(e, action, target, alt, neu) {

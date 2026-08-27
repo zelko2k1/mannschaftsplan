@@ -245,12 +245,25 @@ im Protokoll steht die Zeile dann mit dem Vermerk „(automatisch)".
 Ein Verein mit sieben Mannschaften braucht keine sieben Instanzen. Eine reicht, und darin gibt es
 zwei Rollen:
 
-| | |
-|---|---|
-| **Gesamt** | Sieht alle Mannschaften und schaltet oben zwischen ihnen um. Legt Mannschaften und Kapitäne an. Ihm allein gehören die zentralen Einstellungen, die Rechtstexte und die Sicherungen. |
-| **Kapitän** | Sieht ausschließlich seine eigene Mannschaft: Mitglieder anlegen und bearbeiten, Spieltage pflegen, Rückmeldungen korrigieren, den Namen und den Puffer seiner Mannschaft setzen. Von den zentralen Einstellungen bekommt er nichts zu sehen. |
+| Rolle | Reiter | Darf |
+|---|---|---|
+| **Admin** | Spieltage, Mannschaften, Einstellungen, Protokoll | Alles. Legt Mannschaften und Kapitäne an, pflegt Rechtstexte und Sicherungen. |
+| **Kapitän** | Spieltage, Mannschaft, Protokoll | Nur seine eigene Mannschaft: Mitglieder anlegen und bearbeiten, Spieltage pflegen, Rückmeldungen korrigieren, seine Mannschaft benennen. |
 
-Wer sich mit dem Zugang aus Einrichtungsschritt 7 anmeldet — dem Superuser —, ist immer *Gesamt*.
+Beide erreichen über ihren Namen im Kopf **Mein Konto** — zweiter Faktor und eigenes Passwort.
+Das gehört zur Person und zu keiner Mannschaft, deshalb steht es nicht in der Reiterleiste.
+
+**Der Admin ist kein Spieler und kein Kapitän.** Er hat weder eine Mannschaft noch einen
+Spielereintrag; die Route lehnt beides ab. Wer verwaltet, soll in seiner eigenen Verwaltung nicht
+Partei sein.
+
+**Ein Kapitän dagegen spielt meistens mit.** Sein Konto lässt sich deshalb mit seinem
+Spielereintrag verknüpfen — dieselbe Trennung wie in der Dartszentrale: Die Mitgliederliste ist
+die einzige Quelle für sportliche Personen, Login-Konten sind davon getrennt und verweisen
+*optional* auf einen Spieler. Wer nur organisiert, bleibt unverknüpft. Verknüpfen lässt sich nur
+ein Spieler derselben Mannschaft.
+
+Wer sich mit dem Zugang aus Einrichtungsschritt 7 anmeldet — dem Superuser —, ist immer *Admin*.
 Das ist Absicht und der Rettungsanker: Wer sich beim Verteilen der Rollen vergreift, kommt darüber
 wieder herein.
 

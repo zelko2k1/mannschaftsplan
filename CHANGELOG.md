@@ -30,6 +30,23 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   die Einladungslinks und der Aushang sind unberührt.
 
 ### Geändert
+- **Die Rollen heißen jetzt `admin` und `kapitaen`, und sie sind sauber getrennt.** Aus `gesamt`
+  wurde `admin` — ein Wort, das auch versteht, wer dieses Projekt nicht kennt.
+  **Der Admin ist kein Spieler und kein Kapitän:** Er hat weder Mannschaft noch Spielereintrag,
+  und die Route lehnt beides ab. Wer verwaltet, soll in seiner eigenen Verwaltung nicht Partei
+  sein.
+  **Ein Kapitänskonto lässt sich mit einem Spielereintrag verknüpfen** — Vorbild ist die
+  Dartszentrale, wo die Spielerliste die einzige Quelle für sportliche Personen ist und
+  Login-Konten davon getrennt sind und *optional* auf einen Spieler verweisen. Bisher hatte ein
+  mitspielender Kapitän zwei Identitäten, die nichts voneinander wussten. Verknüpft werden kann
+  nur ein Spieler derselben Mannschaft.
+  **Der Kapitän sieht drei Reiter** — Spieltage, Mannschaft, Protokoll. Die zentralen
+  Einstellungen bekommt er nicht mehr zu Gesicht; sie gingen ihn ohnehin nichts an.
+- **„Mein Konto" hinter dem eigenen Namen im Kopf.** Zweiter Faktor und Passwort ändern. Das
+  gehört zur Person und zu keiner Mannschaft — in einem Reiter stünde es falsch.
+- **Jeder kann sein eigenes Passwort ändern.** Kapitäne bekommen ein erzeugtes und mussten
+  bisher damit leben. Das bisherige muss mit, sonst genügte eine übernommene Sitzung, um jemanden
+  auszusperren; andere angemeldete Geräte fliegen dabei heraus.
 - **Auf der Einladungsseite steht jetzt die Mannschaft, nicht der Verein.** Den Namen erwartet
   das Mitglied, und er landet in der Vorschau, die Messenger beim Weiterleiten erzeugen.
   Das ist eine bewusste Abweichung von R6: Bis hierher wurde das Token auf dieser Seite gar nicht
