@@ -360,15 +360,34 @@ Beide erreichen dasselbe: ein Fehler im Admin-Code ist von außen nicht ansprech
 Anfrage den eigenen Code gar nicht erst erreicht. **Ist keiner der beiden Wege eingerichtet,
 bleibt `/admin` zu (404).** Die Wahl soll bewusst fallen und nicht per Voreinstellung.
 
-#### Offen · MFA greift für `/admin` nicht
+#### R13c · Dasselbe Tor vor der Superuser-Anmeldung
+
+Ein Tor nur vor `/admin` ist eines mit offener Hintertür. Unter
+`/api/collections/_superusers/auth-with-password` gibt PocketBase den Superuser-Token aus, und
+mit ihm steht die gesamte Datenbank offen — auf den Collections liegen keine Regeln, der Token
+ist also der einzige Schlüssel. Wer Adresse und Passwort hat, käme so an alle Daten, ohne
+`/admin` je zu berühren, und könnte dort auch den zweiten Faktor aus Schritt 9 löschen.
+
+Deshalb liegt **der ganze Präfix** `/api/collections/_superusers/*` hinter derselben Anmeldung
+wie `/admin`. Nicht nur `auth-with-password`: `auth-refresh`, `auth-with-otp`,
+`request-password-reset` und `impersonate` führten sonst am Tor vorbei zum selben Ziel.
+
+Der Preis steht in der Anleitung: Wer von außen als Superuser spricht — `scripts/backup.sh` —,
+braucht zusätzlich die Zugangsdaten des Tors. Durch einen SSH-Tunnel auf 8090 gilt das nicht,
+dort steht kein Proxy.
+
+#### Erledigt · Der zweite Faktor für `/admin`
 
 R13 verlangte „MFA für den Superuser aktivieren". Das wirkt für PocketBases eigenen Login unter
 `/_/`. Der Kapitäns-Login geht durch den eigenen Hook und prüft das Passwort direkt
-(`validatePassword`), am MFA-Ablauf vorbei — für `/admin` ist der zweite Faktor heute also
+(`validatePassword`), am MFA-Ablauf vorbei — für `/admin` war der zweite Faktor damit
 wirkungslos. MFA am Superuser einzuschalten bleibt trotzdem richtig, weil es `/_/` schützt.
 
-Zu bauen ist der zweite Faktor im eigenen Login; bis dahin ist das Tor aus R13b die Stelle, die
-diese Lücke deckt. Siehe Schritt 9.
+Gebaut ist inzwischen ein **eigener** zweiter Faktor in diesem Login: TOTP nach RFC 6238
+(`pb_hooks/totp.js`, Ablage in `admin_totp`, Bedienung unter Einstellungen). PocketBases MFA
+schied aus, weil es Einmalcodes per E-Mail verschickt und diese App bewusst keinen Mailserver
+hat. Damit ist Schritt 9 abgeschlossen. Das Tor aus R13b bleibt trotzdem die wirksamste
+Einzelmaßnahme und ersetzt nichts davon.
 
 ### R14 · Was das Modell nicht leistet
 Wer den Link eines Mitglieds weitergibt, ist dieses Mitglied. Das ist der bewusste Preis für

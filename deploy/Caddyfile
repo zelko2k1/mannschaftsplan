@@ -61,6 +61,31 @@
 		reverse_proxy mannschaftsplan:8090
 	}
 
+	# ── R13c · Die Superuser-Anmeldung liegt hinter demselben Tor ───────────────────────────────
+	# Ohne diesen Block schützt der zweite Faktor aus Abschnitt 9 nur die Kapitänsansicht: Wer
+	# Adresse und Passwort des Superusers kennt, holt sich über
+	#     POST /api/collections/_superusers/auth-with-password
+	# einen Token und kommt damit an die gesamte Datenbank, ohne /admin je zu berühren — und
+	# könnte dort auch gleich den zweiten Faktor löschen.
+	#
+	# Der Token ist der Angelpunkt: Auf keiner Collection stehen Regeln, ohne ihn ist die API
+	# also verschlossen. Wird sein einziger Ausgabeschalter mit demselben Tor gesichert wie
+	# /admin, ist die Lücke zu.
+	#
+	# Der ganze Präfix, nicht nur `auth-with-password`: `auth-refresh`, `auth-with-otp`,
+	# `request-password-reset` und `impersonate` führten sonst am Tor vorbei zum selben Ziel.
+	#
+	# Was das für Skripte bedeutet: Wer von außen als Superuser spricht — `scripts/backup.sh`
+	# etwa —, braucht zusätzlich `curl -u <ADMIN_USER>:<passwort>`. Wer durch einen SSH-Tunnel
+	# direkt auf 8090 geht, ist nicht betroffen; dort steht kein Caddy.
+	@superuser path /api/collections/_superusers/*
+	handle @superuser {
+		basic_auth {
+			{$ADMIN_USER} {$ADMIN_PASSWORD_HASH}
+		}
+		reverse_proxy mannschaftsplan:8090
+	}
+
 	# R8 · Einladungslinks gar nicht protokollieren. Das Token steht im PFAD; der Query-Filter
 	# weiter unten würde es unverändert im Log stehen lassen (Testfall T10).
 	@join path /j/*

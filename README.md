@@ -243,17 +243,19 @@ funktioniert mit jeder gängigen App: Aegis, 2FAS, Google Authenticator, Bitward
 Jeder Code gilt genau einmal. Nach dem Anmelden musst du für die nächste Aktion, die einen Code
 braucht, bis zum nächsten Wechsel warten — höchstens eine halbe Minute.
 
-> **Was er schützt und was nicht.** Er schützt die **Kapitänsansicht** unter `/admin`. Er schützt
-> **nicht** die darunterliegende PocketBase-API: Wer die Superuser-Adresse und das Passwort hat,
-> kommt über `https://deine-domain/api/…` weiterhin an die Daten, ohne je `/admin` zu berühren.
-> Das war vorher genauso und ändert sich durch den zweiten Faktor nicht. Was diese Stelle deckt,
-> ist das Tor aus Einrichtungsschritt 4 — und ein Passwort, das nirgendwo sonst vorkommt.
+> **Was er schützt.** Die **Kapitänsansicht** unter `/admin`. Damit er nicht zu umgehen ist,
+> liegt seit R13c auch die **Superuser-Anmeldung** der API hinter dem Tor aus
+> Einrichtungsschritt 4 — sonst holte sich jemand mit Adresse und Passwort über
+> `/api/collections/_superusers/auth-with-password` einen Token, käme an die ganze Datenbank,
+> ohne `/admin` je zu berühren, und könnte dort auch den zweiten Faktor löschen.
 
 **Handy verloren?** Dann kommst du über die Oberfläche nicht mehr hinein; das Abschalten verlangt
-selbst einen Code. Der Ausweg führt über die API, mit deinem Superuser-Passwort:
+selbst einen Code. Der Ausweg führt über die API — mit deinem Superuser-Passwort **und** den
+Zugangsdaten des Tors aus Schritt 4 (`-u`):
 
 ```bash
-TOKEN=$(curl -s https://dart.mein-verein.de/api/collections/_superusers/auth-with-password \
+TOKEN=$(curl -s -u kapitaen:tor-passwort \
+  https://dart.mein-verein.de/api/collections/_superusers/auth-with-password \
   -H 'Content-Type: application/json' \
   -d '{"identity":"deine@adresse.de","password":"dein-passwort"}' \
   | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')
@@ -287,14 +289,20 @@ Rechner zu Hause, einem kleinen Server, was du hast:
 ```bash
 PB_URL=https://dart.mein-verein.de \
   PB_SUPERUSER_EMAIL=… PB_SUPERUSER_PASSWORD=… \
+  ADMIN_USER=kapitaen ADMIN_PASSWORD=… \
   BACKUP_DIR=/backup GPG_EMPFAENGER=… \
   ./scripts/backup.sh
 ```
 
-> **`PB_URL` nicht vergessen.** Ohne die Angabe versucht das Skript `http://127.0.0.1:8090` —
-> also den Rechner, auf dem es gerade läuft — und bricht mit „Could not connect to server" ab.
-> Ein Tunnel ist dafür nicht nötig: Die API liegt hinter deinem normalen `https`, nur das
-> PocketBase-Dashboard ist dicht.
+> **Zwei Angaben, die leicht fehlen.** Ohne **`PB_URL`** versucht das Skript
+> `http://127.0.0.1:8090` — also den Rechner, auf dem es gerade läuft — und bricht mit „Could not
+> connect to server" ab. Und **`ADMIN_USER`/`ADMIN_PASSWORD`** sind die Zugangsdaten des Tors aus
+> Schritt 4 (das Passwort im Klartext, nicht der Hash): Seit R13c liegt die Superuser-Anmeldung
+> dahinter. Fehlen sie, sagt dir das Skript genau das, statt dich ein falsches
+> Superuser-Passwort suchen zu lassen.
+>
+> Ein SSH-Tunnel ist für all das nicht nötig. Wer trotzdem einen benutzt und direkt auf 8090
+> geht, lässt `ADMIN_USER` und `ADMIN_PASSWORD` weg — hinter dem Tunnel steht kein Caddy.
 
 Und **ohne `GPG_EMPFAENGER` liegt die Datei unverschlüsselt herum.** Das Skript sagt es dir, aber
 es hindert dich nicht daran.
@@ -476,10 +484,14 @@ den Betrieb am stärksten prägen:
   [`docker-compose.yaml`](docker-compose.yaml).
 - **R13b** — vor `/admin` steht ein Tor, das nicht das Kapitäns-Passwort ist: IP-Allowlist oder
   vorgeschaltete Proxy-Anmeldung. Ohne eines von beiden bleibt `/admin` zu.
+- **R13c** — dasselbe Tor steht vor `/api/collections/_superusers/*`. Dort wird der
+  Superuser-Token ausgegeben, und mit ihm steht die ganze Datenbank offen; auf den Collections
+  liegen keine Regeln. Ein Tor nur vor der Kapitänsansicht wäre eines mit offener Hintertür.
 
-**Bekannte Lücke:** Der Kapitäns-Login prüft in [`admin.pb.js`](pocketbase/pb_hooks/admin.pb.js)
-das Passwort direkt und geht an PocketBases MFA vorbei. Der zweite Faktor schützt heute nur `/_/`,
-nicht `/admin`; bis das nachgerüstet ist, deckt das Tor aus R13b diese Stelle.
+Der Kapitäns-Login prüft in [`admin.pb.js`](pocketbase/pb_hooks/admin.pb.js) das Passwort direkt
+und geht damit weiterhin an PocketBases eigenem MFA vorbei — er bringt seit Abschnitt 9 aber
+seinen **eigenen** zweiten Faktor mit (TOTP, siehe oben). PocketBases MFA schied aus, weil es
+Einmalcodes per E-Mail verschickt und diese App bewusst keinen Mailserver hat.
 
 ### Token per Skript neu ausstellen
 

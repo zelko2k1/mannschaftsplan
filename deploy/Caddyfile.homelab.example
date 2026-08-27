@@ -38,7 +38,10 @@ dart.example.home {
 	#
 	# Ist dieser Name auch von außen erreichbar, gilt R13a: dann gehört `/_/` in einen eigenen
 	# Block, der immer mit 404 antwortet, und der Zugang läuft über einen SSH-Tunnel.
-	@admin path /admin* /_/*
+	# `/api/collections/_superusers/*` steht bewusst mit in dieser Liste: Dort holt man sich den
+	# Superuser-Token, und mit ihm die ganze Datenbank — ohne /admin je zu berühren. Ein Tor nur
+	# vor der Kapitänsansicht wäre eines mit offener Hintertür (R13c).
+	@admin path /admin* /_/* /api/collections/_superusers/*
 	handle @admin {
 		@fremd not remote_ip <dein-netzbereich>
 		respond @fremd 404

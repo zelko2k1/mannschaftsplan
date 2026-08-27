@@ -14,6 +14,21 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   in der Kapitänsansicht, die Einladungslinks kommen dort aus „Neues Token". Für die
   API-Tests war der Seed ohnehin nie nötig — sie legen ihre eigenen Datensätze an.
 
+### Geändert
+- **Die Superuser-Anmeldung der API liegt jetzt hinter demselben Tor wie `/admin`** (neue Regel
+  R13c). Ohne das war der zweite Faktor zu umgehen: Wer Adresse und Passwort des Superusers
+  kannte, holte sich über `/api/collections/_superusers/auth-with-password` einen Token und kam
+  damit an die gesamte Datenbank, ohne `/admin` je zu berühren — und hätte dort auch den zweiten
+  Faktor löschen können. Gesperrt ist der ganze Präfix, nicht nur `auth-with-password`:
+  `auth-refresh`, `auth-with-otp`, `request-password-reset` und `impersonate` führten sonst am
+  Tor vorbei zum selben Ziel.
+  **Für Betreiber heißt das:** `scripts/backup.sh` braucht auf einer entfernten Maschine
+  zusätzlich `ADMIN_USER` und `ADMIN_PASSWORD` — die Zugangsdaten des Tors aus
+  Einrichtungsschritt 4. Fehlen sie, sagt das Skript das ausdrücklich, statt ein blankes 401
+  weiterzureichen, das wie ein falsches Superuser-Passwort aussähe. Wer durch einen SSH-Tunnel
+  direkt auf 8090 geht, ist nicht betroffen; dort steht kein Reverse Proxy. Die App selbst,
+  die Einladungslinks und der Aushang sind unberührt.
+
 ### Hinzugefügt
 - **Der Kapitäns-Login kennt einen zweiten Faktor.** Unter Einstellungen lässt sich ein
   zeitbasierter Code aus einer Authenticator-App verlangen (TOTP nach RFC 6238). Das war der
