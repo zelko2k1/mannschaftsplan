@@ -82,6 +82,16 @@
   background: var(--tinte);
   color: var(--papier);
 }
+/* Der Fokusrahmen aus index.css liegt 2 px AUSSERHALB des Elements — hier also auf der Tafel,
+   und die ist seit dem Umbau in Tinte. Tinte auf Tinte: gemessene 1,0:1, der Ring war schlicht
+   unsichtbar. Er wandert deshalb nach innen auf die Kachel; auf der gewählten Kachel, die selbst
+   in Tinte steht, wird er zu Papier. Beide Male 17,2:1. */
+.reiter__knopf:focus-visible {
+  outline-offset: -5px;
+}
+.reiter__knopf[aria-current='true']:focus-visible {
+  outline-color: var(--papier);
+}
 
 .admin__inhalt { padding: 1rem 0.9rem 2rem; }
 

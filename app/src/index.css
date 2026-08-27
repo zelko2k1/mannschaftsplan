@@ -91,7 +91,13 @@ body {
 }
 
 /* Eine Aufzählung, die keine Punkte trägt. Fünfmal als Stilangabe wiederholt — dabei ist es
-   immer dieselbe Aussage: Das hier ist eine Liste für die Bedeutung, nicht fürs Auge. */
+   immer dieselbe Aussage: Das hier ist eine Liste für die Bedeutung, nicht fürs Auge.
+
+   Der Außenabstand steht hier, weil der Browser sonst seinen eigenen mitbringt und der Aushang
+   dann eine Lücke über der ersten Zeile hätte. Er ist aber das Erste, was eine daneben gesetzte
+   Klasse überschreibt: `.namen .liste` behält die 0,35 rem von `.namen`, weil dessen Stylesheet
+   später geladen wird. Das ist so gewollt — eine Namensliste soll denselben Abstand halten wie
+   ein Namensabsatz. Wer hier etwas ändert, sollte es wissen. */
 .liste {
   margin: 0;
   padding: 0;

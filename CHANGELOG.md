@@ -7,6 +7,14 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+### Behoben
+- **Der Fokusrahmen auf der Reiterleiste war unsichtbar.** Er liegt zwei Pixel außerhalb des
+  Knopfes — also auf der Tafel, und die ist seit dem Umbau der Reiter in Tinte. Tinte auf Tinte,
+  gemessene 1,0:1: Wer mit der Tastatur durch die Kapitänsansicht ging, sah nicht mehr, wo er
+  war. Der Rahmen liegt jetzt innen auf der Kachel und wird auf der gewählten Kachel zu Papier —
+  beide Male 17,2:1. Nachgemessen über alle zwölf Bedienelemente: der schwächste Rahmen steht
+  bei 10,2:1.
+
 ### Geändert
 - **Der Spieler lädt die Kapitänsansicht nicht mehr mit.** Sie wird erst geholt, wenn jemand
   `/admin` aufruft. Für den Spieler sind das **8,9 kB weniger über die Leitung** (63,8 statt
