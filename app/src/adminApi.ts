@@ -166,14 +166,20 @@ export const adminApi = {
     ruf<unknown>(`/backup/${encodeURIComponent(name)}`, { method: 'DELETE' }),
 
   /**
-   * Sonderfall, und ein unangenehmer: Gelingt das Zurückspielen, startet PocketBase noch im
-   * Handler neu. Die Antwort erreicht den Browser dann nie — `fetch` wirft stattdessen einen
-   * Netzwerkfehler. Ein Abriss der Verbindung ist hier also das *Erfolgszeichen*, nicht der
-   * Fehlerfall. Wer das nicht abfängt, meldet dem Kapitän „hat nicht geklappt", während im
-   * Hintergrund alles ersetzt wurde.
+   * Sonderfall, und ein unangenehmer: Gelingt das Zurückspielen, verschwindet PocketBase noch im
+   * Aufruf — es startet sich selbst neu. Was davon im Browser ankommt, hängt daran, wer
+   * dazwischensteht:
    *
-   * Echte Ablehnungen (fehlende Bestätigung, unbekannte Datei) kommen weiterhin als richtige
-   * HTTP-Antwort an und werden ganz normal gemeldet.
+   *   - ohne Proxy: gar nichts, `fetch` wirft einen Netzwerkfehler
+   *   - mit Caddy davor: ein 502 mit leerem Rumpf, weil der Upstream wegbrach
+   *
+   * Beides bedeutet dasselbe — der Prozess ist weg, also hat es funktioniert. Nur eines von
+   * beidem abzufangen reicht nicht; genau daran ist die erste Fassung gescheitert.
+   *
+   * Die tragfähige Unterscheidung ist nicht der Statuscode, sondern die Herkunft der Antwort:
+   * Eigene Ablehnungen kommen IMMER als JSON mit `message` — fehlende Bestätigung, unbekannte
+   * Datei, gescheiterte Sicherheitskopie. Alles ohne diesen Rumpf stammt nicht von uns, sondern
+   * von einem Proxy, der einen verschwundenen Dienst meldet.
    */
   sicherungZurueckspielen: async (name: string) => {
     let antwort: Response
@@ -184,14 +190,15 @@ export const adminApi = {
         body: JSON.stringify({ bestaetigung: name }),
       })
     } catch {
-      return
+      return // Verbindung abgerissen: PocketBase ist weg, also gestartet neu.
     }
     if (antwort.ok) return
-    if (antwort.status === 404) {
-      throw new Error('Diese Sicherung gibt es nicht mehr, oder die Sitzung ist abgelaufen.')
-    }
+
     const koerper = await antwort.json().catch(() => null)
-    throw new Error(koerper?.message || 'Das Zurückspielen hat nicht geklappt.')
+    if (koerper?.message) throw new Error(String(koerper.message))
+
+    // Kein Rumpf von uns — der Dienst ist mitten in der Anfrage verschwunden. Erfolgsfall.
+    return
   },
 
   /** Gewöhnlicher Link — der Browser legt die Datei in den Download-Ordner. */
