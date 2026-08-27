@@ -63,17 +63,39 @@
   background: var(--gelb);
   --grau: var(--grau-auf-gelb);
   --rot: var(--rot-auf-gelb);
+  --tinte-still: var(--tinte-still-auf-gelb);
 }
-.zeile--vorbei { opacity: 0.55; }
+
+/* Eine Zeile, an der nichts mehr zu tun ist, wird in stiller Tinte gesetzt statt abgeblendet.
+   Der Unterschied zur vollen Tinte ist Faktor 3 — die Zeile tritt zurück —, aber jedes Wort
+   darin bleibt über dem Kontrastboden. Grau wird mit umgebunden, damit die Zeile aus einem
+   einzigen Ton besteht: ein Aushang, der nicht mehr gilt, ist grau gedruckt, nicht durchsichtig.
+   Die Papierfarbe bleibt unangetastet — sie codiert Heim/Auswärts und darf nichts anderes
+   bedeuten. */
+.zeile--vorbei,
+.zeile--abgeschlossen {
+  color: var(--tinte-still);
+  --grau: var(--tinte-still);
+}
+/* Rot ruft zum Handeln (6.2). An einem Spieltag, der vorbei ist, kann niemand mehr einen Fahrer
+   auftreiben — dann ruft hier auch nichts mehr. Gilt nur für diese eine Warnung: Fehlermeldungen
+   im aufgeklappten Bereich bleiben rot, die sind weiterhin aktuell. */
+.zeile--vorbei .zeile__warnung,
+.zeile--abgeschlossen .zeile__warnung {
+  color: inherit;
+}
+
 /* „Vorbei" und „abgeschlossen" sind zweierlei: Ein Spieltag von gestern kann noch offen sein,
    und ein künftiger kann geschlossen sein. Für das Mitglied zählt das zweite — es beantwortet
-   die Frage, ob es seine Zusage noch ändern kann. Deshalb eine eigene Kennzeichnung, die auch
-   dann zu sehen ist, wenn beides zusammenfällt: eine Kante, die nicht mit abblendet. */
-.zeile--abgeschlossen { opacity: 0.55; }
+   die Frage, ob es seine Zusage noch ändern kann. Deshalb zwei Kennzeichen, die die Zurücknahme
+   nicht mitmachen: die Kante und das Wort selbst, beide in voller Tinte. Das ist der ganze
+   Bauplan der geschlossenen Zeile — was sie einmal war, steht in Grau; was sie jetzt ist, in
+   Schwarz. */
 .zeile--abgeschlossen .zeile__knopf {
-  border-left: 4px solid var(--grau);
+  border-left: 4px solid var(--tinte); /* impeccable-disable-line side-tab -- Tinte auf Papier, kein bunter Akzent; von PRODUCT.md verlangt */
 }
 .zeile__geschlossen {
+  color: var(--tinte);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;

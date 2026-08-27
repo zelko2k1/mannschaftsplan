@@ -19,6 +19,18 @@
   --grau-auf-gelb: #584400;
   --rot-auf-gelb: #8e0d17;
 
+  /* Ein vergangener oder abgeschlossener Eintrag tritt zurück. Vorher stand dafür `opacity`,
+     und die erfasst die ganze Rendergruppe — auch die Kante und das Wort „abgeschlossen", die
+     den Zustand ja gerade unabhängig von der Blässe tragen sollten. Beides blasste mit ab, und
+     der Sekundärtext fiel auf 2,2:1.
+
+     Dieselbe Mischung aus Tinte und Papier, nur so weit zurückgedreht, dass 5,5:1 stehen
+     bleiben (Fließtext verlangt 4,5:1). Zur vollen Tinte ist das Faktor 3 — genug, damit die
+     Zeile sichtbar zurücktritt, ohne unlesbar zu werden. Auf Gelb braucht es einen eigenen
+     Ton, wie bei `grau` und `rot` auch. */
+  --tinte-still: #67645e;
+  --tinte-still-auf-gelb: #53410b;
+
   --schrift-eng: 'Barlow Condensed', system-ui, sans-serif;
   --schrift: 'Barlow', system-ui, sans-serif;
   --schrift-mono: 'IBM Plex Mono', ui-monospace, monospace;

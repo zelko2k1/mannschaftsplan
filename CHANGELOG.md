@@ -7,6 +7,29 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+### Behoben
+- **Vergangene und abgeschlossene Spieltage sind wieder lesbar.** Sie traten bisher über
+  `opacity` zurück, und Deckkraft erfasst die ganze Rendergruppe: Der Sekundärtext einer solchen
+  Zeile kam auf 2,2:1, verlangt sind 4,5:1 — auf einem Handy bei Tageslicht war er weg. Betroffen
+  war nicht der Randfall, sondern der Normalfall, denn nach Ablauf der Sperrfrist wird jeder
+  Spieltag abgeschlossen. Statt der Deckkraft gibt es jetzt eine **stille Tinte**
+  (`--tinte-still`, auf Gelb ein eigener Ton wie bei `grau` und `rot` auch). Der Abstand zur
+  vollen Tinte ist Faktor 3, die Zeile tritt also weiterhin sichtbar zurück; das schwächste Wort
+  darin steht bei 5,5:1.
+- **Die Kennzeichnung eines abgeschlossenen Spieltags wirkt jetzt tatsächlich.** Die Kante links
+  und das Wort „abgeschlossen" sollten laut Kommentar und laut den Zusagen in `PRODUCT.md`
+  gerade *nicht* mit abblenden — sie tragen den Zustand unabhängig von der Farbe. Sie lagen aber
+  innerhalb derselben Opazitätsgruppe und blassten Punkt für Punkt mit ab; die Kante landete bei
+  2,2:1 statt der für Nicht-Text verlangten 3:1. Beide stehen jetzt in voller Tinte: Was die
+  Zeile einmal war, steht in Grau, was sie jetzt ist, in Schwarz.
+- **Warnungen an vergangenen Spieltagen sind nicht mehr rot.** „Kein Fahrer" an einem Spieltag,
+  der vorbei ist, forderte zu einer Handlung auf, die niemand mehr ausführen kann. Rot bleibt
+  den Dingen vorbehalten, an denen sich noch etwas ändern lässt — Fehlermeldungen im
+  aufgeklappten Bereich und „Löschen" in der Kapitänsansicht sind unberührt.
+- **Das TOTP-Geheimnis wird wieder in der vorgesehenen Schrift gesetzt.** Es verwies auf
+  `--schrift-fest`; diese Variable gibt es nicht, richtig ist `--schrift-mono`. Ausgerechnet die
+  Stelle, an der jemand 32 Zeichen fehlerfrei abtippt, bekam die generische Systemschrift.
+
 ### Entfernt
 - **Das Seed-Skript mit den erfundenen Testdaten ist weg** (`pocketbase/seed.mjs`). Es legte
   acht Mitglieder und sechs Spieltage mit ausgedachten Namen an. Die Auslieferung enthält

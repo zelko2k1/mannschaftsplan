@@ -503,9 +503,11 @@ function Spieltagformular({
             onChange={(x) => setze('meeting_point', x.target.value)}
           />
         </label>
-        {/* Nur bei Auswärtsspielen — zu einem Heimspiel fährt niemand gemeinsam los (6.3). */}
+        {/* Nur bei Auswärtsspielen — zu einem Heimspiel fährt niemand gemeinsam los (6.3).
+            Kein `flex` an diesen Feldern: `.feldreihe` ist ein Grid, dort verpufft es. Die
+            Spaltenbreite gibt `auto-fit` vor. */}
         {!entwurf.is_home && (
-          <label className="feld" style={{ flex: '0 1 9rem' }}>
+          <label className="feld">
             <span>Tempo (km/h)</span>
             <input
               type="number"
@@ -521,7 +523,7 @@ function Spieltagformular({
           </label>
         )}
         {!entwurf.is_home && (
-          <label className="feld" style={{ flex: '0 1 9rem' }}>
+          <label className="feld">
             <span>Puffer (Minuten)</span>
             <input
               type="number"
@@ -1179,7 +1181,7 @@ function ZweiterFaktor({ abgemeldet }: { abgemeldet: () => void }) {
           <p
             style={{
               margin: '0 0 0.75rem',
-              fontFamily: 'var(--schrift-fest, monospace)',
+              fontFamily: 'var(--schrift-mono, monospace)',
               wordBreak: 'break-all',
               fontSize: '1.05rem',
             }}

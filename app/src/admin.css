@@ -77,12 +77,18 @@
 }
 .satz:last-child { border-bottom: 0; }
 /* Ein abgeschlossener Spieltag nimmt keine Rückmeldungen mehr an — an ihm ist nichts mehr zu
-   tun. Abgeblendet UND mit einer Kante links: Die Blässe allein liest sich wie „unwichtig",
-   die Kante sagt „hier ist zu". Auf beides zusammen kommt es an, weil Blässe je nach
-   Bildschirm und Umgebungslicht kaum auffällt. */
+   tun. Stille Tinte UND eine Kante links: Der ruhigere Ton allein liest sich wie „unwichtig",
+   die Kante sagt „hier ist zu". Auf beides zusammen kommt es an, weil der Tonunterschied je
+   nach Bildschirm und Umgebungslicht kaum auffällt — und genau deshalb darf die Kante nicht
+   mit zurücktreten. Vorher stand hier `opacity`, und die nahm sie mit.
+
+   Rot bleibt hier ausdrücklich rot: „Löschen" ist auch an einem abgeschlossenen Spieltag noch
+   ein Löschen. Die Knöpfe daneben behalten aus demselben Grund die volle Tinte — sie tun
+   weiterhin, was sie sagen. */
 .satz--abgeschlossen {
-  opacity: 0.6;
-  border-left: 4px solid var(--grau);
+  color: var(--tinte-still);
+  --grau: var(--tinte-still);
+  border-left: 4px solid var(--tinte); /* impeccable-disable-line side-tab -- Tinte auf Papier, kein bunter Akzent; von PRODUCT.md verlangt */
   padding-left: 0.6rem;
 }
 .satz__kopf {
