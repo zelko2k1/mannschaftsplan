@@ -13,21 +13,7 @@ type Lage = 'laedt' | 'da' | 'ohne-sitzung' | 'kaputt'
 function LinkUngueltig() {
   return (
     <div className="leer">
-      <h1
-        style={{
-          margin: '0 0 1rem',
-          padding: '.5rem 1rem',
-          background: 'var(--gelb)',
-          border: 'var(--linie)',
-          color: 'var(--tinte)',
-          fontFamily: 'var(--schrift-eng)',
-          fontSize: '1.4rem',
-          letterSpacing: '.04em',
-          textTransform: 'uppercase',
-        }}
-      >
-        Link ungültig
-      </h1>
+      <h1 className="balken leer__titel">Link ungültig</h1>
       <p>Öffne den Link aus deinem Chat noch einmal.</p>
       <p>Wenn er nicht mehr funktioniert, frag den Kapitän nach einem neuen.</p>
     </div>
@@ -207,7 +193,7 @@ function Abfahrtsplan() {
 
   return (
     <div className="plan">
-      <header className="kopf">
+      <header className="balken kopf">
         {/* Die eine Überschrift der Seite. Vorher stand hier ein `span`, und damit hatte der
             Aushang gar keine — die Sprungnavigation einer Bildschirmleseanwendung setzt aber
             genau dort an. */}
@@ -241,7 +227,7 @@ function Abfahrtsplan() {
           <p>Noch keine Termine eingetragen.</p>
         </div>
       ) : (
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+        <ul className="liste">
           {board.fixtures.map((spieltag) => (
             <Zeile
               key={spieltag.id}

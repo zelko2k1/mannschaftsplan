@@ -31,6 +31,12 @@
   --tinte-still: #67645e;
   --tinte-still-auf-gelb: #53410b;
 
+  /* Das unbedruckte Weiß. Papier ist cremefarben und bedruckt; blank ist, was aufliegt und
+     beschrieben oder abgelesen wird — Eingabefelder, die Mannschaftsauswahl im Kopf, der Kasten
+     mit dem frisch ausgestellten Token. Es stand dreimal als `#fff` da und war dreimal dasselbe
+     gemeint. */
+  --blank: #fff;
+
   --schrift-eng: 'Barlow Condensed', system-ui, sans-serif;
   --schrift: 'Barlow', system-ui, sans-serif;
   --schrift-mono: 'IBM Plex Mono', ui-monospace, monospace;
@@ -70,6 +76,26 @@ body {
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
+}
+
+/* Der gelbe Balken — das wiederkehrendste Element der Anwendung: Kopf des Aushangs, Kopf der
+   Kapitänsansicht, Überschrift der Seite „Link ungültig". Dreimal dieselbe Behandlung, dreimal
+   getrennt hingeschrieben; auf „Link ungültig" stand sie sogar als Stilangabe im Bauteil selbst.
+   Hier steht, was allen dreien gemeinsam ist. Wie breit, wie hoch, ob mit Rand und ob er beim
+   Scrollen klebt, entscheidet jeder für sich — das ist der Unterschied zwischen ihnen. */
+.balken {
+  background: var(--gelb);
+  font-family: var(--schrift-eng);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Eine Aufzählung, die keine Punkte trägt. Fünfmal als Stilangabe wiederholt — dabei ist es
+   immer dieselbe Aussage: Das hier ist eine Liste für die Bedeutung, nicht fürs Auge. */
+.liste {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 /* Tastaturbedienung muss sichtbar sein (6.4). Bewusst ein harter Rahmen in Tinte statt

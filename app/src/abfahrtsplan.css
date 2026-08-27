@@ -12,6 +12,8 @@
 }
 
 /* ── Kopfbalken ──────────────────────────────────────────────────────────────────────────── */
+/* Papierfarbe, schmale Schrift, Versalien und Sperrung kommen aus `.balken`. Hier steht nur,
+   was diesen Balken von den anderen unterscheidet: Er klebt oben und trennt sich nach unten. */
 .kopf {
   position: sticky;
   top: 0;
@@ -21,11 +23,7 @@
   justify-content: space-between;
   gap: 1rem;
   padding: 0.6rem 0.9rem;
-  background: var(--gelb);
   border-bottom: var(--linie);
-  font-family: var(--schrift-eng);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 /* Ein `h1` bringt einen Außenabstand mit, den der Kopfbalken nicht gebrauchen kann. */
 .kopf__titel {
@@ -346,6 +344,18 @@
   padding: 3rem 1.5rem;
   text-align: center;
   color: var(--grau);
+}
+
+/* Derselbe Balken wie im Kopf, nur als geschlossener Kasten mitten auf der Seite — die
+   Überschrift auf „Link ungültig" ist das Einzige, was dort steht, und sie soll aussehen wie
+   der Aushang, zu dem der Link nicht mehr führt. */
+.leer__titel {
+  margin: 0 0 1rem;
+  padding: 0.5rem 1rem;
+  border: var(--linie);
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
 /* Unter der letzten Zeile hing sonst eine leere Fläche ohne Abschluss. Ein Aushang endet mit

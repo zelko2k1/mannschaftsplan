@@ -7,6 +7,25 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+### Geändert
+- **Wiederkehrende Stilangaben sind jetzt Teil des Entwurfs statt Beiwerk im Bauteil.** In
+  `Admin.tsx` standen 48 Stilangaben direkt am Element; 31 davon waren Wiederholungen derselben
+  Aussage. Neu benannt: `--blank` (das unbedruckte Weiß von Eingabefeldern und Hinweiskästen,
+  vorher dreimal `#fff`), `.balken` (der gelbe Balken — Kopf des Aushangs, Kopf der
+  Kapitänsansicht, Überschrift auf „Link ungültig"), `.liste`, `.eintrag` (eine Zeile in einer
+  Aufzählung mit Trennlinie), `.feld--zeile` und `.feld--kurz` (die zwei Arten, wie ein Feld in
+  einer Aktionszeile steht) sowie `.token__text`. Sichtbar ändert sich nichts — mit einer
+  Ausnahme: Die neun Felder, die sich den Rest der Zeile nehmen, hatten zwei verschiedene
+  Grundbreiten (12 und 14 rem), die nie eine Entscheidung waren, sondern an verschiedenen Tagen
+  entstanden. Jetzt haben sie eine.
+- **Die Farben der servergerenderten Seiten sind gegen das Auseinanderlaufen gesichert.** Die
+  Palette steht zwangsläufig an zwei Orten: in `app/src/index.css` als Token und in
+  `pocketbase/pb_hooks/seiten.js` als rohe Hex-Werte, weil die Hook-Laufzeit kein Stylesheet
+  einlesen kann. Zusammenlegen ginge nur über einen Bauschritt, den dieses Projekt nicht hat —
+  also prüft `app/src/farben.test.ts` jetzt, dass jede Farbe der Einladungs- und
+  Rechtstextseiten eine Farbe aus der Palette ist. Wer ein Token ändert und diese Seiten
+  vergisst, sieht es in der CI und nicht erst am fremden Weiß im Messenger.
+
 ### Behoben
 - **Die Anwendung lässt sich mit einer Bildschirmleseanwendung ansteuern.** Bisher hatte der
   Aushang gar keine Überschrift und sprang direkt auf die dritte Ebene; die Kapitänsansicht

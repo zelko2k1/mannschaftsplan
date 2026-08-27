@@ -89,7 +89,7 @@ export default function Admin() {
 
   return (
     <div className="admin">
-      <header className="admin__kopf">
+      <header className="balken admin__kopf">
         {/* Die Überschrift ist die Mannschaft, um die es gerade geht — nicht die Rolle des
             Anmeldenden. „Kapitän" sagte ihm nichts, was er nicht wüsste. */}
         <h1>{ich.teams.find((t) => t.id === gewaehlt)?.name ?? 'Mannschaft'}</h1>
@@ -196,7 +196,7 @@ function Anmeldung({ fertig }: { fertig: (email: string) => void }) {
           Die Überschrift steht deshalb unsichtbar im Dokument statt gar nicht — eine Seite ohne
           jede Überschrift lässt sich nicht ansteuern, und das Bild bleibt so, wie es gedacht
           war. */}
-      <header className="admin__kopf admin__kopf--leer" />
+      <header className="balken admin__kopf admin__kopf--leer" />
       <main>
       <h1 className="visuell-versteckt">Anmeldung zur Kapitänsansicht</h1>
       <form
@@ -646,7 +646,7 @@ function Mitglieder({ abgemeldet, team }: { abgemeldet: () => void; team: string
           })
         }}
       >
-        <label className="feld" style={{ flex: '1 1 12rem' }}>
+        <label className="feld feld--zeile">
           <span>Neues Mitglied</span>
           <input value={neuerName} onChange={(x) => setNeuerName(x.target.value)} />
         </label>
@@ -827,7 +827,7 @@ function Verein({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLaden: ()
         </div>
 
         <div className="satz__aktionen">
-          <label className="feld" style={{ flex: '1 1 14rem' }}>
+          <label className="feld feld--zeile">
             <span>Vereinsname</span>
             <input
               value={entwurf.anzeigename}
@@ -841,7 +841,7 @@ function Verein({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLaden: ()
             gelesen haben muss, bevor man es tut. */}
         <div className="token">
           <p className="token__hinweis">Wer den Link weiterleitet, zeigt diesen Namen mit</p>
-          <p style={{ margin: 0, fontSize: '0.85rem' }}>
+          <p className="token__text">
             Die Vorschau entsteht auf den Servern des Messengers, bevor ein Mensch den Link antippt.
             Alles, was hier steht, ist damit für jeden sichtbar, der einen weitergeleiteten Link
             bekommt. Der Mannschaftsname ist dafür in Ordnung — Namen einzelner Personen, Adressen
@@ -862,7 +862,7 @@ function Verein({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLaden: ()
         </div>
 
         <div className="satz__aktionen">
-          <label className="feld" style={{ flex: '0 1 12rem' }}>
+          <label className="feld feld--kurz">
             <span>Stunden nach Anwurf</span>
             <input
               type="number"
@@ -918,7 +918,7 @@ function Verein({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLaden: ()
 
         <div className="token">
           <p className="token__hinweis">Reiner Text, keine Formatierung</p>
-          <p style={{ margin: 0, fontSize: '0.85rem' }}>
+          <p className="token__text">
             Absätze entstehen durch Leerzeilen. HTML wird nicht ausgewertet, sondern angezeigt wie
             getippt — das ist Absicht und schließt eine ganze Klasse von Angriffen aus. Was
             hineingehört, ist eine Rechtsfrage: die App kann dir dabei nicht helfen, und dieser
@@ -1023,7 +1023,7 @@ function Passwort({ abgemeldet }: { abgemeldet: () => void }) {
       <Hinweis text={fertig} />
 
       <div className="satz__aktionen" style={{ flexWrap: 'wrap' }}>
-        <label className="feld" style={{ flex: '1 1 12rem' }}>
+        <label className="feld feld--zeile">
           <span>Bisheriges Passwort</span>
           <input
             type="password"
@@ -1032,7 +1032,7 @@ function Passwort({ abgemeldet }: { abgemeldet: () => void }) {
             onChange={(x) => setAlt(x.target.value)}
           />
         </label>
-        <label className="feld" style={{ flex: '1 1 12rem' }}>
+        <label className="feld feld--zeile">
           <span>Neues Passwort</span>
           <input
             type="password"
@@ -1041,7 +1041,7 @@ function Passwort({ abgemeldet }: { abgemeldet: () => void }) {
             onChange={(x) => setNeu(x.target.value)}
           />
         </label>
-        <label className="feld" style={{ flex: '1 1 12rem' }}>
+        <label className="feld feld--zeile">
           <span>Noch einmal</span>
           <input
             type="password"
@@ -1162,7 +1162,7 @@ function ZweiterFaktor({ abgemeldet }: { abgemeldet: () => void }) {
           }}
         >
           <p className="token__hinweis">Zum Abschalten einen gültigen Code eintippen</p>
-          <p style={{ margin: '0 0 0.5rem', fontSize: '0.85rem' }}>
+          <p className="token__text">
             Auch das Abschalten braucht den zweiten Faktor. Sonst genügte eine übernommene
             Sitzung, um ihn mit einem Klick loszuwerden — und er schützte nur, bis jemand drin ist.
           </p>
@@ -1203,7 +1203,7 @@ function ZweiterFaktor({ abgemeldet }: { abgemeldet: () => void }) {
           }}
         >
           <p className="token__hinweis">Jetzt in die App eintragen — danach mit einem Code bestätigen</p>
-          <p style={{ margin: '0 0 0.5rem', fontSize: '0.85rem' }}>
+          <p className="token__text">
             Auf dem Handy: den Link antippen, dann öffnet sich deine Authenticator-App von selbst.
             Am Rechner: das Geheimnis von Hand eintragen.
           </p>
@@ -1375,7 +1375,7 @@ function Mannschaftseinstellungen({
       <Fehler text={fehler} />
 
       <div className="satz__aktionen">
-        <label className="feld" style={{ flex: '1 1 14rem' }}>
+        <label className="feld feld--zeile">
           <span>Name</span>
           <input
             maxLength={60}
@@ -1441,7 +1441,7 @@ function Mannschaften({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLad
           }
         }}
       >
-        <label className="feld" style={{ flex: '1 1 14rem' }}>
+        <label className="feld feld--zeile">
           <span>Neue Mannschaft</span>
           <input maxLength={60} value={neu} onChange={(x) => setNeu(x.target.value)} />
         </label>
@@ -1453,18 +1453,9 @@ function Mannschaften({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLad
       {items === null ? (
         <p className="namen">Einen Moment …</p>
       ) : (
-        <ul className="namen" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+        <ul className="namen liste">
           {items.map((t) => (
-            <li
-              key={t.id}
-              style={{
-                display: 'flex',
-                gap: '0.75rem',
-                alignItems: 'baseline',
-                padding: '0.35rem 0',
-                borderTop: 'var(--linie)',
-              }}
-            >
+            <li key={t.id} className="eintrag">
               <span style={{ flex: '1 1 auto' }}>{t.name}</span>
               <button
                 type="button"
@@ -1544,17 +1535,7 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
   }
 
   const zeile = (v: Verwalterkonto) => (
-    <li
-      key={v.id}
-      style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: '0.75rem',
-        alignItems: 'baseline',
-        padding: '0.35rem 0',
-        borderTop: 'var(--linie)',
-      }}
-    >
+    <li key={v.id} className="eintrag">
       <span style={{ flex: '1 1 14rem' }}>{v.email}</span>
       <span className="satz__zusatz">{v.totp ? 'zweiter Faktor an' : 'nur Passwort'}</span>
       {v.totp && (
@@ -1626,7 +1607,7 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
       {gezeigt && (
         <div className="token">
           <p className="token__hinweis">Dieses Passwort wird genau einmal angezeigt</p>
-          <p style={{ margin: '0 0 0.5rem', fontSize: '0.85rem' }}>
+          <p className="token__text">
             Gib es <strong>{gezeigt.email}</strong> weiter, am besten im Einzelchat. Wieder
             hervorholen lässt es sich nicht — gespeichert ist nur ein Hash. Ist es weg, erzeugst du
             ein neues.
@@ -1662,7 +1643,7 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
           })
         }}
       >
-        <label className="feld" style={{ flex: '1 1 14rem' }}>
+        <label className="feld feld--zeile">
           <span>Anmeldename</span>
           <input
             type="email"
@@ -1675,7 +1656,7 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
             <code> kapitaen@verein.intern</code>. Es wird nie etwas dorthin geschickt.
           </span>
         </label>
-        <label className="feld" style={{ flex: '0 1 9rem' }}>
+        <label className="feld feld--kurz">
           <span>Rolle</span>
           <select
             value={rolle}
@@ -1695,7 +1676,7 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
           </select>
         </label>
         {rolle === 'kapitaen' && (
-          <label className="feld" style={{ flex: '0 1 11rem' }}>
+          <label className="feld feld--kurz">
             <span>Mannschaft</span>
             <select
               value={team}
@@ -1714,7 +1695,7 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
           </label>
         )}
         {rolle === 'kapitaen' && team && (
-          <label className="feld" style={{ flex: '0 1 11rem' }}>
+          <label className="feld feld--kurz">
             <span>Spielt als</span>
             <select value={mitglied} onChange={(x) => setMitglied(x.target.value)}>
               <option value="">— spielt nicht mit —</option>
@@ -1747,7 +1728,7 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
               Keins. Du selbst bist als Superuser angemeldet — der ist immer Admin.
             </p>
           ) : (
-            <ul className="namen" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+            <ul className="namen liste">
               {admins.map(zeile)}
             </ul>
           )}
@@ -1764,7 +1745,7 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
                   {ihre.length === 0 ? (
                     <p className="namen">Noch kein Kapitän — du betreust sie selbst.</p>
                   ) : (
-                    <ul className="namen" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                    <ul className="namen liste">
                       {ihre.map(zeile)}
                     </ul>
                   )}
@@ -1864,7 +1845,7 @@ function Sicherungen({ abgemeldet }: { abgemeldet: () => void }) {
         >
           {laeuft === 'create' ? 'Erstellt …' : 'Sicherung erstellen'}
         </button>
-        <label className="feld" style={{ flex: '1 1 14rem' }}>
+        <label className="feld feld--zeile">
           <span>Datei zurückgeben</span>
           <input
             type="file"
@@ -1884,12 +1865,9 @@ function Sicherungen({ abgemeldet }: { abgemeldet: () => void }) {
       ) : liste.length === 0 ? (
         <p className="namen">Noch keine Sicherung vorhanden.</p>
       ) : (
-        <ul className="namen" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+        <ul className="namen liste">
           {liste.map((x) => (
-            <li key={x.name} style={{ padding: '0.35rem 0', borderTop: 'var(--linie)' }}>
-              <div
-                style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'baseline' }}
-              >
+            <li key={x.name} className="eintrag">
                 <a href={adminApi.sicherungUrl(x.name)} style={{ flex: '1 1 16rem' }}>
                   {x.name}
                 </a>
@@ -1919,7 +1897,6 @@ function Sicherungen({ abgemeldet }: { abgemeldet: () => void }) {
                 >
                   Zurückspielen
                 </button>
-              </div>
             </li>
           ))}
         </ul>
@@ -1937,7 +1914,7 @@ function Sicherungen({ abgemeldet }: { abgemeldet: () => void }) {
           }}
         >
           <p className="token__hinweis">Das ersetzt den gesamten heutigen Stand</p>
-          <p style={{ margin: '0 0 0.5rem', fontSize: '0.85rem' }}>
+          <p className="token__text">
             Alles, was seit <strong>{zurueck}</strong> passiert ist, ist danach weg. Vom jetzigen
             Stand wird vorher automatisch eine Kopie angelegt — ein Fehlgriff lässt sich also
             zurücknehmen. Tipp zur Bestätigung den Dateinamen ab:

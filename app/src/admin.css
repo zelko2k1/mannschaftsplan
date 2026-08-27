@@ -10,6 +10,9 @@
   background: var(--papier);
 }
 
+/* Papierfarbe, schmale Schrift, Versalien und Sperrung kommen aus `.balken`. Der Unterschied zum
+   Kopf des Aushangs: Dieser klebt nicht und darf umbrechen — im Kopf stehen hier bis zu vier
+   Dinge nebeneinander. */
 .admin__kopf {
   display: flex;
   flex-wrap: wrap;
@@ -17,11 +20,7 @@
   justify-content: space-between;
   gap: 0.5rem 1rem;
   padding: 0.6rem 0.9rem;
-  background: var(--gelb);
   border-bottom: var(--linie);
-  font-family: var(--schrift-eng);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 /* Auf der Anmeldemaske steht nichts im Balken. `min-height` hält ihn auf der Höhe, die sonst
    die Überschrift vorgibt (1.4rem Schriftgröße bei line-height 1) — sonst schrumpfte er zu
@@ -145,6 +144,18 @@
    1200-px-Schirm über 440 px Breite. */
 .satz__aktionen .knopf { flex: 0 0 auto; }
 
+/* Ein Eintrag in einer Aufzählung, durch eine Linie vom vorigen getrennt: eine Mannschaft, ein
+   Verwalterkonto, eine Sicherung. Dreimal dieselbe Zeile, dreimal als Stilangabe im Bauteil
+   wiederholt — und beim dritten Mal fehlte die Hälfte davon. */
+.eintrag {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.35rem 0;
+  border-top: var(--linie);
+}
+
 /* Löschen nimmt Rückmeldungen und Fahrdienst mit. Rot ist in diesem Entwurf die Warnfarbe —
    genau hier gehört sie hin, damit der Knopf nicht aussieht wie „Bearbeiten". */
 .knopf--gefahr {
@@ -163,6 +174,15 @@
   margin: 0.6rem 0;
 }
 .feld { display: flex; flex-direction: column; gap: 0.2rem; }
+/* Zwei Arten, wie ein Feld in einer Aktionszeile steht — mehr braucht es nicht.
+   `--zeile` nimmt sich den Rest der Zeile: Namen, Anmeldenamen, Passwörter, ein Dateifeld. Das
+   stand neunmal als Stilangabe im Bauteil, mit zwei verschiedenen Grundbreiten, die nie eine
+   Entscheidung waren — sie sind an verschiedenen Tagen entstanden. Jetzt eine.
+   `--kurz` wächst nicht, weil sein Inhalt kurz bleibt: eine Rolle, eine Mannschaft, eine Zahl.
+   Ein Auswahlfeld mit zwei Wörtern über die halbe Breite zu ziehen, sagt etwas Falsches über
+   seine Wichtigkeit. */
+.feld--zeile { flex: 1 1 12rem; }
+.feld--kurz { flex: 0 1 11rem; }
 /* Datum und Uhrzeit stehen in einer eigenen Zeile über dem Rest: sie sind die wichtigste Angabe
    am Spieltag, und der Browser schreibt sie in der Systemschreibweise — im 12-Stunden-Format
    „08/29/2026, 07:30 PM" plus Kalendersymbol, was in einer 11rem-Spalte abgeschnitten wurde. */
@@ -187,7 +207,7 @@
   font-weight: 600;
   font-size: 0.85rem;
   padding: 0.1rem 0.3rem;
-  background: #fff;
+  background: var(--blank);
   border: 2px solid var(--tinte);
   color: var(--tinte);
   max-width: 12rem;
@@ -205,7 +225,7 @@
 .feld textarea {
   min-height: 44px;
   padding: 0.4rem 0.55rem;
-  background: #fff;
+  background: var(--blank);
   border: 2px solid var(--tinte);
   border-radius: 0;
   color: var(--tinte);
@@ -231,7 +251,7 @@
   margin: 0.6rem 0 0;
   padding: 0.7rem 0.8rem;
   border: 2px solid var(--stempel);
-  background: #fff;
+  background: var(--blank);
 }
 .token__hinweis {
   margin: 0 0 0.4rem;
@@ -239,6 +259,14 @@
   font-weight: 600;
   color: var(--stempel);
 }
+/* Der Erklärtext unter der Zeile im Kasten — sechsmal als Stilangabe wiederholt, zweimal davon
+   ohne unteren Abstand, weil er dort zuletzt stand. Das entscheidet jetzt die Stelle im Kasten
+   und nicht mehr, wer die Zeile geschrieben hat. */
+.token__text {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+}
+.token__text:last-child { margin-bottom: 0; }
 .token__wert {
   display: block;
   font-family: var(--schrift-mono);
