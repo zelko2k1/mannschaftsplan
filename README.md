@@ -247,8 +247,15 @@ zwei Rollen:
 
 | Rolle | Reiter | Darf |
 |---|---|---|
-| **Admin** | Spieltage, Mannschaften, Einstellungen, Protokoll | Alles. Legt Mannschaften und Kapitäne an, pflegt Rechtstexte und Sicherungen. |
-| **Kapitän** | Spieltage, Mannschaft, Protokoll | Nur seine eigene Mannschaft: Mitglieder anlegen und bearbeiten, Spieltage pflegen, Rückmeldungen korrigieren, seine Mannschaft benennen. |
+| **Admin** | Spieltage, Mannschaft, Konten, Verein, Protokoll | Alles. Legt Mannschaften und Konten an, pflegt Rechtstexte und Sicherungen. |
+| **Kapitän** | Spieltage, Mannschaft, Protokoll | Nur seine eigene Mannschaft: Spieler anlegen und bearbeiten, Spieltage pflegen, Rückmeldungen korrigieren, seine Mannschaft benennen. |
+
+Jeder Reiter hat genau ein Thema, und die **Auswahl oben** entscheidet, welche Mannschaft
+gemeint ist. *Mannschaft* zeigt bei beiden Rollen dasselbe — ihren Namen und ihre Spieler; der
+Unterschied liegt nur darin, wie viele Mannschaften zur Auswahl stehen. *Konten* trägt alle
+Verwalterkonten, nach Mannschaft gruppiert, und zeigt auch, welche Mannschaft noch keinen
+Kapitän hat. *Verein* trägt, was für alle gilt: Vereinsname, Sperrfrist, Rechtstexte, die Liste
+der Mannschaften und die Sicherungen.
 
 Beide erreichen über ihren Namen im Kopf **Mein Konto** — zweiter Faktor und eigenes Passwort.
 Das gehört zur Person und zu keiner Mannschaft, deshalb steht es nicht in der Reiterleiste.

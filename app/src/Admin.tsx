@@ -15,14 +15,18 @@ import {
 import { ausEingabe, fuerEingabe, systemDatum, systemDatumZeit } from './format'
 import './admin.css'
 
-type Reiter = 'spieltage' | 'mannschaften' | 'einstellungen' | 'protokoll' | 'konto'
+type Reiter = 'spieltage' | 'mannschaften' | 'konten' | 'verein' | 'protokoll' | 'konto'
 
 /**
  * Welche Reiter sieht welche Rolle? — Abschnitt 12.
  *
- * Der Kapitän sieht die Arbeit seiner Mannschaft: Spieltage, die Mannschaft selbst, und das
- * Protokoll, mit dem sich eine strittige Zusage klären lässt. Die zentralen Einstellungen gehen
- * ihn nichts an, und der Server gäbe sie ihm auch nicht.
+ * Jeder Reiter hat GENAU EIN Thema, und die Auswahl im Kopf entscheidet, welche Mannschaft
+ * gemeint ist. Vorher trug „Mannschaften" vier Themen auf einmal — die gewählte Mannschaft,
+ * ihre Mitglieder, ihre Kapitäne und die Liste aller Mannschaften —, und das letzte ist eine
+ * Aussage über den Verein, nicht über die eine Mannschaft oben in der Auswahl.
+ *
+ * `Mannschaft` heißt bei beiden Rollen gleich und zeigt dasselbe. Der Unterschied ist nicht der
+ * Inhalt, sondern welche Mannschaften zur Auswahl stehen: beim Kapitän genau eine.
  *
  * `konto` steht in keiner Liste: Es gehört zur Person, nicht zur Mannschaft, und wird über den
  * eigenen Namen im Kopf geöffnet.
@@ -30,8 +34,9 @@ type Reiter = 'spieltage' | 'mannschaften' | 'einstellungen' | 'protokoll' | 'ko
 const REITER: Record<'admin' | 'kapitaen', [Reiter, string][]> = {
   admin: [
     ['spieltage', 'Spieltage'],
-    ['mannschaften', 'Mannschaften'],
-    ['einstellungen', 'Einstellungen'],
+    ['mannschaften', 'Mannschaft'],
+    ['konten', 'Konten'],
+    ['verein', 'Verein'],
     ['protokoll', 'Protokoll'],
   ],
   kapitaen: [
@@ -153,12 +158,12 @@ export default function Admin() {
           <MannschaftenReiter
             abgemeldet={abgemeldet}
             team={gewaehlt}
-            rolle={ich.rolle}
             neuLaden={() => void werBinIch()}
           />
         )}
-        {reiter === 'einstellungen' && ich.rolle === 'admin' && (
-          <Einstellungen abgemeldet={abgemeldet} />
+        {reiter === 'konten' && ich.rolle === 'admin' && <Konten abgemeldet={abgemeldet} />}
+        {reiter === 'verein' && ich.rolle === 'admin' && (
+          <Verein abgemeldet={abgemeldet} neuLaden={() => void werBinIch()} />
         )}
         {reiter === 'konto' && <MeinKonto abgemeldet={abgemeldet} />}
         {/* Der Gesamt-Admin sieht das ganze Protokoll — die zentralen Ereignisse gehören zu
@@ -692,10 +697,14 @@ function Mitglieder({ abgemeldet, team }: { abgemeldet: () => void; team: string
 // Ein Formular, ein Knopf. Geschickt wird nur, was sich geändert hat — der Server schreibt je
 // geändertem Feld eine Protokollzeile, und eine Zeile „80 → 80" wäre Rauschen.
 /**
- * Was für ALLE Mannschaften gilt — Sache des Admins. Was einer einzelnen Mannschaft gehört,
- * steht im Reiter „Mannschaften"; was zur angemeldeten Person gehört, unter „Mein Konto".
+ * Der Reiter „Verein" — was für ALLE Mannschaften gilt: der Vereinsname, die Sperrfrist, die
+ * Rechtstexte, die Liste der Mannschaften und die Sicherungen.
+ *
+ * „Einstellungen" hieß er früher, und das war ein Sammelbegriff, unter dem niemand eine
+ * Mannschaftsliste vermutet. Was einer einzelnen Mannschaft gehört, steht im Reiter
+ * „Mannschaft"; was zur angemeldeten Person gehört, unter „Mein Konto".
  */
-function Einstellungen({ abgemeldet }: { abgemeldet: () => void }) {
+function Verein({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLaden: () => void }) {
   const [daten, setDaten] = useState<EinstellungenDaten | null>(null)
   const [entwurf, setEntwurf] = useState<EinstellungenDaten | null>(null)
   const [fehler, setFehler] = useState('')
@@ -908,6 +917,7 @@ function Einstellungen({ abgemeldet }: { abgemeldet: () => void }) {
         </div>
       </div>
     </form>
+    <Mannschaften abgemeldet={abgemeldet} neuLaden={neuLaden} />
     <Sicherungen abgemeldet={abgemeldet} />
     </>
   )
@@ -1245,28 +1255,25 @@ function ZweiterFaktor({ abgemeldet }: { abgemeldet: () => void }) {
 }
 
 /**
- * Der Reiter „Mannschaften" — alles, was einer Mannschaft gehört, an einem Ort.
+ * Der Reiter „Mannschaft" — die eine, die oben gewählt ist: ihr Name und ihre Spieler.
  *
- * Welche Mannschaft gemeint ist, steht in der Auswahl im Kopf. Ein Kapitän hat dort genau eine;
- * für ihn ist dieser Reiter schlicht „meine Mannschaft".
+ * Für beide Rollen derselbe Inhalt. Der Unterschied liegt in der Auswahl darüber: Ein Kapitän
+ * hat dort genau eine Mannschaft. Die Konten seiner Kapitäne stehen NICHT hier, sondern im
+ * Reiter „Konten" — sie sind eine Sache des Admins und gehören nicht in die Mannschaftsarbeit.
  */
 function MannschaftenReiter({
   abgemeldet,
   team,
-  rolle,
   neuLaden,
 }: {
   abgemeldet: () => void
   team: string
-  rolle: 'admin' | 'kapitaen'
   neuLaden: () => void
 }) {
   return (
     <>
       <Mannschaftseinstellungen abgemeldet={abgemeldet} team={team} neuLaden={neuLaden} />
       <Mitglieder abgemeldet={abgemeldet} team={team} />
-      {rolle === 'admin' && <Kapitaene abgemeldet={abgemeldet} team={team} />}
-      {rolle === 'admin' && <Mannschaften abgemeldet={abgemeldet} neuLaden={neuLaden} />}
     </>
   )
 }
@@ -1475,31 +1482,37 @@ function Mannschaften({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLad
   )
 }
 /**
- * Die Kapitäne EINER Mannschaft — Abschnitt 12.
+ * Der Reiter „Konten" — alle Verwalterkonten über alle Mannschaften hinweg.
  *
- * Mehrere sind ausdrücklich vorgesehen und brauchen keinen eigenen Begriff: Eine Vertretung ist
- * schlicht ein zweites Konto auf dieselbe Mannschaft, mit denselben Rechten. Wer was getan hat,
- * steht ohnehin im Protokoll.
+ * Steht bewusst nicht im Reiter der einzelnen Mannschaft: Wer Konten anlegen darf, darf alles,
+ * und diese Arbeit gehört dem Admin, nicht in die Mannschaftsarbeit. Gruppiert nach Mannschaft,
+ * weil das die Frage ist, die man hier stellt — „wer betreut die Damen?" und nicht „was macht
+ * Konto Nummer sieben?".
+ *
+ * Mehrere Kapitäne je Mannschaft sind ausdrücklich vorgesehen und brauchen keinen eigenen
+ * Begriff: Eine Vertretung ist ein zweites Konto mit denselben Rechten. Wer was getan hat, steht
+ * ohnehin im Protokoll.
  *
  * Das Passwort wird erzeugt und genau einmal angezeigt, wie der Einladungslink eines Mitglieds.
- * Gespeichert ist davon nur ein Hash; herausholen kann es niemand, auch der Gesamt-Admin nicht.
+ * Gespeichert ist davon nur ein Hash; herausholen kann es niemand, auch der Admin nicht.
  */
-function Kapitaene({ abgemeldet, team }: { abgemeldet: () => void; team: string }) {
+function Konten({ abgemeldet }: { abgemeldet: () => void }) {
   const { items, fehler, setFehler, laden } = useListe<Verwalterkonto>(adminApi.verwalter, abgemeldet)
-  // Für die Verknüpfung zum Spielereintrag — das Vorbild ist `playerId` in der Dartszentrale.
+  const { items: teams } = useListe<Mannschaft>(adminApi.mannschaften, abgemeldet)
+
+  const [email, setEmail] = useState('')
+  const [rolle, setRolle] = useState<'admin' | 'kapitaen'>('kapitaen')
+  const [team, setTeam] = useState('')
+  const [mitglied, setMitglied] = useState('')
+  const [laeuft, setLaeuft] = useState(false)
+  const [gezeigt, setGezeigt] = useState<{ email: string; passwort: string } | null>(null)
+
+  // Für die Verknüpfung zum Spielereintrag — nur die Spieler der gewählten Mannschaft.
   const { items: spieler } = useListe<AdminMitglied>(
     () => adminApi.mitglieder(team),
     abgemeldet,
     team,
   )
-  const [email, setEmail] = useState('')
-  const [mitglied, setMitglied] = useState('')
-  const [laeuft, setLaeuft] = useState(false)
-  const [gezeigt, setGezeigt] = useState<{ email: string; passwort: string } | null>(null)
-
-  // Nur die dieser Mannschaft. Der Gesamt-Admin selbst taucht hier nicht auf — er gehört zu
-  // keiner, und ihn versehentlich zu löschen wäre der schnellste Weg, sich auszusperren.
-  const meine = (items ?? []).filter((v) => v.rolle === 'kapitaen' && v.team === team)
 
   async function fuehreAus(tun: () => Promise<unknown>) {
     setLaeuft(true)
@@ -1515,15 +1528,81 @@ function Kapitaene({ abgemeldet, team }: { abgemeldet: () => void; team: string 
     }
   }
 
+  const zeile = (v: Verwalterkonto) => (
+    <li
+      key={v.id}
+      style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '0.75rem',
+        alignItems: 'baseline',
+        padding: '0.35rem 0',
+        borderTop: 'var(--linie)',
+      }}
+    >
+      <span style={{ flex: '1 1 14rem' }}>{v.email}</span>
+      <span className="satz__zusatz">{v.totp ? 'zweiter Faktor an' : 'nur Passwort'}</span>
+      {v.totp && (
+        <button
+          type="button"
+          className="knopf"
+          disabled={laeuft}
+          onClick={() => {
+            // Eine Schwächung — sie gehört bestätigt und steht im Protokoll.
+            if (
+              !window.confirm(
+                `Zweiten Faktor von „${v.email}" abschalten? ` +
+                  'Danach genügt sein Passwort. Er kann ihn selbst wieder einrichten.',
+              )
+            ) {
+              return
+            }
+            void fuehreAus(() => adminApi.verwalterZweiterFaktorAus(v.id))
+          }}
+        >
+          Faktor abschalten
+        </button>
+      )}
+      <button
+        type="button"
+        className="knopf"
+        disabled={laeuft}
+        onClick={() =>
+          fuehreAus(async () => {
+            const d = await adminApi.verwalterAendern(v.id, { neues_passwort: true })
+            if (d.passwort) setGezeigt({ email: v.email, passwort: d.passwort })
+          })
+        }
+      >
+        Neues Passwort
+      </button>
+      <button
+        type="button"
+        className="knopf knopf--gefahr"
+        disabled={laeuft}
+        onClick={() => {
+          if (!window.confirm(`Konto „${v.email}" löschen? Offene Sitzungen enden sofort.`)) return
+          void fuehreAus(() => adminApi.verwalterLoeschen(v.id))
+        }}
+      >
+        Löschen
+      </button>
+    </li>
+  )
+
+  // Gruppen: erst die Admins, dann jede Mannschaft. Auch die ohne Kapitän — gerade die, denn
+  // eine Mannschaft ohne Betreuer ist das, was man hier sehen will.
+  const admins = (items ?? []).filter((v) => v.rolle === 'admin')
+
   return (
     <div className="satz">
       <div className="satz__kopf">
-        <span className="satz__name">Kapitäne dieser Mannschaft</span>
+        <span className="satz__name">Konten</span>
         <span className="satz__zusatz">
-          Ein Kapitän sieht ausschließlich diese Mannschaft: Mitglieder anlegen und bearbeiten,
-          Spieltage pflegen, Rückmeldungen korrigieren. Von den zentralen Einstellungen und den
-          Sicherungen bekommt er nichts zu sehen. <strong>Mehrere sind möglich</strong> — eine
-          Vertretung ist einfach ein zweites Konto.
+          Ein Kapitän sieht ausschließlich seine Mannschaft: Spieler anlegen und bearbeiten,
+          Spieltage pflegen, Rückmeldungen korrigieren. Ein Admin sieht alles, hat aber selbst
+          weder Mannschaft noch Spielereintrag — wer verwaltet, soll in seiner eigenen Verwaltung
+          nicht Partei sein.
         </span>
       </div>
 
@@ -1557,8 +1636,9 @@ function Kapitaene({ abgemeldet, team }: { abgemeldet: () => void; team: string 
         </div>
       )}
 
-      <div className="satz__aktionen">
-        <label className="feld" style={{ flex: '1 1 16rem' }}>
+      {/* ── Neues Konto ──────────────────────────────────────────────────────────────────── */}
+      <div className="satz__aktionen" style={{ flexWrap: 'wrap' }}>
+        <label className="feld" style={{ flex: '1 1 14rem' }}>
           <span>Anmeldename</span>
           <input
             type="email"
@@ -1566,125 +1646,112 @@ function Kapitaene({ abgemeldet, team }: { abgemeldet: () => void; team: string 
             value={email}
             onChange={(x) => setEmail(x.target.value)}
           />
-          {/* Die Form ist eine Vorgabe von PocketBase, nicht von uns — und sie lädt zu dem
-              Missverständnis ein, hier müsse eine echte Adresse stehen. */}
           <span className="feld__hinweis">
             In E-Mail-Form, muss aber keine echte Adresse sein — etwa
-            <code> kapitaen@verein.intern</code>. Es wird nie etwas dorthin geschickt; die App hat
-            keinen Mailserver.
+            <code> kapitaen@verein.intern</code>. Es wird nie etwas dorthin geschickt.
           </span>
         </label>
-        <label className="feld" style={{ flex: '0 1 12rem' }}>
-          <span>Spielt als</span>
-          <select value={mitglied} onChange={(x) => setMitglied(x.target.value)}>
-            <option value="">— spielt nicht mit —</option>
-            {(spieler ?? []).map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
+        <label className="feld" style={{ flex: '0 1 9rem' }}>
+          <span>Rolle</span>
+          <select
+            value={rolle}
+            onChange={(x) => {
+              const r = x.target.value === 'admin' ? 'admin' : 'kapitaen'
+              setRolle(r)
+              // Ein Admin hat weder Mannschaft noch Spielereintrag — die Felder daneben würden
+              // sonst Werte tragen, die der Server ohnehin ablehnt.
+              if (r === 'admin') {
+                setTeam('')
+                setMitglied('')
+              }
+            }}
+          >
+            <option value="kapitaen">Kapitän</option>
+            <option value="admin">Admin</option>
           </select>
-          <span className="feld__hinweis">
-            Sein Eintrag in dieser Mannschaft. Wer nur organisiert, bleibt unverknüpft.
-          </span>
         </label>
+        {rolle === 'kapitaen' && (
+          <label className="feld" style={{ flex: '0 1 11rem' }}>
+            <span>Mannschaft</span>
+            <select
+              value={team}
+              onChange={(x) => {
+                setTeam(x.target.value)
+                setMitglied('')
+              }}
+            >
+              <option value="">— wählen —</option>
+              {(teams ?? []).map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {rolle === 'kapitaen' && team && (
+          <label className="feld" style={{ flex: '0 1 11rem' }}>
+            <span>Spielt als</span>
+            <select value={mitglied} onChange={(x) => setMitglied(x.target.value)}>
+              <option value="">— spielt nicht mit —</option>
+              {(spieler ?? []).map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+            <span className="feld__hinweis">Wer nur organisiert, bleibt unverknüpft.</span>
+          </label>
+        )}
         <button
           type="button"
           className="knopf"
-          disabled={!email.trim() || !team || laeuft}
+          disabled={!email.trim() || (rolle === 'kapitaen' && !team) || laeuft}
           onClick={() =>
             fuehreAus(async () => {
-              const d = await adminApi.verwalterAnlegen(email.trim(), 'kapitaen', team, mitglied)
+              const d = await adminApi.verwalterAnlegen(email.trim(), rolle, team, mitglied)
               setGezeigt({ email: d.email, passwort: d.passwort })
               setEmail('')
               setMitglied('')
             })
           }
         >
-          {meine.length ? 'Weiteren Kapitän anlegen' : 'Kapitän anlegen'}
+          Konto anlegen
         </button>
       </div>
 
+      {/* ── Vorhandene Konten, nach Mannschaft ───────────────────────────────────────────── */}
       {items === null ? (
         <p className="namen">Einen Moment …</p>
-      ) : meine.length === 0 ? (
-        <p className="namen">
-          Noch kein Kapitän. Solange keiner da ist, betreust du diese Mannschaft selbst.
-        </p>
       ) : (
-        <ul className="namen" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-          {meine.map((v) => (
-            <li
-              key={v.id}
-              style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: '0.75rem',
-                alignItems: 'baseline',
-                padding: '0.35rem 0',
-                borderTop: 'var(--linie)',
-              }}
-            >
-              <span style={{ flex: '1 1 14rem' }}>
-                {v.email}
-                {v.mitglied && (
-                  <span className="satz__zusatz">
-                    {' · spielt als '}
-                    {(spieler ?? []).find((m) => m.id === v.mitglied)?.name ?? '—'}
-                  </span>
+        <>
+          <h3 className="detail__titel">Admins</h3>
+          {admins.length === 0 ? (
+            <p className="namen">
+              Keins. Du selbst bist als Superuser angemeldet — der ist immer Admin.
+            </p>
+          ) : (
+            <ul className="namen" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              {admins.map(zeile)}
+            </ul>
+          )}
+
+          {(teams ?? []).map((t) => {
+            const ihre = items.filter((v) => v.rolle === 'kapitaen' && v.team === t.id)
+            return (
+              <div key={t.id}>
+                <h3 className="detail__titel">{t.name}</h3>
+                {ihre.length === 0 ? (
+                  <p className="namen">Noch kein Kapitän — du betreust sie selbst.</p>
+                ) : (
+                  <ul className="namen" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                    {ihre.map(zeile)}
+                  </ul>
                 )}
-              </span>
-              <span className="satz__zusatz">
-                {v.totp ? 'zweiter Faktor an' : 'nur Passwort'}
-              </span>
-              {v.totp && (
-                <button
-                  type="button"
-                  className="knopf"
-                  disabled={laeuft}
-                  onClick={() => {
-                    // Das ist eine Schwächung — sie gehört bestätigt und steht im Protokoll.
-                    if (
-                      !window.confirm(
-                        `Zweiten Faktor von „${v.email}" abschalten? ` +
-                          'Danach genügt sein Passwort. Er kann ihn selbst wieder einrichten.',
-                      )
-                    ) {
-                      return
-                    }
-                    void fuehreAus(() => adminApi.verwalterZweiterFaktorAus(v.id))
-                  }}
-                >
-                  Faktor abschalten
-                </button>
-              )}
-              <button
-                type="button"
-                className="knopf"
-                disabled={laeuft}
-                onClick={() =>
-                  fuehreAus(async () => {
-                    const d = await adminApi.verwalterAendern(v.id, { neues_passwort: true })
-                    if (d.passwort) setGezeigt({ email: v.email, passwort: d.passwort })
-                  })
-                }
-              >
-                Neues Passwort
-              </button>
-              <button
-                type="button"
-                className="knopf knopf--gefahr"
-                disabled={laeuft}
-                onClick={() => {
-                  if (!window.confirm(`Konto „${v.email}" löschen? Offene Sitzungen enden sofort.`)) return
-                  void fuehreAus(() => adminApi.verwalterLoeschen(v.id))
-                }}
-              >
-                Löschen
-              </button>
-            </li>
-          ))}
-        </ul>
+              </div>
+            )
+          })}
+        </>
       )}
     </div>
   )
