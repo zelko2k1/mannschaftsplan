@@ -1,8 +1,19 @@
-import { useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { api, KeineSitzung, type Board, type Spieltag, type Status } from './api'
-import Admin from './Admin'
 import Zeile from './Zeile'
 import './abfahrtsplan.css'
+
+/**
+ * Die Kapitänsansicht wird erst geholt, wenn jemand sie aufruft.
+ *
+ * Sie ist der größere Teil der Anwendung — Spieltage, Mitglieder, Konten, Einstellungen,
+ * Sicherungen, zweiter Faktor — und der Spieler sieht sie nie. Er bekommt einen Link geschickt,
+ * tippt drei Knöpfe und ist wieder weg; ihm die ganze Verwaltung mitzuschicken, kostet ihn
+ * Bandbreite in der Kneipe und Rechenzeit auf einem Telefon, das vielleicht nicht neu ist.
+ *
+ * `admin.css` hängt an diesem Bauteil und wandert mit — der Aushang lädt es nicht mehr mit.
+ */
+const Admin = lazy(() => import('./Admin'))
 
 type Lage = 'laedt' | 'da' | 'ohne-sitzung' | 'kaputt'
 
@@ -23,7 +34,22 @@ function LinkUngueltig() {
 export default function App() {
   // Die Kapitänsansicht ist eine eigene Route mit eigenem Router, eigener Sitzungstabelle und
   // eigenem Cookie (R5). Ein Router wäre für zwei Seiten übertrieben — der Pfad genügt.
-  if (window.location.pathname.startsWith('/admin')) return <Admin />
+  if (window.location.pathname.startsWith('/admin')) {
+    return (
+      // Derselbe Satz, den die Kapitänsansicht danach selbst zeigt, während sie prüft, wer da
+      // ist — nur ohne ihren Rahmen: Deren Stilangaben stecken im nachgeladenen Teil und sind in
+      // genau diesem Augenblick noch nicht da.
+      <Suspense
+        fallback={
+          <main className="leer">
+            <p>Einen Moment …</p>
+          </main>
+        }
+      >
+        <Admin />
+      </Suspense>
+    )
+  }
 
   return <Abfahrtsplan />
 }

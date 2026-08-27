@@ -7,6 +7,14 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+### Geändert
+- **Der Spieler lädt die Kapitänsansicht nicht mehr mit.** Sie wird erst geholt, wenn jemand
+  `/admin` aufruft. Für den Spieler sind das **8,9 kB weniger über die Leitung** (63,8 statt
+  72,6 kB gzip) und **41 kB weniger JavaScript zu übersetzen** (204 statt 245 kB) — Letzteres
+  zählt auf einem Telefon, das nicht neu ist. Dazu 0,8 kB CSS, denn `admin.css` wandert mit.
+  Nachgemessen: Auf dem Aushang wird der Verwaltungsteil nachweislich nicht angefordert, und
+  `/admin` lädt ihn nach und zeigt die Anmeldemaske wie zuvor.
+
 ### Behoben
 - **Die Kapitänsansicht scrollte auf dem Handy zur Seite.** Fünf Reiter brauchten bei 320 px
   Breite 372 px — die ganze Seite ließ sich 54 px nach rechts schieben, und „Protokoll" lag halb
