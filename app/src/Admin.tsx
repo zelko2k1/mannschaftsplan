@@ -84,27 +84,29 @@ export default function Admin() {
   return (
     <div className="admin">
       <header className="admin__kopf">
-        <h1>{ich.rolle === 'admin' ? 'Verwaltung' : 'Kapitän'}</h1>
+        {/* Die Überschrift ist die Mannschaft, um die es gerade geht — nicht die Rolle des
+            Anmeldenden. „Kapitän" sagte ihm nichts, was er nicht wüsste. */}
+        <h1>{ich.teams.find((t) => t.id === gewaehlt)?.name ?? 'Mannschaft'}</h1>
         <span className="admin__wer">
-          {/* Ein Kapitän hat genau eine Mannschaft — dann ist eine Auswahl mit einem Eintrag
-              keine Auswahl, sondern eine Irreführung. Er sieht den Namen. */}
-          {ich.teams.length > 1 ? (
-            <select
-              className="admin__mannschaft"
-              value={gewaehlt}
-              onChange={(x) => setGewaehlt(x.target.value)}
-              aria-label="Mannschaft"
-            >
-              {ich.teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <strong>{ich.teams[0]?.name ?? '—'}</strong>
+          {/* Ein Kapitän hat genau eine Mannschaft — für ihn wäre eine Auswahl mit einem Eintrag
+              keine Auswahl. Ihr Name steht ohnehin schon in der Überschrift. */}
+          {ich.teams.length > 1 && (
+            <>
+              <select
+                className="admin__mannschaft"
+                value={gewaehlt}
+                onChange={(x) => setGewaehlt(x.target.value)}
+                aria-label="Mannschaft wechseln"
+              >
+                {ich.teams.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              {' · '}
+            </>
           )}
-          {' · '}
           {/* Das eigene Konto gehört zur Person, nicht zur Mannschaft — deshalb hier und nicht
               in einem Reiter. Der Kapitän erreicht darüber seinen zweiten Faktor. */}
           <button
@@ -182,9 +184,6 @@ function Anmeldung({ fertig }: { fertig: (email: string) => void }) {
 
   return (
     <div className="admin">
-      <header className="admin__kopf">
-        <h1>Kapitän</h1>
-      </header>
       <form
         className="anmeldung"
         onSubmit={async (ereignis) => {
@@ -1312,7 +1311,7 @@ function Mannschaftseinstellungen({
   return (
     <div className="satz">
       <div className="satz__kopf">
-        <span className="satz__name">Diese Mannschaft</span>
+        <span className="satz__name">Mannschaft</span>
         <span className="satz__zusatz">
           Der Name steht im Aushang und in dieser Ansicht. Tempo und Rüstzeit stehen am einzelnen
           Spieltag — sie unterscheiden sich von Fahrt zu Fahrt mehr als von Mannschaft zu
