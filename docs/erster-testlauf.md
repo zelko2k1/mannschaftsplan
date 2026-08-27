@@ -60,6 +60,12 @@ Testmitglied mit Einladungslink und **einen Spieltag, dessen Anwurf in der Verga
 In dieser Reihenfolge: Die ersten beiden gehen sofort, die anderen brauchen, was in Teil 1
 entstanden ist.
 
+> **Von Windows aus** geht alles außer T10 (läuft auf dem Server) und T11 (braucht Handy und
+> Messenger). Zwei Eigenheiten: In PowerShell musst du **`curl.exe`** schreiben — `curl` allein ist
+> dort ein Alias für `Invoke-WebRequest` und versteht diese Schalter nicht — und statt
+> `/dev/null` nimmst du `NUL`. Die Token-Zeile in A12 braucht `grep` und `cut`; die läuft in Git
+> Bash, nicht in PowerShell.
+
 ### T8d · Das Dashboard ist von außen nicht erreichbar
 
 R13a kennt keine Ausnahme. Vom eigenen Rechner:
@@ -102,7 +108,13 @@ muss dich anmelden.
 
 ### T10 · Kein Token im Protokoll
 
-Nach dem Antippen aus T11 liegt mindestens ein Aufruf von `/j/<token>` hinter dir. Auf dem Server:
+Nach dem Antippen aus T11 liegt mindestens ein Aufruf von `/j/<token>` hinter dir. Auf dem Server,
+und zwar **im Verzeichnis des Klons** — sonst findet `docker compose` seine Dateien nicht und
+bricht mit `no such file or directory` ab:
+
+```bash
+cd ~/mannschaftsplan
+```
 
 ```bash
 docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml \
@@ -112,6 +124,10 @@ docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml \
 **Erwartet: `0`** — die Route wird gar nicht erst protokolliert (`log_skip`, R8). Ein Treffer
 bedeutet, dass ein gültiger Zugang in einer Logdatei liegt; jeder mit Serverzugriff wäre dann
 dieses Mitglied.
+
+> `grep -c` beendet sich bei null Treffern mit Exit-Code 1. Die Zeile sieht dadurch aus, als sei
+> sie fehlgeschlagen, obwohl `0` genau das gewünschte Ergebnis ist. Zählt die Ausgabe, nicht der
+> Exit-Code.
 
 Zur Gegenprobe, dass überhaupt protokolliert wird:
 
@@ -127,8 +143,10 @@ Steht dort 0, wird gar nichts geschrieben — dann prüft die Zeile darüber nic
 Diese Prüfung braucht die Superuser-API, und die liegt hinter R13a. Genau deshalb steht sie hier:
 Sie prüft den Sperr-Cron **und** den Tunnelweg, den du im Notfall ohnehin brauchst.
 
-**1. Tunnel öffnen.** In `docker-compose.yaml` die auskommentierte `ports`-Zeile aktivieren
-(`"127.0.0.1:8090:8090"`), neu starten, dann vom eigenen Rechner:
+**1. Tunnel öffnen.** Auf dem Server im Verzeichnis des Klons (`cd ~/mannschaftsplan`) in
+`docker-compose.yaml` die auskommentierte `ports`-Zeile aktivieren (`"127.0.0.1:8090:8090"`) und
+den Stack mit `up -d` neu starten — `restart` genügt nicht, der Container muss neu entstehen. Dann
+vom eigenen Rechner:
 
 ```bash
 ssh -L 8090:127.0.0.1:8090 <benutzer>@<server>
@@ -149,9 +167,16 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST \
 
 **Erwartet: `204`.**
 
+> Der Cron läuft ohnehin stündlich zur zehnten Minute. Hat er vor deinem Handstart schon
+> zugeschlagen, antwortet der Aufruf zwar mit `204`, findet aber nichts mehr zu tun — der
+> Protokolleintrag stammt dann vom regulären Lauf, erkennbar am Zeitstempel. Willst du den
+> Handstart selbst wirken sehen, brauchst du einen zweiten, noch offenen Spieltag in der
+> Vergangenheit.
+
 **4. Nachsehen.** Der Spieltag von gestern steht jetzt auf gesperrt, ein künftiger nicht. Im
 Protokoll der Kapitänsansicht steht eine Zeile **„Spieltag gesperrt"** mit dem Vermerk
-*(automatisch)* statt unter einem Namen.
+*(automatisch)* statt unter einem Namen. Der Zusatz „N h nach Anwurf" gibt die **eingestellte**
+Frist wieder, nicht die verstrichene Zeit.
 
 **5. Aufräumen:** Frist zurück auf **0**, die `ports`-Zeile wieder auskommentieren, neu starten.
 Der Tunnel ist für den Notfall gedacht, nicht für den Betrieb.

@@ -84,7 +84,14 @@ später wird dein Passwort nicht angenommen, ohne dass irgendetwas nach einem Fe
 
 **3 · Die App auf den Server holen**
 
-Auf dem Server einloggen und:
+Auf dem Server einloggen. Frische Serverabbilder bringen `git` oft nicht mit — dann fehlt der
+nächste Befehl mit `command not found`, und du holst es nach:
+
+```bash
+sudo apt install -y git
+```
+
+Danach:
 
 ```bash
 git clone https://github.com/zelko2k1/mannschaftsplan.git
@@ -120,6 +127,11 @@ ADMIN_PASSWORD_HASH=$2a$14$…die Zeile von eben…
 
 Mehr ist es nicht. In der Datei stehen keine Vorgaben, die du übernehmen könntest — jeder Wert ist
 deiner.
+
+> Wenn du später einen dieser Werte korrigierst: Die Änderung wirkt erst, wenn die Container **neu
+> erstellt** werden. `docker compose restart` genügt dafür **nicht** — es startet dieselben
+> Container mit der alten Umgebung wieder. Nötig ist derselbe Befehl wie in Schritt 6, also
+> `… up -d`.
 
 **6 · Starten**
 
@@ -286,9 +298,21 @@ die Anmeldung eine Viertelstunde gesperrt — auch für das richtige Passwort.
 **„Ich habe mein Kapitäns-Passwort vergessen."** Schritt 7 noch einmal ausführen; `upsert`
 überschreibt den vorhandenen Zugang.
 
-**„Das Passwort aus Schritt 4 wird nicht angenommen."** Prüfe `docker compose version`. Bei älteren
-Ausgaben als 2.24 verstümmelt Docker die Prüfsumme beim Einlesen — dann passt sie nicht mehr zu
-deinem Passwort. Abhilfe: Docker aktualisieren.
+**„Das Passwort aus Schritt 4 wird nicht angenommen."** Zwei Ursachen, beide sehen gleich aus: Das
+Browser-Fenster fragt endlos neu, ohne dass irgendwo ein Fehler steht.
+
+1. **Docker ist zu alt.** Prüfe `docker compose version`. Bei älteren Ausgaben als 2.24 verstümmelt
+   Docker die Prüfsumme beim Einlesen — dann passt sie nicht mehr zu deinem Passwort. Abhilfe:
+   Docker aktualisieren.
+2. **Die Korrektur in der `.env` ist nie angekommen.** Hast du den Wert geändert und danach nur
+   `docker compose … restart` gemacht, läuft der Webserver weiter mit der alten Umgebung. Der
+   Container muss neu entstehen:
+
+   ```bash
+   docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml up -d
+   ```
+
+   Hilft das nicht, mit Nachdruck: dasselbe noch einmal mit `--force-recreate caddy` am Ende.
 
 **Neue Version einspielen:**
 
