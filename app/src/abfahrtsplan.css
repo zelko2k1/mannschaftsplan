@@ -27,7 +27,9 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+/* Ein `h1` bringt einen Außenabstand mit, den der Kopfbalken nicht gebrauchen kann. */
 .kopf__titel {
+  margin: 0;
   font-size: 1.5rem;
   font-weight: 700;
   line-height: 1;
@@ -99,6 +101,14 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+}
+
+/* Die Überschrift um den Knopf trägt die Gliederung, nicht das Aussehen. Ohne diese Rücknahme
+   brächte sie die Vorgaben des Browsers für `h2` mit — anderthalbfache Größe und fett —, und
+   weil `.zeile__knopf` seine Schrift erbt, setzte sich die ganze Zeile neu. */
+.zeile__titel {
+  margin: 0;
+  font: inherit;
 }
 
 .zeile__knopf {

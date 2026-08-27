@@ -13,6 +13,7 @@ import {
   ZweiterFaktorNoetig,
 } from './adminApi'
 import { ausEingabe, fuerEingabe, systemDatum, systemDatumZeit } from './format'
+import { Fehler, Hinweis } from './Meldung'
 import './admin.css'
 
 type Reiter = 'spieltage' | 'mannschaften' | 'konten' | 'verein' | 'protokoll' | 'konto'
@@ -150,7 +151,7 @@ export default function Admin() {
         ))}
       </nav>
 
-      <div className="admin__inhalt">
+      <main className="admin__inhalt">
         {reiter === 'spieltage' && <Spieltage abgemeldet={abgemeldet} team={gewaehlt} />}
         {/* Alles, was einer Mannschaft gehört, an einem Ort: ihre Werte, ihre Mitglieder und
             ihre Kapitäne. Vorher lag das über zwei Reiter und die Einstellungen verstreut. */}
@@ -171,7 +172,7 @@ export default function Admin() {
         {reiter === 'protokoll' && (
           <Protokoll abgemeldet={abgemeldet} team={ich.rolle === 'admin' ? '' : gewaehlt} />
         )}
-      </div>
+      </main>
     </div>
   )
 }
@@ -190,9 +191,14 @@ function Anmeldung({ fertig }: { fertig: (email: string) => void }) {
   return (
     <div className="admin">
       {/* Der gelbe Balken gehört zum Bild der Anwendung und bleibt, auch wenn nichts darin
-          steht. Bewusst ohne <h1>: Eine Überschrift ohne Text ist für einen Screenreader eine
-          Ankündigung, der nichts folgt. */}
+          steht. Sichtbar bleibt er leer: Eine Überschrift ohne Text wäre für eine
+          Bildschirmleseanwendung eine Ankündigung, der nichts folgt.
+          Die Überschrift steht deshalb unsichtbar im Dokument statt gar nicht — eine Seite ohne
+          jede Überschrift lässt sich nicht ansteuern, und das Bild bleibt so, wie es gedacht
+          war. */}
       <header className="admin__kopf admin__kopf--leer" />
+      <main>
+      <h1 className="visuell-versteckt">Anmeldung zur Kapitänsansicht</h1>
       <form
         className="anmeldung"
         onSubmit={async (ereignis) => {
@@ -254,12 +260,9 @@ function Anmeldung({ fertig }: { fertig: (email: string) => void }) {
           {laeuft ? 'Einen Moment …' : 'Anmelden'}
         </button>
         {/* R6 · Der Server sagt nicht, was falsch war. Diese Seite erfindet nichts dazu. */}
-        {fehler && (
-          <p className="fehler" role="status">
-            {fehler}
-          </p>
-        )}
+        <Fehler text={fehler} />
       </form>
+      </main>
     </div>
   )
 }
@@ -314,6 +317,11 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
     team,
   )
   const [entwurf, setEntwurf] = useState<Partial<AdminSpieltag> | null>(null)
+  // Welcher Spieltag gerade bearbeitet wird. „Abschließen" ist ein Umschalter: Zweimal geklickt
+  // — und auf einer trägen Verbindung klickt man zweimal — sperrt der erste Ruf und entsperrt
+  // der zweite. Es sieht dann aus, als sei nichts passiert, dabei sind zwei Zeilen im Protokoll
+  // gelandet. Gesperrt wird nur die Zeile, an der gearbeitet wird, nicht die ganze Liste.
+  const [laeuft, setLaeuft] = useState('')
 
   const speichern = async () => {
     if (!entwurf) return
@@ -340,11 +348,7 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
 
   return (
     <>
-      {fehler && (
-        <p className="fehler" role="status">
-          {fehler}
-        </p>
-      )}
+      <Fehler text={fehler} />
 
       {entwurf ? (
         <Spieltagformular
@@ -364,7 +368,7 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
       {items.map((s) => (
         <div key={s.id} className={`satz${s.locked ? ' satz--abgeschlossen' : ''}`}>
           <div className="satz__kopf">
-            <span className="satz__name">{s.opponent_club || s.opponent_town}</span>
+            <h2 className="satz__name">{s.opponent_club || s.opponent_town}</h2>
             <span className="satz__zusatz">
               {systemDatumZeit(s.date)} · {s.opponent_town} ·{' '}
               {s.is_home ? 'Heim' : `Auswärts, ${s.km} km`}
@@ -389,12 +393,17 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
             <button
               type="button"
               className="knopf"
+              disabled={laeuft === s.id}
               onClick={async () => {
+                if (laeuft) return
+                setLaeuft(s.id)
                 try {
                   await adminApi.spieltagAendern(s.id, { locked: !s.locked })
                   await laden()
                 } catch (problem) {
                   setFehler(problem instanceof Error ? problem.message : 'Nicht gespeichert.')
+                } finally {
+                  setLaeuft('')
                 }
               }}
             >
@@ -403,7 +412,9 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
             <button
               type="button"
               className="knopf knopf--gefahr"
+              disabled={laeuft === s.id}
               onClick={async () => {
+                if (laeuft) return
                 // Löschen nimmt Rückmeldungen und Fahrdienst mit — das muss dastehen.
                 if (
                   !window.confirm(
@@ -413,11 +424,14 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
                 ) {
                   return
                 }
+                setLaeuft(s.id)
                 try {
                   await adminApi.spieltagLoeschen(s.id)
                   await laden()
                 } catch (problem) {
                   setFehler(problem instanceof Error ? problem.message : 'Nicht gelöscht.')
+                } finally {
+                  setLaeuft('')
                 }
               }}
             >
@@ -590,33 +604,43 @@ function Mitglieder({ abgemeldet, team }: { abgemeldet: () => void; team: string
   const [neuerName, setNeuerName] = useState('')
   // Frisch ausgestellte Token, nur für diese Sitzung im Speicher — nach dem Neuladen weg (R1).
   const [tokens, setTokens] = useState<Record<string, string>>({})
+  // Woran gerade gearbeitet wird: die Mitglieds-ID, oder `neu` für das Anlegen-Feld.
+  // „Deaktivieren" ist ein Umschalter und macht sich beim zweiten Klick selbst rückgängig; beim
+  // Token wiegt es schwerer: Zwei Rufe stellen zwei Token aus, und welches davon am Ende
+  // angezeigt wird, entscheidet die Reihenfolge der Antworten. Der Kapitän verschickte dann
+  // womöglich einen Link, der schon wieder ungültig ist.
+  const [laeuft, setLaeuft] = useState('')
 
   if (!items) return <p>Einen Moment …</p>
 
-  const fangen = async (arbeit: () => Promise<unknown>) => {
+  const fangen = async (
+    was: string,
+    arbeit: () => Promise<unknown>,
+    sonst = 'Nicht gespeichert.',
+  ) => {
+    if (laeuft) return
+    setLaeuft(was)
     try {
       await arbeit()
       await laden()
     } catch (problem) {
       if (problem instanceof NichtAngemeldet) return abgemeldet()
-      setFehler(problem instanceof Error ? problem.message : 'Nicht gespeichert.')
+      setFehler(problem instanceof Error ? problem.message : sonst)
+    } finally {
+      setLaeuft('')
     }
   }
 
   return (
     <>
-      {fehler && (
-        <p className="fehler" role="status">
-          {fehler}
-        </p>
-      )}
+      <Fehler text={fehler} />
 
       <form
         className="satz__aktionen"
         onSubmit={(ereignis) => {
           ereignis.preventDefault()
           if (!neuerName.trim()) return
-          void fangen(async () => {
+          void fangen('neu', async () => {
             await adminApi.mitgliedAnlegen(neuerName.trim(), team)
             setNeuerName('')
           })
@@ -626,7 +650,12 @@ function Mitglieder({ abgemeldet, team }: { abgemeldet: () => void; team: string
           <span>Neues Mitglied</span>
           <input value={neuerName} onChange={(x) => setNeuerName(x.target.value)} />
         </label>
-        <button type="submit" className="knopf" style={{ alignSelf: 'end' }}>
+        <button
+          type="submit"
+          className="knopf"
+          style={{ alignSelf: 'end' }}
+          disabled={!neuerName.trim() || laeuft === 'neu'}
+        >
           Anlegen
         </button>
       </form>
@@ -634,7 +663,7 @@ function Mitglieder({ abgemeldet, team }: { abgemeldet: () => void; team: string
       {items.map((m: AdminMitglied) => (
         <div key={m.id} className="satz">
           <div className="satz__kopf">
-            <span className="satz__name">{m.name}</span>
+            <h2 className="satz__name">{m.name}</h2>
             <span className="satz__zusatz">
               {m.active ? 'aktiv' : 'inaktiv'} ·{' '}
               {m.hat_token ? `Link seit ${systemDatum(m.token_issued_at)}` : 'noch kein Link'} · {m.geraete}{' '}
@@ -646,14 +675,18 @@ function Mitglieder({ abgemeldet, team }: { abgemeldet: () => void; team: string
             <button
               type="button"
               className="knopf"
-              onClick={() => void fangen(() => adminApi.mitgliedAendern(m.id, { active: !m.active }))}
+              disabled={laeuft === m.id}
+              onClick={() =>
+                void fangen(m.id, () => adminApi.mitgliedAendern(m.id, { active: !m.active }))
+              }
             >
               {m.active ? 'Deaktivieren' : 'Aktivieren'}
             </button>
             <button
               type="button"
               className="knopf"
-              onClick={async () => {
+              disabled={laeuft === m.id}
+              onClick={() => {
                 if (
                   m.hat_token &&
                   !window.confirm(
@@ -662,14 +695,14 @@ function Mitglieder({ abgemeldet, team }: { abgemeldet: () => void; team: string
                 ) {
                   return
                 }
-                try {
-                  const d = await adminApi.tokenNeu(m.id)
-                  setTokens((alt) => ({ ...alt, [m.id]: d.token }))
-                  await laden()
-                } catch (problem) {
-                  if (problem instanceof NichtAngemeldet) return abgemeldet()
-                  setFehler(problem instanceof Error ? problem.message : 'Nicht ausgestellt.')
-                }
+                void fangen(
+                  m.id,
+                  async () => {
+                    const d = await adminApi.tokenNeu(m.id)
+                    setTokens((alt) => ({ ...alt, [m.id]: d.token }))
+                  },
+                  'Nicht ausgestellt.',
+                )
               }}
             >
               {m.hat_token ? 'Neues Token' : 'Link erstellen'}
@@ -727,13 +760,7 @@ function Verein({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLaden: ()
   }, [abgemeldet])
 
   if (!daten || !entwurf) {
-    return fehler ? (
-      <p className="fehler" role="status">
-        {fehler}
-      </p>
-    ) : (
-      <p>Einen Moment …</p>
-    )
+    return fehler ? <Fehler text={fehler} /> : <p>Einen Moment …</p>
   }
 
   const setzen = (teil: Partial<EinstellungenDaten>) => {
@@ -785,16 +812,12 @@ function Verein({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLaden: ()
   return (
     <>
     <form onSubmit={speichern}>
-      {fehler && (
-        <p className="fehler" role="status">
-          {fehler}
-        </p>
-      )}
+      <Fehler text={fehler} />
 
       {/* ── Name ─────────────────────────────────────────────────────────────────────────── */}
       <div className="satz">
         <div className="satz__kopf">
-          <span className="satz__name">Name des Vereins</span>
+          <h2 className="satz__name">Name des Vereins</h2>
           <span className="satz__zusatz">
             Der Name eures Vereins — er steht dort, wo es um die Anwendung als Ganzes geht: über
             Impressum und Datenschutzhinweis, auf der Seite „Link ungültig", und als Herausgeber in
@@ -830,7 +853,7 @@ function Verein({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLaden: ()
       {/* ── Automatisches Sperren ────────────────────────────────────────────────────────── */}
       <div className="satz">
         <div className="satz__kopf">
-          <span className="satz__name">Spieltage von selbst schließen</span>
+          <h2 className="satz__name">Spieltage von selbst schließen</h2>
           <span className="satz__zusatz">
             Ein gespielter Spieltag nimmt keine Rückmeldungen mehr an. Mit einer Frist erledigt das
             die App, statt dass du nach jedem Spiel daran denken musst. <strong>0 = aus</strong> —
@@ -863,7 +886,7 @@ function Verein({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLaden: ()
       {/* ── Impressum und Datenschutz ────────────────────────────────────────────────────── */}
       <div className="satz">
         <div className="satz__kopf">
-          <span className="satz__name">Impressum und Datenschutz</span>
+          <h2 className="satz__name">Impressum und Datenschutz</h2>
           <span className="satz__zusatz">
             Jeder Text bekommt eine eigene Seite, verlinkt im Fuß des Aushangs und auf der
             Einladungsseite. <strong>Leer heißt: es gibt die Seite nicht</strong> und es wird auch
@@ -910,12 +933,14 @@ function Verein({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLaden: ()
           <button type="submit" className="knopf" disabled={laeuft || !veraendert || !name || !zahlenOk}>
             {laeuft ? 'Speichert …' : 'Speichern'}
           </button>
-          {gespeichert && (
-            <span className="satz__zusatz" style={{ alignSelf: 'center' }} role="status">
-              Gespeichert. Schon verschickte Links behalten ihre alte Vorschau — die speichert der
-              Messenger zwischen.
-            </span>
-          )}
+          {/* Steht dauerhaft und bleibt leer — mitten in einer Knopfreihe wäre der Behälter
+              aus `Meldung.tsx` ein `<div>` und schöbe die Knöpfe auseinander. Hier trägt das
+              `span` die Rolle selbst; leer nimmt es keinen Platz ein. */}
+          <span className="satz__zusatz" style={{ alignSelf: 'center' }} role="status">
+            {gespeichert
+              ? 'Gespeichert. Schon verschickte Links behalten ihre alte Vorschau — die speichert der Messenger zwischen.'
+              : ''}
+          </span>
         </div>
       </div>
     </form>
@@ -956,10 +981,37 @@ function Passwort({ abgemeldet }: { abgemeldet: () => void }) {
 
   const passt = neu.length >= 10 && neu === wiederholt && alt.length > 0
 
+  // Ein echtes Formular statt eines Knopfes mit `onClick`: Wer drei Passwortfelder ausgefüllt
+  // hat, drückt Enter. Vorher passierte dann nichts. Nebenbei findet eine Passwortverwaltung
+  // ein Formular auch daran, dass es eines ist.
+  const aendern = async (ereignis: React.FormEvent) => {
+    ereignis.preventDefault()
+    if (!passt || laeuft) return
+    setLaeuft(true)
+    setFehler('')
+    setFertig('')
+    try {
+      const d = await adminApi.passwortAendern(alt, neu)
+      setAlt('')
+      setNeu('')
+      setWiederholt('')
+      setFertig(
+        d.sitzungen_beendet
+          ? `Geändert. ${d.sitzungen_beendet} weitere Anmeldung(en) beendet.`
+          : 'Geändert.',
+      )
+    } catch (x) {
+      if (x instanceof NichtAngemeldet) return abgemeldet()
+      setFehler(x instanceof Error ? x.message : 'Das hat nicht geklappt.')
+    } finally {
+      setLaeuft(false)
+    }
+  }
+
   return (
-    <div className="satz">
+    <form className="satz" onSubmit={aendern}>
       <div className="satz__kopf">
-        <span className="satz__name">Passwort ändern</span>
+        <h2 className="satz__name">Passwort ändern</h2>
         <span className="satz__zusatz">
           Mindestens zehn Zeichen. Das bisherige muss mit — sonst genügte eine übernommene
           Sitzung, um dich dauerhaft auszusperren. Deine anderen angemeldeten Geräte fliegen
@@ -967,16 +1019,8 @@ function Passwort({ abgemeldet }: { abgemeldet: () => void }) {
         </span>
       </div>
 
-      {fehler && (
-        <p className="fehler" role="status">
-          {fehler}
-        </p>
-      )}
-      {fertig && (
-        <p className="satz__zusatz" role="status">
-          {fertig}
-        </p>
-      )}
+      <Fehler text={fehler} />
+      <Hinweis text={fertig} />
 
       <div className="satz__aktionen" style={{ flexWrap: 'wrap' }}>
         <label className="feld" style={{ flex: '1 1 12rem' }}>
@@ -1015,36 +1059,11 @@ function Passwort({ abgemeldet }: { abgemeldet: () => void }) {
       </div>
 
       <div className="satz__aktionen">
-        <button
-          type="button"
-          className="knopf"
-          disabled={!passt || laeuft}
-          onClick={async () => {
-            setLaeuft(true)
-            setFehler('')
-            setFertig('')
-            try {
-              const d = await adminApi.passwortAendern(alt, neu)
-              setAlt('')
-              setNeu('')
-              setWiederholt('')
-              setFertig(
-                d.sitzungen_beendet
-                  ? `Geändert. ${d.sitzungen_beendet} weitere Anmeldung(en) beendet.`
-                  : 'Geändert.',
-              )
-            } catch (x) {
-              if (x instanceof NichtAngemeldet) return abgemeldet()
-              setFehler(x instanceof Error ? x.message : 'Das hat nicht geklappt.')
-            } finally {
-              setLaeuft(false)
-            }
-          }}
-        >
+        <button type="submit" className="knopf" disabled={!passt || laeuft}>
           {laeuft ? 'Ändert …' : 'Passwort ändern'}
         </button>
       </div>
-    </div>
+    </form>
   )
 }
 
@@ -1096,7 +1115,7 @@ function ZweiterFaktor({ abgemeldet }: { abgemeldet: () => void }) {
   return (
     <div className="satz">
       <div className="satz__kopf">
-        <span className="satz__name">Zweiter Faktor</span>
+        <h2 className="satz__name">Zweiter Faktor</h2>
         <span className="satz__zusatz">
           Zusätzlich zum Passwort ein sechsstelliger Code aus einer Authenticator-App auf deinem
           Handy. Wer dein Passwort erfährt, kommt damit trotzdem nicht in die Kapitänsansicht.
@@ -1105,11 +1124,7 @@ function ZweiterFaktor({ abgemeldet }: { abgemeldet: () => void }) {
         </span>
       </div>
 
-      {fehler && (
-        <p className="fehler" role="status">
-          {fehler}
-        </p>
-      )}
+      <Fehler text={fehler} />
 
       {stand === null ? (
         <p className="namen">Einen Moment …</p>
@@ -1132,7 +1147,20 @@ function ZweiterFaktor({ abgemeldet }: { abgemeldet: () => void }) {
           </button>
         </div>
       ) : stand.aktiv && abschalten ? (
-        <div className="token">
+        /* Ein sechsstelliger Code und dann Enter — das ist die natürlichste Bewegung, die es
+           an dieser Stelle gibt. Vorher passierte dabei nichts. */
+        <form
+          className="token"
+          onSubmit={(ereignis) => {
+            ereignis.preventDefault()
+            if (code.length !== 6 || laeuft) return
+            void fuehreAus(async () => {
+              await adminApi.zweiterFaktorAus(code)
+              setAbschalten(false)
+              setCode('')
+            })
+          }}
+        >
           <p className="token__hinweis">Zum Abschalten einen gültigen Code eintippen</p>
           <p style={{ margin: '0 0 0.5rem', fontSize: '0.85rem' }}>
             Auch das Abschalten braucht den zweiten Faktor. Sonst genügte eine übernommene
@@ -1150,16 +1178,9 @@ function ZweiterFaktor({ abgemeldet }: { abgemeldet: () => void }) {
           </label>
           <div className="satz__aktionen">
             <button
-              type="button"
+              type="submit"
               className="knopf knopf--gefahr"
               disabled={code.length !== 6 || laeuft}
-              onClick={() =>
-                fuehreAus(async () => {
-                  await adminApi.zweiterFaktorAus(code)
-                  setAbschalten(false)
-                  setCode('')
-                })
-              }
             >
               Abschalten
             </button>
@@ -1167,9 +1188,20 @@ function ZweiterFaktor({ abgemeldet }: { abgemeldet: () => void }) {
               Abbrechen
             </button>
           </div>
-        </div>
+        </form>
       ) : start ? (
-        <div className="token">
+        <form
+          className="token"
+          onSubmit={(ereignis) => {
+            ereignis.preventDefault()
+            if (code.length !== 6 || laeuft) return
+            void fuehreAus(async () => {
+              await adminApi.zweiterFaktorBestaetigen(code)
+              setStart(null)
+              setCode('')
+            })
+          }}
+        >
           <p className="token__hinweis">Jetzt in die App eintragen — danach mit einem Code bestätigen</p>
           <p style={{ margin: '0 0 0.5rem', fontSize: '0.85rem' }}>
             Auf dem Handy: den Link antippen, dann öffnet sich deine Authenticator-App von selbst.
@@ -1199,18 +1231,7 @@ function ZweiterFaktor({ abgemeldet }: { abgemeldet: () => void }) {
             />
           </label>
           <div className="satz__aktionen">
-            <button
-              type="button"
-              className="knopf"
-              disabled={code.length !== 6 || laeuft}
-              onClick={() =>
-                fuehreAus(async () => {
-                  await adminApi.zweiterFaktorBestaetigen(code)
-                  setStart(null)
-                  setCode('')
-                })
-              }
-            >
+            <button type="submit" className="knopf" disabled={code.length !== 6 || laeuft}>
               {laeuft ? 'Prüft …' : 'Einschalten'}
             </button>
             <button
@@ -1228,7 +1249,7 @@ function ZweiterFaktor({ abgemeldet }: { abgemeldet: () => void }) {
               Abbrechen
             </button>
           </div>
-        </div>
+        </form>
       ) : (
         <div className="satz__aktionen">
           <span className="satz__zusatz" style={{ flex: '1 1 12rem' }}>
@@ -1321,10 +1342,29 @@ function Mannschaftseinstellungen({
   const name = entwurf.name.trim()
   const veraendert = name !== satz.name
 
+  const speichern = async (ereignis: React.FormEvent) => {
+    ereignis.preventDefault()
+    if (!name || !veraendert || laeuft) return
+    setLaeuft(true)
+    setFehler('')
+    try {
+      await adminApi.mannschaftAendern(satz.id, { name })
+      setGespeichert(true)
+      await laden()
+      // Der Kopf zeigt den Namen — er muss den neuen zeigen, nicht den alten.
+      neuLaden()
+    } catch (x) {
+      if (x instanceof NichtAngemeldet) return abgemeldet()
+      setFehler(x instanceof Error ? x.message : 'Nicht gespeichert.')
+    } finally {
+      setLaeuft(false)
+    }
+  }
+
   return (
-    <div className="satz">
+    <form className="satz" onSubmit={speichern}>
       <div className="satz__kopf">
-        <span className="satz__name">Mannschaft</span>
+        <h2 className="satz__name">Mannschaft</h2>
         <span className="satz__zusatz">
           Der Name steht im Aushang und in dieser Ansicht. Tempo und Rüstzeit stehen am einzelnen
           Spieltag — sie unterscheiden sich von Fahrt zu Fahrt mehr als von Mannschaft zu
@@ -1332,11 +1372,7 @@ function Mannschaftseinstellungen({
         </span>
       </div>
 
-      {fehler && (
-        <p className="fehler" role="status">
-          {fehler}
-        </p>
-      )}
+      <Fehler text={fehler} />
 
       <div className="satz__aktionen">
         <label className="feld" style={{ flex: '1 1 14rem' }}>
@@ -1353,36 +1389,14 @@ function Mannschaftseinstellungen({
       </div>
 
       <div className="satz__aktionen">
-        <button
-          type="button"
-          className="knopf"
-          disabled={!name || !veraendert || laeuft}
-          onClick={async () => {
-            setLaeuft(true)
-            setFehler('')
-            try {
-              await adminApi.mannschaftAendern(satz.id, { name })
-              setGespeichert(true)
-              await laden()
-              // Der Kopf zeigt den Namen — er muss den neuen zeigen, nicht den alten.
-              neuLaden()
-            } catch (x) {
-              if (x instanceof NichtAngemeldet) return abgemeldet()
-              setFehler(x instanceof Error ? x.message : 'Nicht gespeichert.')
-            } finally {
-              setLaeuft(false)
-            }
-          }}
-        >
+        <button type="submit" className="knopf" disabled={!name || !veraendert || laeuft}>
           {laeuft ? 'Speichert …' : 'Speichern'}
         </button>
-        {gespeichert && (
-          <span className="satz__zusatz" style={{ alignSelf: 'center' }} role="status">
-            Gespeichert.
-          </span>
-        )}
+        <span className="satz__zusatz" style={{ alignSelf: 'center' }} role="status">
+          {gespeichert ? 'Gespeichert.' : ''}
+        </span>
       </div>
-    </div>
+    </form>
   )
 }
 
@@ -1395,47 +1409,46 @@ function Mannschaften({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLad
   return (
     <div className="satz">
       <div className="satz__kopf">
-        <span className="satz__name">Alle Mannschaften</span>
+        <h2 className="satz__name">Alle Mannschaften</h2>
         <span className="satz__zusatz">
           Jede Mannschaft hat eigene Mitglieder, eigene Spieltage und einen eigenen Kapitän. Was
           zentral steht — Rechtstexte, Sperrfrist, Sicherungen — gilt für alle gemeinsam.
         </span>
       </div>
 
-      {fehler && (
-        <p className="fehler" role="status">
-          {fehler}
-        </p>
-      )}
+      <Fehler text={fehler} />
 
-      <div className="satz__aktionen">
+      {/* Ein Formular, kein Knopf mit `onClick`: Wer einen Namen eintippt, drückt Enter. Nur
+          diese Zeile, nicht der ganze Abschnitt — die Liste darunter enthält „Auflösen", und
+          das gehört in kein Formular, das man versehentlich absenden kann. */}
+      <form
+        className="satz__aktionen"
+        onSubmit={async (ereignis) => {
+          ereignis.preventDefault()
+          if (!neu.trim() || laeuft) return
+          setLaeuft(true)
+          setFehler('')
+          try {
+            await adminApi.mannschaftAnlegen(neu.trim())
+            setNeu('')
+            await laden()
+            neuLaden()
+          } catch (x) {
+            if (x instanceof NichtAngemeldet) return abgemeldet()
+            setFehler(x instanceof Error ? x.message : 'Nicht angelegt.')
+          } finally {
+            setLaeuft(false)
+          }
+        }}
+      >
         <label className="feld" style={{ flex: '1 1 14rem' }}>
           <span>Neue Mannschaft</span>
           <input maxLength={60} value={neu} onChange={(x) => setNeu(x.target.value)} />
         </label>
-        <button
-          type="button"
-          className="knopf"
-          disabled={!neu.trim() || laeuft}
-          onClick={async () => {
-            setLaeuft(true)
-            setFehler('')
-            try {
-              await adminApi.mannschaftAnlegen(neu.trim())
-              setNeu('')
-              await laden()
-              neuLaden()
-            } catch (x) {
-              if (x instanceof NichtAngemeldet) return abgemeldet()
-              setFehler(x instanceof Error ? x.message : 'Nicht angelegt.')
-            } finally {
-              setLaeuft(false)
-            }
-          }}
-        >
+        <button type="submit" className="knopf" disabled={!neu.trim() || laeuft}>
           Anlegen
         </button>
-      </div>
+      </form>
 
       {items === null ? (
         <p className="namen">Einen Moment …</p>
@@ -1599,7 +1612,7 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
   return (
     <div className="satz">
       <div className="satz__kopf">
-        <span className="satz__name">Konten</span>
+        <h2 className="satz__name">Konten</h2>
         <span className="satz__zusatz">
           Ein Kapitän sieht ausschließlich seine Mannschaft: Spieler anlegen und bearbeiten,
           Spieltage pflegen, Rückmeldungen korrigieren. Ein Admin sieht alles, hat aber selbst
@@ -1608,11 +1621,7 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
         </span>
       </div>
 
-      {fehler && (
-        <p className="fehler" role="status">
-          {fehler}
-        </p>
-      )}
+      <Fehler text={fehler} />
 
       {gezeigt && (
         <div className="token">
@@ -1639,7 +1648,20 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
       )}
 
       {/* ── Neues Konto ──────────────────────────────────────────────────────────────────── */}
-      <div className="satz__aktionen" style={{ flexWrap: 'wrap' }}>
+      <form
+        className="satz__aktionen"
+        style={{ flexWrap: 'wrap' }}
+        onSubmit={(ereignis) => {
+          ereignis.preventDefault()
+          if (!email.trim() || (rolle === 'kapitaen' && !team) || laeuft) return
+          void fuehreAus(async () => {
+            const d = await adminApi.verwalterAnlegen(email.trim(), rolle, team, mitglied)
+            setGezeigt({ email: d.email, passwort: d.passwort })
+            setEmail('')
+            setMitglied('')
+          })
+        }}
+      >
         <label className="feld" style={{ flex: '1 1 14rem' }}>
           <span>Anmeldename</span>
           <input
@@ -1706,21 +1728,13 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
           </label>
         )}
         <button
-          type="button"
+          type="submit"
           className="knopf"
           disabled={!email.trim() || (rolle === 'kapitaen' && !team) || laeuft}
-          onClick={() =>
-            fuehreAus(async () => {
-              const d = await adminApi.verwalterAnlegen(email.trim(), rolle, team, mitglied)
-              setGezeigt({ email: d.email, passwort: d.passwort })
-              setEmail('')
-              setMitglied('')
-            })
-          }
         >
           Konto anlegen
         </button>
-      </div>
+      </form>
 
       {/* ── Vorhandene Konten, nach Mannschaft ───────────────────────────────────────────── */}
       {items === null ? (
@@ -1746,7 +1760,7 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
               const ihre = items.filter((v) => v.rolle === 'kapitaen' && v.team === t.id)
               return (
                 <div key={t.id}>
-                  <h3 className="satz__untergruppe">{t.name}</h3>
+                  <h4 className="satz__untergruppe">{t.name}</h4>
                   {ihre.length === 0 ? (
                     <p className="namen">Noch kein Kapitän — du betreust sie selbst.</p>
                   ) : (
@@ -1815,7 +1829,7 @@ function Sicherungen({ abgemeldet }: { abgemeldet: () => void }) {
     return (
       <div className="satz">
         <div className="satz__kopf">
-          <span className="satz__name">Wird zurückgespielt …</span>
+          <h2 className="satz__name">Wird zurückgespielt …</h2>
           <span className="satz__zusatz">
             Die App startet gerade neu und ist ein paar Sekunden lang nicht erreichbar. Diese Seite
             lädt sich gleich von selbst neu. Danach musst du dich wahrscheinlich neu anmelden — die
@@ -1829,7 +1843,7 @@ function Sicherungen({ abgemeldet }: { abgemeldet: () => void }) {
   return (
     <div className="satz">
       <div className="satz__kopf">
-        <span className="satz__name">Sicherungen</span>
+        <h2 className="satz__name">Sicherungen</h2>
         <span className="satz__zusatz">
           Eine Sicherung enthält <strong>alles</strong> — Mitglieder, Spieltage, Rückmeldungen. Die
           heruntergeladene Datei ist unverschlüsselt: Sie gehört auf deinen eigenen Rechner, nicht
@@ -1839,11 +1853,7 @@ function Sicherungen({ abgemeldet }: { abgemeldet: () => void }) {
         </span>
       </div>
 
-      {fehler && (
-        <p className="fehler" role="status">
-          {fehler}
-        </p>
-      )}
+      <Fehler text={fehler} />
 
       <div className="satz__aktionen">
         <button
@@ -1916,7 +1926,16 @@ function Sicherungen({ abgemeldet }: { abgemeldet: () => void }) {
       )}
 
       {zurueck && (
-        <div className="token">
+        /* Auch hier ein Formular — wer einen Dateinamen abtippt, schließt mit Enter ab. Der
+           Knopf bleibt trotzdem die Hürde: Er gibt erst nach, wenn der Name genau stimmt. */
+        <form
+          className="token"
+          onSubmit={(ereignis) => {
+            ereignis.preventDefault()
+            if (getippt !== zurueck || laeuft !== '') return
+            void zurueckspielen()
+          }}
+        >
           <p className="token__hinweis">Das ersetzt den gesamten heutigen Stand</p>
           <p style={{ margin: '0 0 0.5rem', fontSize: '0.85rem' }}>
             Alles, was seit <strong>{zurueck}</strong> passiert ist, ist danach weg. Vom jetzigen
@@ -1934,10 +1953,9 @@ function Sicherungen({ abgemeldet }: { abgemeldet: () => void }) {
           </label>
           <div className="satz__aktionen">
             <button
-              type="button"
+              type="submit"
               className="knopf knopf--gefahr"
               disabled={getippt !== zurueck || laeuft !== ''}
-              onClick={zurueckspielen}
             >
               {laeuft === 'restore' ? 'Spielt zurück …' : 'Jetzt zurückspielen'}
             </button>
@@ -1953,7 +1971,7 @@ function Sicherungen({ abgemeldet }: { abgemeldet: () => void }) {
               Abbrechen
             </button>
           </div>
-        </div>
+        </form>
       )}
     </div>
   )
@@ -1987,13 +2005,7 @@ function Protokoll({ abgemeldet, team }: { abgemeldet: () => void; team: string 
   const { items, fehler } = useListe(() => adminApi.protokoll(team), abgemeldet, team)
 
   if (!items) return <p>Einen Moment …</p>
-  if (fehler) {
-    return (
-      <p className="fehler" role="status">
-        {fehler}
-      </p>
-    )
-  }
+  if (fehler) return <Fehler text={fehler} />
   if (!items.length) return <p className="namen">Noch nichts passiert.</p>
 
   return (

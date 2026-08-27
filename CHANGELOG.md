@@ -8,6 +8,32 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 ## [Unveröffentlicht]
 
 ### Behoben
+- **Die Anwendung lässt sich mit einer Bildschirmleseanwendung ansteuern.** Bisher hatte der
+  Aushang gar keine Überschrift und sprang direkt auf die dritte Ebene; die Kapitänsansicht
+  hatte unterhalb ihrer einen Überschrift ebenfalls keine, denn ihre Abschnittsnamen waren
+  `span`. Damit fiel der übliche Weg aus, sich auf einer Seite zurechtzufinden. Jetzt trägt
+  jede Ansicht eine `h1`, die Abschnitte stehen auf der zweiten Ebene, und **der aufklappende
+  Knopf eines Spieltags steckt in einer Überschrift** — das übliche Muster für ein Akkordeon,
+  mit dem sich von Spieltag zu Spieltag springen lässt. Dazu hat jede Ansicht eine
+  `main`-Landmarke, auch die Zwischenstände „lädt", „Link ungültig" und „lässt sich nicht
+  laden". Sichtbar ändert sich dabei nichts.
+- **Fehlermeldungen werden jetzt auch angesagt.** Sie standen in einer Live-Region, die erst
+  zusammen mit ihrem Inhalt ins Dokument kam — eine Region, die vorher nicht da war, wird von
+  etlichen Bildschirmleseanwendungen nie beobachtet und bleibt deshalb stumm. Der Behälter steht
+  jetzt dauerhaft und bleibt leer, solange nichts zu melden ist (`Meldung.tsx`, an 16 Stellen im
+  Einsatz). Fehler unterbrechen (`alert`), Gelungenes wartet ab (`status`).
+- **Die Eingabetaste sendet ab.** In sieben Formularen tat sie nichts, weil dort ein Knopf mit
+  `onClick` stand statt eines `form`: Passwort ändern, Mannschaftsname, neue Mannschaft, neues
+  Konto, Sicherung zurückspielen und beide Code-Eingaben des zweiten Faktors. Gerade beim
+  sechsstelligen Code ist Enter die natürlichste Bewegung, die es gibt. Nebenbei finden
+  Passwortverwaltungen ein Formular auch daran, dass es eines ist.
+- **Ein zweiter Klick auf „Abschließen" macht den ersten nicht mehr rückgängig.** „Abschließen"
+  und „Deaktivieren" sind Umschalter — auf einer trägen Verbindung klickt man zweimal, und dann
+  sperrte der erste Ruf und entsperrte der zweite. Es sah aus, als sei nichts passiert, dabei
+  standen zwei Zeilen im Protokoll. Beim Ausstellen eines Tokens wog es schwerer: Zwei Rufe
+  stellten zwei Token aus, und welches davon angezeigt wurde, entschied die Reihenfolge der
+  Antworten — der Kapitän verschickte womöglich einen Link, der schon wieder ungültig war.
+  Gesperrt wird jeweils nur die Zeile, an der gearbeitet wird.
 - **Vergangene und abgeschlossene Spieltage sind wieder lesbar.** Sie traten bisher über
   `opacity` zurück, und Deckkraft erfasst die ganze Rendergruppe: Der Sekundärtext einer solchen
   Zeile kam auf 2,2:1, verlangt sind 4,5:1 — auf einem Handy bei Tageslicht war er weg. Betroffen

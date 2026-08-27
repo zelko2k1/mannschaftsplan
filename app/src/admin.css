@@ -97,7 +97,10 @@
   align-items: baseline;
   gap: 0.3rem 0.6rem;
 }
+/* Ein `h2` — die Größe steht hier, nicht beim Browser, und der Außenabstand muss weg: Der
+   Abschnittsname sitzt in einer Flex-Zeile neben seinem Zusatz. */
 .satz__name {
+  margin: 0;
   font-family: var(--schrift-eng);
   font-size: 1.15rem;
   font-weight: 700;

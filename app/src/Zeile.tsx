@@ -1,6 +1,7 @@
 import { useId } from 'react'
 import type { Board, Fahrt, Spieltag, Status } from './api'
 import { plaetze as plaetzeText, tag, uhrzeit, wannUngefaehr } from './format'
+import { Fehler } from './Meldung'
 
 const ANTWORTEN: { wert: Status; text: string }[] = [
   { wert: 'yes', text: 'Dabei' },
@@ -80,6 +81,11 @@ export default function Zeile({
 
   return (
     <li className={klassen}>
+      {/* Der aufklappende Knopf steckt in einer Überschrift — das ist das übliche Muster für
+          ein Akkordeon und der Grund, warum es sich mit einer Bildschirmleseanwendung bedienen
+          lässt: Sie springt von Spieltag zu Spieltag, statt sich durch jede Zeile zu lesen.
+          Die Überschrift bringt keine eigene Auszeichnung mit, die Zeile sieht aus wie zuvor. */}
+      <h2 className="zeile__titel">
       <button
         type="button"
         className="zeile__knopf"
@@ -146,6 +152,7 @@ export default function Zeile({
           {vollzaehlig && <span className="stempel">Komplett</span>}
         </span>
       </button>
+      </h2>
 
       <div id={bereichId} hidden={!offen}>
         {offen && (
@@ -302,11 +309,7 @@ export default function Zeile({
               ) : null
             })()}
 
-            {fehler && (
-              <p className="fehler" role="status">
-                {fehler}
-              </p>
-            )}
+            <Fehler text={fehler} />
           </div>
         )}
       </div>

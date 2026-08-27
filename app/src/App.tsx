@@ -115,12 +115,14 @@ function Abfahrtsplan() {
     [board],
   )
 
+  // Auch die Zwischenstände sind Seiten und brauchen ihre Landmarke — sonst hat die Anwendung
+  // sie in genau den Momenten nicht, in denen jemand sucht, woran er ist.
   if (lage === 'laedt') {
     return (
       <div className="plan">
-        <div className="leer">
+        <main className="leer">
           <p>Einen Moment …</p>
-        </div>
+        </main>
       </div>
     )
   }
@@ -128,7 +130,9 @@ function Abfahrtsplan() {
   if (lage === 'ohne-sitzung') {
     return (
       <div className="plan">
-        <LinkUngueltig />
+        <main>
+          <LinkUngueltig />
+        </main>
       </div>
     )
   }
@@ -136,14 +140,14 @@ function Abfahrtsplan() {
   if (lage === 'kaputt' || !board) {
     return (
       <div className="plan">
-        <div className="leer">
+        <main className="leer">
           <p>Der Plan lässt sich gerade nicht laden.</p>
           <p>
             <button type="button" className="knopf" onClick={() => void laden()}>
               Nochmal versuchen
             </button>
           </p>
-        </div>
+        </main>
       </div>
     )
   }
@@ -204,7 +208,10 @@ function Abfahrtsplan() {
   return (
     <div className="plan">
       <header className="kopf">
-        <span className="kopf__titel">Spieltage</span>
+        {/* Die eine Überschrift der Seite. Vorher stand hier ein `span`, und damit hatte der
+            Aushang gar keine — die Sprungnavigation einer Bildschirmleseanwendung setzt aber
+            genau dort an. */}
+        <h1 className="kopf__titel">Spieltage</h1>
         <span className="kopf__wer">
           {ich?.name ?? ''}
           {' · '}
@@ -225,6 +232,10 @@ function Abfahrtsplan() {
         </span>
       </header>
 
+      {/* Der Aushang selbst — was zwischen Kopfbalken und Kleingedrucktem steht. Ohne diese
+          Landmarke gibt es kein „zum Inhalt springen", und die Seite ist für eine
+          Bildschirmleseanwendung eine einzige Fläche. */}
+      <main>
       {board.fixtures.length === 0 ? (
         <div className="leer">
           <p>Noch keine Termine eingetragen.</p>
@@ -248,6 +259,7 @@ function Abfahrtsplan() {
           ))}
         </ul>
       )}
+      </main>
 
       <footer className="fuss">
         Gelb = auswärts · Weiß = heim
