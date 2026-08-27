@@ -23,6 +23,12 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+/* Auf der Anmeldemaske steht nichts im Balken. `min-height` hält ihn auf der Höhe, die sonst
+   die Überschrift vorgibt (1.4rem Schriftgröße bei line-height 1) — sonst schrumpfte er zu
+   einem Streifen und sähe aus wie ein Darstellungsfehler. */
+.admin__kopf--leer {
+  min-height: 1.4rem;
+}
 .admin__kopf h1 {
   margin: 0;
   font-size: 1.4rem;

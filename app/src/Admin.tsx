@@ -184,6 +184,10 @@ function Anmeldung({ fertig }: { fertig: (email: string) => void }) {
 
   return (
     <div className="admin">
+      {/* Der gelbe Balken gehört zum Bild der Anwendung und bleibt, auch wenn nichts darin
+          steht. Bewusst ohne <h1>: Eine Überschrift ohne Text ist für einen Screenreader eine
+          Ankündigung, der nichts folgt. */}
+      <header className="admin__kopf admin__kopf--leer" />
       <form
         className="anmeldung"
         onSubmit={async (ereignis) => {
