@@ -41,11 +41,22 @@ routerAdd('POST', '/admin/api/login', (e) => {
   const email = String(koerper.email || '')
   const passwort = String(koerper.password || '')
 
-  let superuser = null
+  // Abschnitt 12 · Zwei Quellen, in dieser Reihenfolge: die Verwalterkonten der Kapitäne, dann
+  // der Superuser. Beide Male prüft PocketBase das Passwort selbst (R13) — nur die Tabelle ist
+  // eine andere. Der Superuser bleibt immer anmeldefähig; er ist der Rettungsanker, wenn beim
+  // Verteilen der Rollen etwas schiefgeht.
+  let konto = null
   try {
-    superuser = e.app.findAuthRecordByEmail('_superusers', email)
+    konto = e.app.findAuthRecordByEmail('verwalter', email)
   } catch {
-    superuser = null
+    konto = null
+  }
+  if (!konto) {
+    try {
+      konto = e.app.findAuthRecordByEmail('_superusers', email)
+    } catch {
+      konto = null
+    }
   }
 
   // R6 · Falsche Adresse und falsches Passwort liefern dieselbe Antwort — kein Hinweis darauf,
@@ -58,7 +69,7 @@ routerAdd('POST', '/admin/api/login', (e) => {
   // Adressen pro Viertelstunde — allerdings pro IP und nur im Arbeitsspeicher. Zusammen mit dem
   // vorgeschalteten Tor aus R13b ist das der Punkt, an dem sich weiterer Aufwand nicht mehr
   // lohnt; ohne dieses Tor wäre es das nicht.
-  if (!superuser || !superuser.validatePassword(passwort)) {
+  if (!konto || !konto.validatePassword(passwort)) {
     return e.json(401, { message: 'Anmeldung fehlgeschlagen.' })
   }
 
@@ -171,24 +182,50 @@ routerAdd('POST', '/admin/api/logout', (e) => {
 // ── GET /admin/api/me ───────────────────────────────────────────────────────────────────────
 routerAdd('GET', '/admin/api/me', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
-  const satz = a.sitzung(e)
-  if (!satz) return e.json(404, { message: 'Nicht gefunden.' })
-  return e.json(200, { email: satz.getString('email') })
+  const kontext = a.kontext(e)
+  if (!kontext) return e.json(404, { message: 'Nicht gefunden.' })
+
+  // Die Oberfläche braucht drei Dinge: wer man ist, was man darf, und welche Mannschaften zur
+  // Auswahl stehen. Ein Kapitän bekommt genau eine — die Umschaltung erscheint bei ihm gar
+  // nicht erst, und selbst wenn er sie sich herbeiredete, hielte der Server dagegen.
+  let teams = []
+  try {
+    const filter = kontext.rolle === 'kapitaen' ? 'id = {:t}' : "id != ''"
+    teams = e.app
+      .findRecordsByFilter('teams', filter, 'sort,name', 50, 0, { t: kontext.team })
+      .map((t) => ({ id: t.id, name: t.getString('name') }))
+  } catch {
+    teams = []
+  }
+
+  return e.json(200, {
+    email: kontext.email,
+    rolle: kontext.rolle,
+    team: kontext.team,
+    teams: teams,
+  })
 })
 
 // ── Spieltage ───────────────────────────────────────────────────────────────────────────────
 routerAdd('GET', '/admin/api/fixtures', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const u = require(`${__hooks}/utils.js`)
-  const raus = a.abweisen(e)
-  if (raus) return raus
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
 
   // Für den Hinweis am Eingabefeld: Was stünde dort, wenn nichts von Hand eingetragen ist?
   // Gerechnet wird im Backend, nicht im Browser — sonst zeigte die Kapitänsansicht am Ende
   // eine andere Abfahrt als der Aushang (6.3).
   const einst = u.einstellungen(e.app)
 
-  const alle = e.app.findRecordsByFilter('fixtures', "id != ''", 'date', 500, 0)
+  // Abschnitt 12 · Ein Kapitän sieht nur seine Mannschaft, der Gesamt-Admin die gewählte oder
+  // alle. `teamFuer` liest den Wunsch aus dem Request NUR für den Gesamt-Admin — bei einem
+  // Kapitän steht dort immer die eigene, egal was er mitschickt.
+  const team = a.teamFuer(kontext, (e.requestInfo().query || {}).team)
+  const alle = team
+    ? e.app.findRecordsByFilter('fixtures', 'team = {:t}', 'date', 500, 0, { t: team })
+    : e.app.findRecordsByFilter('fixtures', "id != ''", 'date', 500, 0)
   return e.json(200, {
     items: alle.map((s) => ({
       id: s.id,
@@ -198,6 +235,7 @@ routerAdd('GET', '/admin/api/fixtures', (e) => {
       is_home: s.getBool('is_home'),
       venue: s.getString('venue'),
       km: s.getInt('km'),
+      team: s.getString('team'),
       meeting_point: s.getString('meeting_point'),
       departure_manual: s.getDateTime('departure_manual').string(),
       departure_berechnet: u.abfahrt(
@@ -215,15 +253,25 @@ routerAdd('GET', '/admin/api/fixtures', (e) => {
 
 routerAdd('POST', '/admin/api/fixtures', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
-  const raus = a.abweisen(e)
-  if (raus) return raus
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
 
   const koerper = e.requestInfo().body || {}
   if (!String(koerper.opponent_town || '').trim() || !String(koerper.date || '').trim()) {
     return e.json(400, { message: 'Ungültige Angabe.' })
   }
 
+  // Abschnitt 12 · Ohne Mannschaft kein Spieltag. Der Kapitän bekommt seine eigene zugewiesen,
+  // der Gesamt-Admin muss sagen, für welche. Das Schema lehnte es ohnehin ab — hier steht es,
+  // damit die Meldung verständlich ist statt einer Datenbankfehlermeldung.
+  const team = a.teamFuer(kontext, koerper.team)
+  if (!team || !a.darfTeam(kontext, team)) {
+    return e.json(400, { message: 'Ungültige Angabe.' })
+  }
+
   const satz = new Record(e.app.findCollectionByNameOrId('fixtures'))
+  satz.set('team', team)
   // PocketBase kennt keine Defaultwerte — was Abschnitt 3 als „default" führt, muss hier stehen.
   satz.set('needed_players', 4)
   satz.set('km', 0)
@@ -238,13 +286,19 @@ routerAdd('POST', '/admin/api/fixtures', (e) => {
 
 routerAdd('PATCH', '/admin/api/fixtures/{id}', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
-  const raus = a.abweisen(e)
-  if (raus) return raus
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
 
   let satz
   try {
     satz = e.app.findRecordById('fixtures', e.request.pathValue('id'))
   } catch {
+    return e.json(400, { message: 'Ungültige Angabe.' })
+  }
+  // Dieselbe Antwort wie „gibt es nicht" (R6) — ein Kapitän soll nicht durchprobieren können,
+  // welche IDs zu anderen Mannschaften gehören.
+  if (!a.darfTeam(kontext, satz.getString('team'))) {
     return e.json(400, { message: 'Ungültige Angabe.' })
   }
   const fehler = a.spieltagUebernehmen(satz, e.requestInfo().body || {})
@@ -257,13 +311,17 @@ routerAdd('PATCH', '/admin/api/fixtures/{id}', (e) => {
 
 routerAdd('DELETE', '/admin/api/fixtures/{id}', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
-  const raus = a.abweisen(e)
-  if (raus) return raus
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
 
   let satz
   try {
     satz = e.app.findRecordById('fixtures', e.request.pathValue('id'))
   } catch {
+    return e.json(400, { message: 'Ungültige Angabe.' })
+  }
+  if (!a.darfTeam(kontext, satz.getString('team'))) {
     return e.json(400, { message: 'Ungültige Angabe.' })
   }
   const wohin = satz.getString('opponent_town')
@@ -276,15 +334,20 @@ routerAdd('DELETE', '/admin/api/fixtures/{id}', (e) => {
 // ── Mitglieder ──────────────────────────────────────────────────────────────────────────────
 routerAdd('GET', '/admin/api/members', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
-  const raus = a.abweisen(e)
-  if (raus) return raus
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
 
-  const alle = e.app.findRecordsByFilter('members', "id != ''", 'sort,name', 200, 0)
+  const team = a.teamFuer(kontext, (e.requestInfo().query || {}).team)
+  const alle = team
+    ? e.app.findRecordsByFilter('members', 'team = {:t}', 'sort,name', 200, 0, { t: team })
+    : e.app.findRecordsByFilter('members', "id != ''", 'sort,name', 200, 0)
   return e.json(200, {
     items: alle.map((m) => {
       const sitzungen = e.app.findRecordsByFilter('sessions', 'member = {:m}', '', 50, 0, { m: m.id })
       return {
         id: m.id,
+        team: m.getString('team'),
         name: m.getString('name'),
         active: m.getBool('active'),
         sort: m.getInt('sort'),
@@ -301,14 +364,21 @@ routerAdd('GET', '/admin/api/members', (e) => {
 
 routerAdd('POST', '/admin/api/members', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
-  const raus = a.abweisen(e)
-  if (raus) return raus
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
 
   const koerper = e.requestInfo().body || {}
   const name = String(koerper.name || '').trim()
   if (!name) return e.json(400, { message: 'Ungültige Angabe.' })
 
+  const team = a.teamFuer(kontext, koerper.team)
+  if (!team || !a.darfTeam(kontext, team)) {
+    return e.json(400, { message: 'Ungültige Angabe.' })
+  }
+
   const satz = new Record(e.app.findCollectionByNameOrId('members'))
+  satz.set('team', team)
   satz.set('name', name)
   // Ohne dieses Feld wäre das neue Mitglied sofort inaktiv und käme nicht herein — PocketBase
   // kennt keine Defaultwerte.
@@ -324,13 +394,17 @@ routerAdd('POST', '/admin/api/members', (e) => {
 
 routerAdd('PATCH', '/admin/api/members/{id}', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
-  const raus = a.abweisen(e)
-  if (raus) return raus
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
 
   let satz
   try {
     satz = e.app.findRecordById('members', e.request.pathValue('id'))
   } catch {
+    return e.json(400, { message: 'Ungültige Angabe.' })
+  }
+  if (!a.darfTeam(kontext, satz.getString('team'))) {
     return e.json(400, { message: 'Ungültige Angabe.' })
   }
   const koerper = e.requestInfo().body || {}
@@ -367,13 +441,17 @@ routerAdd('PATCH', '/admin/api/members/{id}', (e) => {
 routerAdd('POST', '/admin/api/members/{id}/rotate-token', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const u = require(`${__hooks}/utils.js`)
-  const raus = a.abweisen(e)
-  if (raus) return raus
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
 
   let satz
   try {
     satz = e.app.findRecordById('members', e.request.pathValue('id'))
   } catch {
+    return e.json(400, { message: 'Ungültige Angabe.' })
+  }
+  if (!a.darfTeam(kontext, satz.getString('team'))) {
     return e.json(400, { message: 'Ungültige Angabe.' })
   }
 
@@ -406,11 +484,32 @@ routerAdd('POST', '/admin/api/members/{id}/rotate-token', (e) => {
 routerAdd('PUT', '/admin/api/response/{fixtureId}/{memberId}', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const u = require(`${__hooks}/utils.js`)
-  const raus = a.abweisen(e)
-  if (raus) return raus
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
 
   const spieltagId = e.request.pathValue('fixtureId')
   const mitgliedId = e.request.pathValue('memberId')
+
+  // Beide müssen zur Mannschaft des Verwalters gehören — und zueinander. Sonst könnte ein
+  // Kapitän die Rückmeldung eines fremden Mitglieds zu seinem eigenen Spieltag setzen.
+  let spieltagSatz = null
+  let mitgliedSatz = null
+  try {
+    spieltagSatz = e.app.findRecordById('fixtures', spieltagId)
+    mitgliedSatz = e.app.findRecordById('members', mitgliedId)
+  } catch {
+    return e.json(400, { message: 'Ungültige Angabe.' })
+  }
+  if (
+    !spieltagSatz ||
+    !mitgliedSatz ||
+    spieltagSatz.getString('team') !== mitgliedSatz.getString('team') ||
+    !a.darfTeam(kontext, spieltagSatz.getString('team'))
+  ) {
+    return e.json(400, { message: 'Ungültige Angabe.' })
+  }
+
   const koerper = e.requestInfo().body || {}
   const status =
     koerper.status === null || koerper.status === undefined ? null : String(koerper.status)
@@ -449,8 +548,9 @@ routerAdd('PUT', '/admin/api/response/{fixtureId}/{memberId}', (e) => {
 routerAdd('GET', '/admin/api/settings', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const u = require(`${__hooks}/utils.js`)
-  const raus = a.abweisen(e)
-  if (raus) return raus
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
 
   return e.json(200, u.einstellungen(e.app))
 })
@@ -458,8 +558,13 @@ routerAdd('GET', '/admin/api/settings', (e) => {
 routerAdd('PATCH', '/admin/api/settings', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const u = require(`${__hooks}/utils.js`)
-  const raus = a.abweisen(e)
-  if (raus) return raus
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
+
+  // Zentral (Abschnitt 12): Das geht alle Mannschaften an, also nur den Gesamt-Admin. Antwort
+  // wie überall 404 statt 403 — ein Kapitän soll nicht einmal erfahren, dass es hier etwas gibt.
+  if (kontext.rolle !== 'gesamt') return e.json(404, { message: 'Nicht gefunden.' })
 
   const koerper = e.requestInfo().body || {}
 
@@ -526,21 +631,31 @@ routerAdd('PATCH', '/admin/api/settings', (e) => {
 // ── Protokoll ───────────────────────────────────────────────────────────────────────────────
 routerAdd('GET', '/admin/api/audit', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
-  const raus = a.abweisen(e)
-  if (raus) return raus
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
 
   const gewuenscht = Number((e.requestInfo().query || {}).limit) || 100
   const grenze = Math.min(gewuenscht, 500)
-  const alle = e.app.findRecordsByFilter('audit_log', "id != ''", '-at', grenze, 0)
+  const team = a.teamFuer(kontext, (e.requestInfo().query || {}).team)
 
   // Im Protokoll stehen IDs — `member:n5xck1yyp6pk0a3` sagt dem Kapitän nichts. Einmal alle
   // Namen holen und im Speicher auflösen, statt pro Zeile nachzuschlagen.
+  //
+  // Abschnitt 12 · Dieselbe Liste entscheidet, WELCHE Zeilen er überhaupt sieht: Ist eine
+  // Mannschaft gewählt, bleiben nur Zeilen übrig, deren Ziel zu ihr gehört. Zentrale Ereignisse
+  // — Anmeldungen, Einstellungen, Sicherungen — haben gar kein Ziel und fallen damit heraus.
+  // Für einen Kapitän ist das richtig so: Sie gehen ihn nichts an.
   const namen = {}
-  for (const m of e.app.findRecordsByFilter('members', "id != ''", '', 500, 0)) {
+  const eigene = {}
+  const mFilter = team ? 'team = {:t}' : "id != ''"
+  for (const m of e.app.findRecordsByFilter('members', mFilter, '', 500, 0, { t: team })) {
     namen[m.id] = m.getString('name')
+    eigene[m.id] = true
   }
-  for (const s of e.app.findRecordsByFilter('fixtures', "id != ''", '', 500, 0)) {
+  for (const s of e.app.findRecordsByFilter('fixtures', mFilter, '', 500, 0, { t: team })) {
     namen[s.id] = s.getString('opponent_town')
+    eigene[s.id] = true
   }
 
   // Gelöschte Spieltage und Mitglieder stehen weiterhin als ID da — das ist richtig so, die
@@ -560,6 +675,16 @@ routerAdd('GET', '/admin/api/audit', (e) => {
       .split('/')
       .map((teil) => namen[teil] || teil)
       .join(' · ')
+  }
+
+  let alle = e.app.findRecordsByFilter('audit_log', "id != ''", '-at', grenze, 0)
+  if (team) {
+    alle = alle.filter((x) => {
+      const ziel = x.getString('target')
+      if (ziel && eigene[ziel]) return true
+      const wer = x.getString('actor')
+      return wer.indexOf('member:') === 0 && eigene[wer.slice(7)]
+    })
   }
 
   return e.json(200, {
@@ -598,8 +723,13 @@ routerAdd('GET', '/admin/api/audit', (e) => {
 // ── POST /admin/api/backup · Sicherung erzeugen ─────────────────────────────────────────────
 routerAdd('POST', '/admin/api/backup', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
-  const raus = a.abweisen(e)
-  if (raus) return raus
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
+
+  // Zentral (Abschnitt 12): Das geht alle Mannschaften an, also nur den Gesamt-Admin. Antwort
+  // wie überall 404 statt 403 — ein Kapitän soll nicht einmal erfahren, dass es hier etwas gibt.
+  if (kontext.rolle !== 'gesamt') return e.json(404, { message: 'Nicht gefunden.' })
 
   const name = `pb_backup_manuell_${a.backupZeitstempel()}.zip`
 
@@ -617,8 +747,13 @@ routerAdd('POST', '/admin/api/backup', (e) => {
 // ── GET /admin/api/backups · Was liegt da ───────────────────────────────────────────────────
 routerAdd('GET', '/admin/api/backups', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
-  const raus = a.abweisen(e)
-  if (raus) return raus
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
+
+  // Zentral (Abschnitt 12): Das geht alle Mannschaften an, also nur den Gesamt-Admin. Antwort
+  // wie überall 404 statt 403 — ein Kapitän soll nicht einmal erfahren, dass es hier etwas gibt.
+  if (kontext.rolle !== 'gesamt') return e.json(404, { message: 'Nicht gefunden.' })
 
   let eintraege = []
   try {
@@ -641,8 +776,13 @@ routerAdd('GET', '/admin/api/backups', (e) => {
 // die Datei in den Download-Ordner. Genau das ist der Punkt der Übung.
 routerAdd('GET', '/admin/api/backup/{name}', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
-  const raus = a.abweisen(e)
-  if (raus) return raus
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
+
+  // Zentral (Abschnitt 12): Das geht alle Mannschaften an, also nur den Gesamt-Admin. Antwort
+  // wie überall 404 statt 403 — ein Kapitän soll nicht einmal erfahren, dass es hier etwas gibt.
+  if (kontext.rolle !== 'gesamt') return e.json(404, { message: 'Nicht gefunden.' })
 
   const name = e.request.pathValue('name')
   if (!a.backupNameOk(name)) return e.json(404, { message: 'Nicht gefunden.' })
@@ -663,8 +803,13 @@ routerAdd('GET', '/admin/api/backup/{name}', (e) => {
 // Wiederherstellen läuft ins Leere — die Stelle, über die der erste Testlauf gestolpert ist.
 routerAdd('POST', '/admin/api/backup/upload', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
-  const raus = a.abweisen(e)
-  if (raus) return raus
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
+
+  // Zentral (Abschnitt 12): Das geht alle Mannschaften an, also nur den Gesamt-Admin. Antwort
+  // wie überall 404 statt 403 — ein Kapitän soll nicht einmal erfahren, dass es hier etwas gibt.
+  if (kontext.rolle !== 'gesamt') return e.json(404, { message: 'Nicht gefunden.' })
 
   let datei
   try {
@@ -695,8 +840,13 @@ routerAdd('POST', '/admin/api/backup/upload', (e) => {
 // ganze Datenbank. Der Kapitän soll aufräumen können, ohne dafür auf den Server zu müssen.
 routerAdd('DELETE', '/admin/api/backup/{name}', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
-  const raus = a.abweisen(e)
-  if (raus) return raus
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
+
+  // Zentral (Abschnitt 12): Das geht alle Mannschaften an, also nur den Gesamt-Admin. Antwort
+  // wie überall 404 statt 403 — ein Kapitän soll nicht einmal erfahren, dass es hier etwas gibt.
+  if (kontext.rolle !== 'gesamt') return e.json(404, { message: 'Nicht gefunden.' })
 
   const name = e.request.pathValue('name')
   if (!a.backupNameOk(name)) return e.json(404, { message: 'Nicht gefunden.' })
@@ -735,8 +885,13 @@ routerAdd('DELETE', '/admin/api/backup/{name}', (e) => {
 //    davon zeugt.
 routerAdd('POST', '/admin/api/backup/{name}/restore', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
-  const raus = a.abweisen(e)
-  if (raus) return raus
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
+
+  // Zentral (Abschnitt 12): Das geht alle Mannschaften an, also nur den Gesamt-Admin. Antwort
+  // wie überall 404 statt 403 — ein Kapitän soll nicht einmal erfahren, dass es hier etwas gibt.
+  if (kontext.rolle !== 'gesamt') return e.json(404, { message: 'Nicht gefunden.' })
 
   const name = e.request.pathValue('name')
   if (!a.backupNameOk(name)) return e.json(404, { message: 'Nicht gefunden.' })
@@ -786,8 +941,9 @@ routerAdd('POST', '/admin/api/backup/{name}/restore', (e) => {
 // ── GET /admin/api/totp · Was ist eingerichtet ──────────────────────────────────────────────
 routerAdd('GET', '/admin/api/totp', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
-  const raus = a.abweisen(e)
-  if (raus) return raus
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
 
   const email = a.sitzung(e).getString('email')
   let satz = null
@@ -807,8 +963,9 @@ routerAdd('GET', '/admin/api/totp', (e) => {
 // ── POST /admin/api/totp · Einrichtung beginnen ─────────────────────────────────────────────
 routerAdd('POST', '/admin/api/totp', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
-  const raus = a.abweisen(e)
-  if (raus) return raus
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
 
   const totp = require(`${__hooks}/totp.js`)
   const u = require(`${__hooks}/utils.js`)
@@ -845,8 +1002,9 @@ routerAdd('POST', '/admin/api/totp', (e) => {
 // ── POST /admin/api/totp/confirm · Scharf schalten ──────────────────────────────────────────
 routerAdd('POST', '/admin/api/totp/confirm', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
-  const raus = a.abweisen(e)
-  if (raus) return raus
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
 
   const totp = require(`${__hooks}/totp.js`)
   const email = a.sitzung(e).getString('email')
@@ -885,8 +1043,9 @@ routerAdd('POST', '/admin/api/totp/confirm', (e) => {
 // die Kommandozeile auf dem Server, und er steht in der README.
 routerAdd('DELETE', '/admin/api/totp', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
-  const raus = a.abweisen(e)
-  if (raus) return raus
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
 
   const totp = require(`${__hooks}/totp.js`)
   const email = a.sitzung(e).getString('email')
@@ -915,4 +1074,290 @@ routerAdd('DELETE', '/admin/api/totp', (e) => {
   e.app.delete(satz)
   a.protokoll(e, 'admin.totp.off', '', '', '')
   return e.json(200, { aktiv: false })
+})
+
+
+// ── Mannschaften (Abschnitt 12) ─────────────────────────────────────────────────────────────
+// Anlegen und Löschen macht der Gesamt-Admin. Den Namen und den Puffer darf jeder Kapitän an
+// SEINER Mannschaft ändern — das ist die „Einstellung der Mannschaft", von der sonst überall
+// die Rede ist.
+
+routerAdd('GET', '/admin/api/teams', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
+
+  const filter = kontext.rolle === 'kapitaen' ? 'id = {:t}' : "id != ''"
+  const alle = e.app.findRecordsByFilter('teams', filter, 'sort,name', 50, 0, { t: kontext.team })
+
+  return e.json(200, {
+    items: alle.map((t) => ({
+      id: t.id,
+      name: t.getString('name'),
+      sort: t.getInt('sort'),
+      puffer_minuten: t.getInt('puffer_minuten'),
+      startort: t.getString('startort'),
+    })),
+  })
+})
+
+routerAdd('POST', '/admin/api/teams', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
+  if (kontext.rolle !== 'gesamt') return e.json(404, { message: 'Nicht gefunden.' })
+
+  const koerper = e.requestInfo().body || {}
+  const name = String(koerper.name || '').trim()
+  if (!name || name.length > 60) return e.json(400, { message: 'Ungültige Angabe.' })
+
+  const satz = new Record(e.app.findCollectionByNameOrId('teams'))
+  satz.set('name', name)
+  satz.set('sort', Number(koerper.sort) || 0)
+  satz.set('puffer_minuten', 25)
+  satz.set('startort', '')
+  try {
+    e.app.save(satz)
+  } catch {
+    // Der eindeutige Index über den Namen. Zwei „Herren I" wären für jeden verwirrend.
+    return e.json(400, { message: 'Diesen Namen gibt es schon.' })
+  }
+
+  a.protokoll(e, 'team.create', satz.id, '', name)
+  return e.json(200, { id: satz.id })
+})
+
+routerAdd('PATCH', '/admin/api/teams/{id}', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
+
+  let satz
+  try {
+    satz = e.app.findRecordById('teams', e.request.pathValue('id'))
+  } catch {
+    return e.json(400, { message: 'Ungültige Angabe.' })
+  }
+  if (!a.darfTeam(kontext, satz.id)) return e.json(400, { message: 'Ungültige Angabe.' })
+
+  const koerper = e.requestInfo().body || {}
+  const geaendert = []
+
+  if ('name' in koerper) {
+    const name = String(koerper.name || '').trim()
+    if (!name || name.length > 60) return e.json(400, { message: 'Ungültige Angabe.' })
+    if (name !== satz.getString('name')) geaendert.push(['name', satz.getString('name'), name])
+    satz.set('name', name)
+  }
+  if ('puffer_minuten' in koerper) {
+    const zahl = Number(koerper.puffer_minuten)
+    if (!isFinite(zahl) || zahl < 0 || zahl > 180) return e.json(400, { message: 'Ungültige Angabe.' })
+    const alt = satz.getInt('puffer_minuten')
+    if (Math.round(zahl) !== alt) geaendert.push(['puffer_minuten', String(alt), String(Math.round(zahl))])
+    satz.set('puffer_minuten', Math.round(zahl))
+  }
+  if ('startort' in koerper) satz.set('startort', String(koerper.startort || '').slice(0, 120))
+  // Die Reihenfolge ordnet nur der Gesamt-Admin — sie betrifft die Liste aller Mannschaften.
+  if ('sort' in koerper && kontext.rolle === 'gesamt') satz.set('sort', Number(koerper.sort) || 0)
+
+  try {
+    e.app.save(satz)
+  } catch {
+    return e.json(400, { message: 'Diesen Namen gibt es schon.' })
+  }
+
+  for (const [feld, alt, neu] of geaendert) a.protokoll(e, 'team.update', satz.id, `${feld}: ${alt}`, neu)
+  return e.json(200, { id: satz.id })
+})
+
+routerAdd('DELETE', '/admin/api/teams/{id}', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
+  if (kontext.rolle !== 'gesamt') return e.json(404, { message: 'Nicht gefunden.' })
+
+  const id = e.request.pathValue('id')
+  let satz
+  try {
+    satz = e.app.findRecordById('teams', id)
+  } catch {
+    return e.json(400, { message: 'Ungültige Angabe.' })
+  }
+
+  // Kein Kaskadenlöschen: Eine Mannschaft mit Mitgliedern zu löschen, nähme Rückmeldungen und
+  // Fahrten gleich mit — ein Klick, und ein Jahr Spielbetrieb ist weg. Wer sie wirklich
+  // auflösen will, räumt sie vorher leer und sieht dabei, was er tut.
+  for (const [was, feld] of [['members', 'team'], ['fixtures', 'team']]) {
+    const rest = e.app.findRecordsByFilter(was, `${feld} = {:t}`, '', 1, 0, { t: id })
+    if (rest.length) {
+      return e.json(409, {
+        message: 'In dieser Mannschaft stehen noch Mitglieder oder Spieltage.',
+      })
+    }
+  }
+  const rest = e.app.findRecordsByFilter('verwalter', 'team = {:t}', '', 1, 0, { t: id })
+  if (rest.length) return e.json(409, { message: 'Dieser Mannschaft ist noch ein Kapitän zugeordnet.' })
+
+  const name = satz.getString('name')
+  e.app.delete(satz)
+  a.protokoll(e, 'team.delete', id, name, '')
+  return e.json(200, { ok: true })
+})
+
+// ── Verwalter (Abschnitt 12) ────────────────────────────────────────────────────────────────
+// Konten für Kapitäne. Ausschließlich Sache des Gesamt-Admins — wer Konten anlegen darf, darf
+// alles.
+//
+// Das Passwort wird erzeugt und GENAU EINMAL angezeigt, wie der Einladungslink eines Mitglieds
+// (R1). PocketBase speichert davon nur den Hash; herausholen kann es niemand, auch der
+// Gesamt-Admin nicht. Wer es verliert, bekommt ein neues.
+
+routerAdd('GET', '/admin/api/verwalter', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  if (vor.kontext.rolle !== 'gesamt') return e.json(404, { message: 'Nicht gefunden.' })
+
+  const alle = e.app.findRecordsByFilter('verwalter', "id != ''", 'email', 100, 0)
+  return e.json(200, {
+    items: alle.map((v) => ({
+      id: v.id,
+      email: v.getString('email'),
+      rolle: v.getString('rolle'),
+      team: v.getString('team'),
+    })),
+  })
+})
+
+routerAdd('POST', '/admin/api/verwalter', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  if (vor.kontext.rolle !== 'gesamt') return e.json(404, { message: 'Nicht gefunden.' })
+
+  const koerper = e.requestInfo().body || {}
+  const email = String(koerper.email || '').trim().toLowerCase()
+  const rolle = koerper.rolle === 'gesamt' ? 'gesamt' : 'kapitaen'
+  const team = String(koerper.team || '')
+
+  if (!email || email.indexOf('@') < 1) return e.json(400, { message: 'Ungültige Angabe.' })
+  // Ein Kapitän ohne Mannschaft könnte nichts sehen und nichts tun — das ist kein Konto,
+  // sondern ein Missverständnis.
+  if (rolle === 'kapitaen') {
+    try {
+      if (!team || !e.app.findRecordById('teams', team)) throw new Error('kein Team')
+    } catch {
+      return e.json(400, { message: 'Ein Kapitän braucht eine Mannschaft.' })
+    }
+  }
+
+  // Lesbar, aber nicht zu erraten: 16 Zeichen ohne die Verwechslungspaare 0/O und 1/l/I.
+  const passwort = $security.randomStringWithAlphabet(16, 'abcdefghijkmnopqrstuvwxyzACDEFGHJKLMNPQRSTUVWXYZ23456789')
+
+  const satz = new Record(e.app.findCollectionByNameOrId('verwalter'))
+  satz.set('email', email)
+  satz.set('password', passwort)
+  satz.set('rolle', rolle)
+  satz.set('team', rolle === 'kapitaen' ? team : '')
+  // Ohne das gilt das Konto als unbestätigt. Eine Bestätigung per E-Mail gibt es hier nicht —
+  // die App hat bewusst keinen Mailserver.
+  satz.set('verified', true)
+  try {
+    e.app.save(satz)
+  } catch {
+    return e.json(400, { message: 'Diese Adresse gibt es schon.' })
+  }
+
+  a.protokoll(e, 'verwalter.create', satz.id, '', `${email} (${rolle})`)
+  // Das einzige Mal, dass das Passwort den Server verlässt.
+  return e.json(200, { id: satz.id, email: email, passwort: passwort })
+})
+
+routerAdd('PATCH', '/admin/api/verwalter/{id}', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
+  if (kontext.rolle !== 'gesamt') return e.json(404, { message: 'Nicht gefunden.' })
+
+  let satz
+  try {
+    satz = e.app.findRecordById('verwalter', e.request.pathValue('id'))
+  } catch {
+    return e.json(400, { message: 'Ungültige Angabe.' })
+  }
+
+  const koerper = e.requestInfo().body || {}
+
+  // Sich selbst die Rolle zu nehmen ist der schnellste Weg, sich auszusperren. Der Superuser
+  // käme zwar noch herein, aber das muss man erst einmal wissen.
+  if (satz.getString('email') === kontext.email && 'rolle' in koerper && koerper.rolle !== 'gesamt') {
+    return e.json(400, { message: 'Die eigene Rolle lässt sich nicht herabstufen.' })
+  }
+
+  if ('rolle' in koerper) satz.set('rolle', koerper.rolle === 'gesamt' ? 'gesamt' : 'kapitaen')
+  if ('team' in koerper) satz.set('team', String(koerper.team || ''))
+  if (satz.getString('rolle') === 'kapitaen' && !satz.getString('team')) {
+    return e.json(400, { message: 'Ein Kapitän braucht eine Mannschaft.' })
+  }
+  if (satz.getString('rolle') === 'gesamt') satz.set('team', '')
+
+  // Neues Passwort erzeugen — der Weg zurück, wenn jemand seines verloren hat.
+  let passwort = null
+  if (koerper.neues_passwort === true) {
+    passwort = $security.randomStringWithAlphabet(16, 'abcdefghijkmnopqrstuvwxyzACDEFGHJKLMNPQRSTUVWXYZ23456789')
+    satz.set('password', passwort)
+  }
+
+  e.app.save(satz)
+  a.protokoll(e, 'verwalter.update', satz.id, '', satz.getString('email'))
+  return e.json(200, { id: satz.id, passwort: passwort })
+})
+
+routerAdd('DELETE', '/admin/api/verwalter/{id}', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  const kontext = vor.kontext
+  if (kontext.rolle !== 'gesamt') return e.json(404, { message: 'Nicht gefunden.' })
+
+  let satz
+  try {
+    satz = e.app.findRecordById('verwalter', e.request.pathValue('id'))
+  } catch {
+    return e.json(400, { message: 'Ungültige Angabe.' })
+  }
+  if (satz.getString('email') === kontext.email) {
+    return e.json(400, { message: 'Das eigene Konto lässt sich nicht löschen.' })
+  }
+
+  const email = satz.getString('email')
+
+  // Offene Sitzungen dieses Verwalters beenden — sonst arbeitet ein gelöschtes Konto noch bis
+  // zu zwölf Stunden weiter. Dieselbe Überlegung wie bei „Neues Token" für ein Mitglied (R12).
+  let beendet = 0
+  try {
+    for (const sitz of e.app.findRecordsByFilter('admin_sessions', 'email = {:m}', '', 100, 0, { m: email })) {
+      e.app.delete(sitz)
+      beendet += 1
+    }
+  } catch {
+    /* keine offenen Sitzungen */
+  }
+  // Und ein etwaiger zweiter Faktor gehört zu einem Konto, das es nicht mehr gibt.
+  try {
+    for (const t of e.app.findRecordsByFilter('admin_totp', 'email = {:m}', '', 10, 0, { m: email })) {
+      e.app.delete(t)
+    }
+  } catch {
+    /* keiner eingerichtet */
+  }
+
+  e.app.delete(satz)
+  a.protokoll(e, 'verwalter.delete', e.request.pathValue('id'), email, `${beendet} Sitzungen beendet`)
+  return e.json(200, { ok: true })
 })

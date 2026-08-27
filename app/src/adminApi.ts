@@ -3,6 +3,7 @@
 
 export type AdminSpieltag = {
   id: string
+  team: string
   date: string
   opponent_club: string
   opponent_town: string
@@ -20,6 +21,7 @@ export type AdminSpieltag = {
 
 export type AdminMitglied = {
   id: string
+  team: string
   name: string
   active: boolean
   sort: number
@@ -30,13 +32,15 @@ export type AdminMitglied = {
   geraete: number
 }
 
+/**
+ * Zentrale Einstellungen — sie gelten für alle Mannschaften und gehören dem Gesamt-Admin.
+ * Was einer einzelnen Mannschaft gehört, steht in `Mannschaft`.
+ */
 export type Einstellungen = {
-  /** Steht auf der Einladungsseite und in der Linkvorschau — für jeden Empfänger sichtbar. */
+  /** Der VEREINSname. Steht auf der Einladungsseite, über den Rechtstexten und im zweiten Faktor. */
   anzeigename: string
   /** Angenommene Durchschnittsgeschwindigkeit für die Abfahrtszeit. */
   tempo_kmh: number
-  /** Zeit vor dem Anwurf, die zusätzlich eingeplant wird. */
-  puffer_minuten: number
   /** Stunden nach dem Anwurf, nach denen ein Spieltag von selbst schließt. 0 = aus. */
   auto_sperre_stunden: number
   /** Freitext, kein HTML. Leer = die Seite gibt es nicht und nichts verlinkt darauf. */
@@ -53,6 +57,31 @@ export type Protokollzeile = {
   target: string
   old_value: string
   new_value: string
+}
+
+export type Mannschaft = {
+  id: string
+  name: string
+  sort: number
+  /** Zeit vor dem Anwurf, die zusätzlich eingeplant wird — je Mannschaft. */
+  puffer_minuten: number
+  startort: string
+}
+
+export type Verwalterkonto = {
+  id: string
+  email: string
+  rolle: 'gesamt' | 'kapitaen'
+  team: string
+}
+
+/** Wer angemeldet ist und was er darf. Kommt aus `/admin/api/me`. */
+export type Wer = {
+  email: string
+  rolle: 'gesamt' | 'kapitaen'
+  team: string
+  /** Zur Auswahl: alle Mannschaften, für einen Kapitän genau seine eine. */
+  teams: { id: string; name: string }[]
 }
 
 export type Sicherung = {
@@ -111,7 +140,7 @@ async function ruf<T>(pfad: string, optionen: RequestInit = {}): Promise<T> {
 }
 
 export const adminApi = {
-  werBinIch: () => ruf<{ email: string }>('/me'),
+  werBinIch: () => ruf<Wer>('/me'),
 
   anmelden: async (email: string, password: string, code?: string) => {
     // Nicht über ruf(): der Login hat naturgemäß noch kein CSRF-Cookie, und ein 404 wäre hier
@@ -140,16 +169,18 @@ export const adminApi = {
 
   abmelden: () => ruf<unknown>('/logout', { method: 'POST' }),
 
-  spieltage: () => ruf<{ items: AdminSpieltag[] }>('/fixtures'),
+  // Die Mannschaft hängt an jeder Liste. Für einen Kapitän ist sie am Server ohnehin gesetzt —
+  // der Wert hier ändert daran nichts, er spart nur eine Antwort, die er wegwerfen müsste.
+  spieltage: (team: string) => ruf<{ items: AdminSpieltag[] }>(`/fixtures?team=${encodeURIComponent(team)}`),
   spieltagAnlegen: (daten: Partial<AdminSpieltag>) =>
     ruf<{ id: string }>('/fixtures', { method: 'POST', body: JSON.stringify(daten) }),
   spieltagAendern: (id: string, daten: Partial<AdminSpieltag>) =>
     ruf<unknown>(`/fixtures/${id}`, { method: 'PATCH', body: JSON.stringify(daten) }),
   spieltagLoeschen: (id: string) => ruf<unknown>(`/fixtures/${id}`, { method: 'DELETE' }),
 
-  mitglieder: () => ruf<{ items: AdminMitglied[] }>('/members'),
-  mitgliedAnlegen: (name: string) =>
-    ruf<{ id: string }>('/members', { method: 'POST', body: JSON.stringify({ name }) }),
+  mitglieder: (team: string) => ruf<{ items: AdminMitglied[] }>(`/members?team=${encodeURIComponent(team)}`),
+  mitgliedAnlegen: (name: string, team: string) =>
+    ruf<{ id: string }>('/members', { method: 'POST', body: JSON.stringify({ name, team }) }),
   mitgliedAendern: (id: string, daten: Partial<AdminMitglied>) =>
     ruf<unknown>(`/members/${id}`, { method: 'PATCH', body: JSON.stringify(daten) }),
   tokenNeu: (id: string) =>
@@ -161,7 +192,34 @@ export const adminApi = {
   einstellungenAendern: (daten: Partial<Einstellungen>) =>
     ruf<Einstellungen>('/settings', { method: 'PATCH', body: JSON.stringify(daten) }),
 
-  protokoll: () => ruf<{ items: Protokollzeile[] }>('/audit?limit=100'),
+  /**
+   * Ohne Mannschaft sieht der Gesamt-Admin alles — auch die zentralen Ereignisse wie Anmeldungen
+   * und Sicherungen, die zu gar keiner Mannschaft gehören. Ein Kapitän bekommt seine eigene
+   * ohnehin vom Server aufgezwungen.
+   */
+  protokoll: (team = '') =>
+    ruf<{ items: Protokollzeile[] }>(`/audit?limit=100&team=${encodeURIComponent(team)}`),
+
+  mannschaften: () => ruf<{ items: Mannschaft[] }>('/teams'),
+  mannschaftAnlegen: (name: string) =>
+    ruf<{ id: string }>('/teams', { method: 'POST', body: JSON.stringify({ name }) }),
+  mannschaftAendern: (id: string, daten: Partial<Mannschaft>) =>
+    ruf<{ id: string }>(`/teams/${id}`, { method: 'PATCH', body: JSON.stringify(daten) }),
+  mannschaftLoeschen: (id: string) => ruf<unknown>(`/teams/${id}`, { method: 'DELETE' }),
+
+  verwalter: () => ruf<{ items: Verwalterkonto[] }>('/verwalter'),
+  /** Das Passwort kommt genau einmal zurück — wie der Einladungslink eines Mitglieds (R1). */
+  verwalterAnlegen: (email: string, rolle: 'gesamt' | 'kapitaen', team: string) =>
+    ruf<{ id: string; email: string; passwort: string }>('/verwalter', {
+      method: 'POST',
+      body: JSON.stringify({ email, rolle, team }),
+    }),
+  verwalterAendern: (id: string, daten: { rolle?: string; team?: string; neues_passwort?: boolean }) =>
+    ruf<{ id: string; passwort: string | null }>(`/verwalter/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(daten),
+    }),
+  verwalterLoeschen: (id: string) => ruf<unknown>(`/verwalter/${id}`, { method: 'DELETE' }),
 
   sicherungen: () => ruf<{ items: Sicherung[] }>('/backups'),
   sicherungErstellen: () => ruf<{ name: string }>('/backup', { method: 'POST' }),

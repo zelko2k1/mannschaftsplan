@@ -98,11 +98,36 @@ adminToken = (
   })
 ).token
 
-async function testMitglied(name, aktiv = true) {
+/**
+ * Seit Abschnitt 12 hängt jedes Mitglied und jeder Spieltag an einer Mannschaft — das Schema
+ * verlangt es. Die Migration legt aus den bisherigen Einstellungen genau eine an; die nehmen wir.
+ * Einmal ermittelt und gemerkt, sonst fragte jeder Testfall neu.
+ */
+let testTeamId = null
+async function testTeam() {
+  if (testTeamId) return testTeamId
+  const liste = await pb('/api/collections/teams/records?perPage=1&sort=created')
+  if (!liste.items.length) throw new Error('Keine Mannschaft vorhanden — läuft die Migration?')
+  testTeamId = liste.items[0].id
+  return testTeamId
+}
+
+/** Eine zweite Mannschaft für die Abschottungstests. Wird am Ende mit aufgeräumt. */
+async function zweiteMannschaft() {
+  const satz = await pb('/api/collections/teams/records', {
+    method: 'POST',
+    body: JSON.stringify({ name: `test-Mannschaft-${randomBytes(3).toString('hex')}`, puffer_minuten: 25 }),
+  })
+  aufraeumen.push(['teams', satz.id])
+  return satz
+}
+
+async function testMitglied(name, aktiv = true, team = null) {
   const klartext = neuesToken()
   const satz = await pb('/api/collections/members/records', {
     method: 'POST',
     body: JSON.stringify({
+      team: team || (await testTeam()),
       name: `test-${name}-${randomBytes(3).toString('hex')}`,
       active: aktiv,
       sort: 99,
@@ -118,6 +143,7 @@ async function testSpieltag(eigenschaften = {}) {
   const satz = await pb('/api/collections/fixtures/records', {
     method: 'POST',
     body: JSON.stringify({
+      team: eigenschaften.team || (await testTeam()),
       date: jetzt(),
       opponent_club: 'test-Club',
       opponent_town: `test-Ort-${randomBytes(3).toString('hex')}`,
@@ -819,6 +845,9 @@ await pruefe('A8', 'Spieltag anlegen, ändern und löschen', async () => {
   const angelegt = await ruf('/admin/api/fixtures', {
     method: 'POST',
     body: JSON.stringify({
+      // Seit Abschnitt 12 Pflicht. Ein Kapitän bekäme seine eigene zugewiesen; hier meldet sich
+      // ein Superuser an, und der muss sagen, für welche Mannschaft.
+      team: await testTeam(),
       date: '2026-11-14 19:30:00',
       opponent_town: 'test-Neustadt',
       opponent_club: 'test-Club',
@@ -918,16 +947,27 @@ await pruefe('A10', 'Die Fahrzeit-Formel folgt den Einstellungen', async () => {
   }
 
   try {
-    // 60 km bei 60 km/h sind 60 Minuten, plus 10 Minuten Puffer.
+    // 60 km bei 60 km/h sind 60 Minuten, plus 10 Minuten Puffer. Seit Abschnitt 12 kommen die
+    // beiden Werte aus zwei Quellen: das Tempo gilt für alle, der Puffer hängt an der Mannschaft.
     gleich(
       (
         await ruf('/admin/api/settings', {
           method: 'PATCH',
-          body: JSON.stringify({ tempo_kmh: 60, puffer_minuten: 10 }),
+          body: JSON.stringify({ tempo_kmh: 60 }),
         })
       ).status,
       200,
-      'speichern',
+      'Tempo speichern',
+    )
+    gleich(
+      (
+        await ruf(`/admin/api/teams/${await testTeam()}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ puffer_minuten: 10 }),
+        })
+      ).status,
+      200,
+      'Puffer speichern',
     )
     gleich(await vorlauf(), 70, 'Vorlauf bei 60 km/h und 10 min Puffer')
 
@@ -939,7 +979,6 @@ await pruefe('A10', 'Die Fahrzeit-Formel folgt den Einstellungen', async () => {
     for (const [feld, wert] of [
       ['tempo_kmh', 19],
       ['tempo_kmh', 201],
-      ['puffer_minuten', -1],
       ['auto_sperre_stunden', -1],
       ['auto_sperre_stunden', 169],
       ['tempo_kmh', 80.5],
@@ -950,14 +989,31 @@ await pruefe('A10', 'Die Fahrzeit-Formel folgt den Einstellungen', async () => {
         `${feld} = ${wert}`,
       )
     }
+
+    // Dieselbe Grenze an der Mannschaft — sie wohnt jetzt dort.
+    for (const wert of [-1, 181]) {
+      gleich(
+        (
+          await ruf(`/admin/api/teams/${await testTeam()}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ puffer_minuten: wert }),
+          })
+        ).status,
+        400,
+        `puffer_minuten = ${wert}`,
+      )
+    }
   } finally {
     await ruf('/admin/api/settings', {
       method: 'PATCH',
       body: JSON.stringify({
         tempo_kmh: vorher.tempo_kmh,
-        puffer_minuten: vorher.puffer_minuten,
         auto_sperre_stunden: vorher.auto_sperre_stunden,
       }),
+    })
+    await ruf(`/admin/api/teams/${await testTeam()}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ puffer_minuten: 25 }),
     })
   }
 })
@@ -1304,6 +1360,180 @@ await pruefe('T15c', 'Der Login verlangt den Code und nimmt ihn nur einmal', asy
 
   await totpWegraeumen()
   gleich((await adminAnmelden()).antwort.status, 200, 'Login wieder ohne Code')
+})
+
+// ── Abschottung zwischen Mannschaften (Abschnitt 12) ───────────────────────────────────────
+// Der teuerste Fehler dieses Umbaus wäre, dass eine Mannschaft die andere sieht. Er passiert
+// nicht durch böse Absicht, sondern durch eine vergessene Einschränkung in einer von 41
+// Abfragen. Deshalb steht er hier — auf beiden Seiten, Mitglied wie Kapitän.
+
+await pruefe('B3', 'Ein Mitglied sieht ausschließlich seine eigene Mannschaft', async () => {
+  const fremde = await zweiteMannschaft()
+
+  const meins = await testMitglied('b3-eigen')
+  const fremd = await testMitglied('b3-fremd', true, fremde.id)
+  const eigenerSpieltag = await testSpieltag({ opponent_town: 'test-Eigen' })
+  const fremderSpieltag = await testSpieltag({ team: fremde.id, opponent_town: 'test-Fremd' })
+
+  const { jar } = await anmelden(meins.klartext)
+  const board = await (await alsMitglied(jar)('/api/board')).json()
+
+  stimmt(
+    board.fixtures.some((f) => f.id === eigenerSpieltag.id),
+    'Der eigene Spieltag fehlt im Aushang',
+  )
+  stimmt(
+    !board.fixtures.some((f) => f.id === fremderSpieltag.id),
+    'Der Spieltag der anderen Mannschaft steht im Aushang',
+  )
+  // `members` ist eine Liste, kein Objekt — die Namensliste des Aushangs.
+  stimmt(
+    board.members.some((m) => m.id === meins.satz.id),
+    'Das eigene Mitglied fehlt in der Namensliste',
+  )
+  stimmt(
+    !board.members.some((m) => m.id === fremd.satz.id),
+    'Ein Mitglied der anderen Mannschaft steht in der Namensliste',
+  )
+
+  // Und schreiben erst recht nicht. Dieselbe Antwort wie „gibt es nicht" (R6) — sonst ließe sich
+  // durch Ausprobieren herausfinden, welche IDs zu anderen Mannschaften gehören.
+  for (const [pfad, koerper] of [
+    [`/api/response/${fremderSpieltag.id}`, { status: 'yes' }],
+    [`/api/ride/${fremderSpieltag.id}`, { seats: 3 }],
+  ]) {
+    const antwort = await alsMitglied(jar)(pfad, { method: 'PUT', body: JSON.stringify(koerper) })
+    gleich(antwort.status, 400, `PUT ${pfad}`)
+  }
+
+  // Gegenprobe: Auf dem EIGENEN Spieltag geht dasselbe.
+  gleich(
+    (
+      await alsMitglied(jar)(`/api/response/${eigenerSpieltag.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'yes' }),
+      })
+    ).status,
+    200,
+    'eigener Spieltag',
+  )
+})
+
+await pruefe('T16', 'Ein Kapitän sieht und ändert nur seine eigene Mannschaft', async () => {
+  const fremde = await zweiteMannschaft()
+  const eigenes = await testTeam()
+
+  const meinMitglied = await testMitglied('t16-eigen')
+  const fremdesMitglied = await testMitglied('t16-fremd', true, fremde.id)
+  const meinSpieltag = await testSpieltag({ opponent_town: 'test-t16-eigen' })
+  const fremderSpieltag = await testSpieltag({ team: fremde.id, opponent_town: 'test-t16-fremd' })
+
+  // Konto anlegen — das darf nur der Gesamt-Admin, hier also der Superuser.
+  const { jar: chef } = await adminAnmelden()
+  const alsChef = alsKapitaen(chef)
+  const neu = await (
+    await alsChef('/admin/api/verwalter', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: `test-kapitaen-${randomBytes(4).toString('hex')}@example.org`,
+        rolle: 'kapitaen',
+        team: eigenes,
+      }),
+    })
+  ).json()
+  aufraeumen.push(['verwalter', neu.id])
+  gleich(neu.passwort.length, 16, 'Das Passwort kommt genau einmal zurück')
+
+  // Anmelden als Kapitän.
+  const antwort = await roh('/admin/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: neu.email, password: neu.passwort }),
+  })
+  gleich(antwort.status, 200, 'Kapitän meldet sich an')
+  const ruf = alsKapitaen(kekse(antwort).jar)
+
+  const ich = await (await ruf('/admin/api/me')).json()
+  gleich(ich.rolle, 'kapitaen', 'Rolle')
+  gleich(ich.teams.length, 1, 'sichtbare Mannschaften')
+
+  // Lesen: nur die eigene — auch wenn er ausdrücklich nach der fremden fragt. Der Wunsch aus dem
+  // Request wird für einen Kapitän gar nicht erst gelesen (dieselbe Regel wie R3).
+  for (const abfrage of ['', `?team=${fremde.id}`]) {
+    const s = await (await ruf(`/admin/api/fixtures${abfrage}`)).json()
+    stimmt(
+      s.items.some((x) => x.id === meinSpieltag.id) && !s.items.some((x) => x.id === fremderSpieltag.id),
+      `Spieltagliste bei "${abfrage}"`,
+    )
+    const m = await (await ruf(`/admin/api/members${abfrage}`)).json()
+    stimmt(
+      m.items.some((x) => x.id === meinMitglied.satz.id) &&
+        !m.items.some((x) => x.id === fremdesMitglied.satz.id),
+      `Mitgliederliste bei "${abfrage}"`,
+    )
+  }
+
+  // Schreiben: nichts Fremdes.
+  for (const [was, pfad, optionen] of [
+    ['fremden Spieltag ändern', `/admin/api/fixtures/${fremderSpieltag.id}`, { method: 'PATCH', body: '{"km":5}' }],
+    ['fremden Spieltag löschen', `/admin/api/fixtures/${fremderSpieltag.id}`, { method: 'DELETE' }],
+    ['fremdes Mitglied ändern', `/admin/api/members/${fremdesMitglied.satz.id}`, { method: 'PATCH', body: '{"name":"X"}' }],
+    ['fremdes Token neu', `/admin/api/members/${fremdesMitglied.satz.id}/rotate-token`, { method: 'POST' }],
+    ['fremde Rückmeldung', `/admin/api/response/${meinSpieltag.id}/${fremdesMitglied.satz.id}`, { method: 'PUT', body: '{"status":"yes"}' }],
+    ['fremde Mannschaft umbenennen', `/admin/api/teams/${fremde.id}`, { method: 'PATCH', body: '{"name":"Weg"}' }],
+  ]) {
+    gleich((await ruf(pfad, optionen)).status, 400, was)
+  }
+
+  // Und ein Mitglied, das er in die fremde Mannschaft schmuggeln will, landet in seiner eigenen.
+  const geschmuggelt = await (
+    await ruf('/admin/api/members', {
+      method: 'POST',
+      body: JSON.stringify({ name: `test-schmuggel-${randomBytes(3).toString('hex')}`, team: fremde.id }),
+    })
+  ).json()
+  aufraeumen.push(['members', geschmuggelt.id])
+  const geprueft = await pb(`/api/collections/members/records/${geschmuggelt.id}`)
+  gleich(geprueft.team, eigenes, 'Die fremde Mannschaft im Rumpf wird nicht gelesen')
+
+  // Zentrales bleibt zu — und zwar mit 404, nicht 403: Er soll nicht einmal erfahren, dass es
+  // hier etwas gibt (R6).
+  for (const [was, pfad, optionen] of [
+    ['Einstellungen ändern', '/admin/api/settings', { method: 'PATCH', body: '{"tempo_kmh":90}' }],
+    ['Sicherungen auflisten', '/admin/api/backups', {}],
+    ['Sicherung erstellen', '/admin/api/backup', { method: 'POST' }],
+    ['Verwalter auflisten', '/admin/api/verwalter', {}],
+    ['Mannschaft anlegen', '/admin/api/teams', { method: 'POST', body: '{"name":"test-Neu"}' }],
+  ]) {
+    gleich((await ruf(pfad, optionen)).status, 404, was)
+  }
+
+  // Was er darf: seine eigene Mannschaft benennen — das ist „die Einstellung der Mannschaft".
+  gleich(
+    (await ruf(`/admin/api/teams/${eigenes}`, { method: 'PATCH', body: '{"puffer_minuten":30}' })).status,
+    200,
+    'eigene Mannschaft ändern',
+  )
+  await ruf(`/admin/api/teams/${eigenes}`, { method: 'PATCH', body: '{"puffer_minuten":25}' })
+
+  // Einstellungen LESEN darf er — Impressum und Datenschutz sind keine Geheimnisse.
+  gleich((await ruf('/admin/api/settings')).status, 200, 'Einstellungen lesen')
+})
+
+await pruefe('T16b', 'Eine Mannschaft mit Inhalt lässt sich nicht auflösen', async () => {
+  const { jar } = await adminAnmelden()
+  const ruf = alsKapitaen(jar)
+
+  const leere = await zweiteMannschaft()
+  gleich((await ruf(`/admin/api/teams/${leere.id}`, { method: 'DELETE' })).status, 200, 'leere Mannschaft')
+
+  const voll = await zweiteMannschaft()
+  await testMitglied('t16b', true, voll.id)
+  gleich(
+    (await ruf(`/admin/api/teams/${voll.id}`, { method: 'DELETE' })).status,
+    409,
+    'Mannschaft mit Mitgliedern',
+  )
 })
 
 await pruefe('T9', '6× falsches Passwort → gesperrt, auch für das richtige', async () => {

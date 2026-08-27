@@ -121,7 +121,12 @@ cronAdd('erinnerung', '0 18 * * *', () => {
     }
 
     for (const s of spieltage) {
-      const aktive = $app.findRecordsByFilter('members', 'active = true', '', 200, 0)
+      // Abschnitt 12 · Nur die Mannschaft DIESES Spieltags. Ohne den Bezug stünden in der
+      // Erinnerung an die Herren die fehlenden Antworten aller sieben Mannschaften — falsch und
+      // nebenbei ein Datenleck über Mannschaftsgrenzen hinweg.
+      const aktive = $app.findRecordsByFilter('members', 'active = true && team = {:t}', '', 200, 0, {
+        t: s.getString('team'),
+      })
       const antworten = $app.findRecordsByFilter('responses', 'fixture = {:f}', '', 200, 0, { f: s.id })
       const beantwortet = {}
       for (const a of antworten) beantwortet[a.getString('member')] = a.getString('status')
@@ -134,7 +139,10 @@ cronAdd('erinnerung', '0 18 * * *', () => {
       // nach einer Woche niemand mehr.
       if (!fehlen.length && !ohneFahrer) continue
 
-      const teile = [`${s.getString('opponent_town')} in ${abstand} Tagen:`]
+      // Der Mannschaftsname gehört in die Nachricht, sobald es mehr als eine gibt — sonst steht
+      // der Kapitän vor „Düsseldorf in 2 Tagen" und weiß nicht, welche seiner Mannschaften.
+      const wer = require(`${__hooks}/utils.js`).mannschaft($app, s.getString('team')).name
+      const teile = [`${wer} · ${s.getString('opponent_town')} in ${abstand} Tagen:`]
       if (fehlen.length) teile.push(`keine Antwort von ${fehlen.join(', ')}.`)
       if (ohneFahrer) teile.push('Es fährt noch niemand.')
       zeilen.push(teile.join(' '))

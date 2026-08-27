@@ -6,7 +6,10 @@ import {
   type AdminSpieltag,
   type Einstellungen as EinstellungenDaten,
   type Protokollzeile,
+  type Mannschaft,
   type Sicherung,
+  type Verwalterkonto,
+  type Wer,
   ZweiterFaktorNoetig,
 } from './adminApi'
 import { ausEingabe, fuerEingabe, systemDatum, systemDatumZeit } from './format'
@@ -15,17 +18,30 @@ import './admin.css'
 type Reiter = 'spieltage' | 'mitglieder' | 'einstellungen' | 'protokoll'
 
 export default function Admin() {
-  const [email, setEmail] = useState<string | null>(null)
+  const [ich, setIch] = useState<Wer | null>(null)
   const [prueft, setPrueft] = useState(true)
   const [reiter, setReiter] = useState<Reiter>('spieltage')
+  // Abschnitt 12 · Immer GENAU eine Mannschaft gewählt, nie „alle". Sonst müsste jede anlegende
+  // Route entscheiden, für welche Mannschaft ein neuer Spieltag gilt — und die Antwort „für gar
+  // keine" gibt es nicht, das Schema verlangt eine.
+  const [gewaehlt, setGewaehlt] = useState('')
+
+  const werBinIch = useCallback(async () => {
+    try {
+      const d = await adminApi.werBinIch()
+      setIch(d)
+      setGewaehlt((vorher) => (d.teams.some((t) => t.id === vorher) ? vorher : (d.teams[0]?.id ?? '')))
+    } catch {
+      setIch(null)
+    } finally {
+      setPrueft(false)
+    }
+  }, [])
 
   useEffect(() => {
-    adminApi
-      .werBinIch()
-      .then((d) => setEmail(d.email))
-      .catch(() => setEmail(null))
-      .finally(() => setPrueft(false))
-  }, [])
+    // oxlint-disable-next-line react/set-state-in-effect
+    void werBinIch()
+  }, [werBinIch])
 
   if (prueft) {
     return (
@@ -37,21 +53,42 @@ export default function Admin() {
     )
   }
 
-  if (!email) return <Anmeldung fertig={setEmail} />
+  if (!ich) return <Anmeldung fertig={() => void werBinIch()} />
+
+  const abgemeldet = () => setIch(null)
 
   return (
     <div className="admin">
       <header className="admin__kopf">
-        <h1>Kapitän</h1>
+        <h1>{ich.rolle === 'gesamt' ? 'Verwaltung' : 'Kapitän'}</h1>
         <span className="admin__wer">
-          {email}
+          {/* Ein Kapitän hat genau eine Mannschaft — dann ist eine Auswahl mit einem Eintrag
+              keine Auswahl, sondern eine Irreführung. Er sieht den Namen. */}
+          {ich.teams.length > 1 ? (
+            <select
+              className="admin__mannschaft"
+              value={gewaehlt}
+              onChange={(x) => setGewaehlt(x.target.value)}
+              aria-label="Mannschaft"
+            >
+              {ich.teams.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <strong>{ich.teams[0]?.name ?? '—'}</strong>
+          )}
+          {' · '}
+          {ich.email}
           {' · '}
           <button
             type="button"
             className="kopf__abmelden"
             onClick={async () => {
               await adminApi.abmelden().catch(() => {})
-              setEmail(null)
+              setIch(null)
             }}
           >
             Abmelden
@@ -81,10 +118,21 @@ export default function Admin() {
       </nav>
 
       <div className="admin__inhalt">
-        {reiter === 'spieltage' && <Spieltage abgemeldet={() => setEmail(null)} />}
-        {reiter === 'mitglieder' && <Mitglieder abgemeldet={() => setEmail(null)} />}
-        {reiter === 'einstellungen' && <Einstellungen abgemeldet={() => setEmail(null)} />}
-        {reiter === 'protokoll' && <Protokoll abgemeldet={() => setEmail(null)} />}
+        {reiter === 'spieltage' && <Spieltage abgemeldet={abgemeldet} team={gewaehlt} />}
+        {reiter === 'mitglieder' && <Mitglieder abgemeldet={abgemeldet} team={gewaehlt} />}
+        {reiter === 'einstellungen' && (
+          <Einstellungen
+            abgemeldet={abgemeldet}
+            team={gewaehlt}
+            rolle={ich.rolle}
+            neuLaden={() => void werBinIch()}
+          />
+        )}
+        {/* Der Gesamt-Admin sieht das ganze Protokoll — die zentralen Ereignisse gehören zu
+            keiner Mannschaft und fielen sonst durch jeden Filter. */}
+        {reiter === 'protokoll' && (
+          <Protokoll abgemeldet={abgemeldet} team={ich.rolle === 'gesamt' ? '' : gewaehlt} />
+        )}
       </div>
     </div>
   )
@@ -178,7 +226,7 @@ function Anmeldung({ fertig }: { fertig: (email: string) => void }) {
 }
 
 /** Ein Ladezustand mit Fehlerzeile — dreimal gebraucht, deshalb hier einmal. */
-function useListe<T>(holen: () => Promise<{ items: T[] }>, abgemeldet: () => void) {
+function useListe<T>(holen: () => Promise<{ items: T[] }>, abgemeldet: () => void, schluessel = '') {
   const [items, setItems] = useState<T[] | null>(null)
   const [fehler, setFehler] = useState('')
 
@@ -191,8 +239,10 @@ function useListe<T>(holen: () => Promise<{ items: T[] }>, abgemeldet: () => voi
       setFehler(problem instanceof Error ? problem.message : 'Konnte nicht geladen werden.')
     }
     // holen ist bei jedem Rendern neu, würde als Abhängigkeit also eine Endlosschleife bauen.
+    // Stattdessen `schluessel`: Wechselt die Mannschaft, wird neu geladen — sonst zeigte die
+    // Ansicht nach dem Umschalten weiter die Daten der vorigen.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [abgemeldet])
+  }, [abgemeldet, schluessel])
 
   useEffect(() => {
     // oxlint-disable-next-line react/set-state-in-effect
@@ -214,8 +264,12 @@ const LEER: Partial<AdminSpieltag> = {
   needed_players: 4,
 }
 
-function Spieltage({ abgemeldet }: { abgemeldet: () => void }) {
-  const { items, fehler, setFehler, laden } = useListe(adminApi.spieltage, abgemeldet)
+function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string }) {
+  const { items, fehler, setFehler, laden } = useListe(
+    () => adminApi.spieltage(team),
+    abgemeldet,
+    team,
+  )
   const [entwurf, setEntwurf] = useState<Partial<AdminSpieltag> | null>(null)
 
   const speichern = async () => {
@@ -225,6 +279,7 @@ function Spieltage({ abgemeldet }: { abgemeldet: () => void }) {
       // Leere Abfahrt bleibt leer — das ist die Anweisung „rechne selbst" (6.3).
       const daten = {
         ...entwurf,
+        team,
         date: ausEingabe(entwurf.date),
         departure_manual: ausEingabe(entwurf.departure_manual),
       }
@@ -447,8 +502,12 @@ function Spieltagformular({
 }
 
 // ── Mitglieder ──────────────────────────────────────────────────────────────────────────────
-function Mitglieder({ abgemeldet }: { abgemeldet: () => void }) {
-  const { items, fehler, setFehler, laden } = useListe(adminApi.mitglieder, abgemeldet)
+function Mitglieder({ abgemeldet, team }: { abgemeldet: () => void; team: string }) {
+  const { items, fehler, setFehler, laden } = useListe(
+    () => adminApi.mitglieder(team),
+    abgemeldet,
+    team,
+  )
   const [neuerName, setNeuerName] = useState('')
   // Frisch ausgestellte Token, nur für diese Sitzung im Speicher — nach dem Neuladen weg (R1).
   const [tokens, setTokens] = useState<Record<string, string>>({})
@@ -479,7 +538,7 @@ function Mitglieder({ abgemeldet }: { abgemeldet: () => void }) {
           ereignis.preventDefault()
           if (!neuerName.trim()) return
           void fangen(async () => {
-            await adminApi.mitgliedAnlegen(neuerName.trim())
+            await adminApi.mitgliedAnlegen(neuerName.trim(), team)
             setNeuerName('')
           })
         }}
@@ -560,7 +619,18 @@ function Mitglieder({ abgemeldet }: { abgemeldet: () => void }) {
 // ── Einstellungen ───────────────────────────────────────────────────────────────────────────
 // Ein Formular, ein Knopf. Geschickt wird nur, was sich geändert hat — der Server schreibt je
 // geändertem Feld eine Protokollzeile, und eine Zeile „80 → 80" wäre Rauschen.
-function Einstellungen({ abgemeldet }: { abgemeldet: () => void }) {
+function Einstellungen({
+  abgemeldet,
+  team,
+  rolle,
+  neuLaden,
+}: {
+  abgemeldet: () => void
+  team: string
+  rolle: 'gesamt' | 'kapitaen'
+  /** Nach einer Umbenennung muss die Auswahl im Kopf den neuen Namen zeigen. */
+  neuLaden: () => void
+}) {
   const [daten, setDaten] = useState<EinstellungenDaten | null>(null)
   const [entwurf, setEntwurf] = useState<EinstellungenDaten | null>(null)
   const [fehler, setFehler] = useState('')
@@ -600,14 +670,10 @@ function Einstellungen({ abgemeldet }: { abgemeldet: () => void }) {
   const zahl = (wert: string) => (wert === '' ? Number.NaN : Number(wert))
 
   const name = entwurf.anzeigename.trim()
-  const zahlenOk =
-    Number.isFinite(entwurf.tempo_kmh) &&
-    Number.isFinite(entwurf.puffer_minuten) &&
-    Number.isFinite(entwurf.auto_sperre_stunden)
+  const zahlenOk = Number.isFinite(entwurf.tempo_kmh) && Number.isFinite(entwurf.auto_sperre_stunden)
   const veraendert =
     name !== daten.anzeigename ||
     entwurf.tempo_kmh !== daten.tempo_kmh ||
-    entwurf.puffer_minuten !== daten.puffer_minuten ||
     entwurf.auto_sperre_stunden !== daten.auto_sperre_stunden ||
     entwurf.impressum.trim() !== daten.impressum ||
     entwurf.datenschutz.trim() !== daten.datenschutz
@@ -619,7 +685,6 @@ function Einstellungen({ abgemeldet }: { abgemeldet: () => void }) {
     const aenderung: Partial<EinstellungenDaten> = {}
     if (name !== daten.anzeigename) aenderung.anzeigename = name
     if (entwurf.tempo_kmh !== daten.tempo_kmh) aenderung.tempo_kmh = entwurf.tempo_kmh
-    if (entwurf.puffer_minuten !== daten.puffer_minuten) aenderung.puffer_minuten = entwurf.puffer_minuten
     if (entwurf.auto_sperre_stunden !== daten.auto_sperre_stunden) {
       aenderung.auto_sperre_stunden = entwurf.auto_sperre_stunden
     }
@@ -645,6 +710,9 @@ function Einstellungen({ abgemeldet }: { abgemeldet: () => void }) {
 
   return (
     <>
+    {/* Die zentralen Einstellungen gehen alle Mannschaften an — ein Kapitän sieht sie gar nicht
+        erst. Der Server lehnt sie ihm ohnehin ab; hier steht, dass es kein Versehen ist. */}
+    {rolle === 'gesamt' && (
     <form onSubmit={speichern}>
       {fehler && (
         <p className="fehler" role="status">
@@ -707,17 +775,6 @@ function Einstellungen({ abgemeldet }: { abgemeldet: () => void }) {
               max={200}
               value={Number.isFinite(entwurf.tempo_kmh) ? entwurf.tempo_kmh : ''}
               onChange={(x) => setzen({ tempo_kmh: zahl(x.target.value) })}
-            />
-          </label>
-          <label className="feld" style={{ flex: '0 1 10rem' }}>
-            <span>Puffer (Minuten)</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              max={180}
-              value={Number.isFinite(entwurf.puffer_minuten) ? entwurf.puffer_minuten : ''}
-              onChange={(x) => setzen({ puffer_minuten: zahl(x.target.value) })}
             />
           </label>
         </div>
@@ -815,8 +872,12 @@ function Einstellungen({ abgemeldet }: { abgemeldet: () => void }) {
         </div>
       </div>
     </form>
+    )}
+    <Mannschaftseinstellungen abgemeldet={abgemeldet} team={team} neuLaden={neuLaden} />
+    {rolle === 'gesamt' && <Mannschaften abgemeldet={abgemeldet} neuLaden={neuLaden} />}
+    {rolle === 'gesamt' && <Verwalterkonten abgemeldet={abgemeldet} />}
     <ZweiterFaktor abgemeldet={abgemeldet} />
-    <Sicherungen abgemeldet={abgemeldet} />
+    {rolle === 'gesamt' && <Sicherungen abgemeldet={abgemeldet} />}
     </>
   )
 }
@@ -1024,6 +1085,415 @@ function ZweiterFaktor({ abgemeldet }: { abgemeldet: () => void }) {
             Einrichten
           </button>
         </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Was einer einzelnen Mannschaft gehört — Abschnitt 12. Das darf ihr Kapitän ändern, denn es ist
+ * seine Mannschaft; die zentralen Einstellungen darüber sieht er gar nicht.
+ */
+function Mannschaftseinstellungen({
+  abgemeldet,
+  team,
+  neuLaden,
+}: {
+  abgemeldet: () => void
+  team: string
+  neuLaden: () => void
+}) {
+  const [satz, setSatz] = useState<Mannschaft | null>(null)
+  const [entwurf, setEntwurf] = useState<Mannschaft | null>(null)
+  const [fehler, setFehler] = useState('')
+  const [laeuft, setLaeuft] = useState(false)
+  const [gespeichert, setGespeichert] = useState(false)
+
+  const laden = useCallback(async () => {
+    try {
+      const alle = (await adminApi.mannschaften()).items
+      const meine = alle.find((x) => x.id === team) ?? null
+      setSatz(meine)
+      setEntwurf(meine)
+    } catch (x) {
+      if (x instanceof NichtAngemeldet) return abgemeldet()
+      setFehler(x instanceof Error ? x.message : 'Nicht geladen.')
+    }
+  }, [abgemeldet, team])
+
+  useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect
+    void laden()
+  }, [laden])
+
+  if (!satz || !entwurf) return <p className="namen">Einen Moment …</p>
+
+  const name = entwurf.name.trim()
+  const pufferOk = Number.isFinite(entwurf.puffer_minuten)
+  const veraendert =
+    name !== satz.name ||
+    entwurf.puffer_minuten !== satz.puffer_minuten ||
+    entwurf.startort.trim() !== satz.startort
+
+  return (
+    <div className="satz">
+      <div className="satz__kopf">
+        <span className="satz__name">Diese Mannschaft</span>
+        <span className="satz__zusatz">
+          Der Name steht im Aushang und in dieser Ansicht. Der Puffer ist die Zeit, die vor dem
+          Anwurf zusätzlich zur Fahrzeit eingeplant wird — parken, umziehen, einwerfen.
+        </span>
+      </div>
+
+      {fehler && (
+        <p className="fehler" role="status">
+          {fehler}
+        </p>
+      )}
+
+      <div className="satz__aktionen">
+        <label className="feld" style={{ flex: '1 1 14rem' }}>
+          <span>Name</span>
+          <input
+            maxLength={60}
+            value={entwurf.name}
+            onChange={(x) => {
+              setEntwurf({ ...entwurf, name: x.target.value })
+              setGespeichert(false)
+            }}
+          />
+        </label>
+        <label className="feld" style={{ flex: '0 1 10rem' }}>
+          <span>Puffer (Minuten)</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={180}
+            value={Number.isFinite(entwurf.puffer_minuten) ? entwurf.puffer_minuten : ''}
+            onChange={(x) => {
+              setEntwurf({
+                ...entwurf,
+                puffer_minuten: x.target.value === '' ? Number.NaN : Number(x.target.value),
+              })
+              setGespeichert(false)
+            }}
+          />
+        </label>
+      </div>
+
+      <div className="satz__aktionen">
+        <label className="feld" style={{ flex: '1 1 18rem' }}>
+          <span>Startort</span>
+          <input
+            maxLength={120}
+            value={entwurf.startort}
+            onChange={(x) => {
+              setEntwurf({ ...entwurf, startort: x.target.value })
+              setGespeichert(false)
+            }}
+          />
+          <span className="feld__hinweis">
+            Von wo diese Mannschaft losfährt. Heute nur eine Notiz. Keine Privatadresse.
+          </span>
+        </label>
+      </div>
+
+      <div className="satz__aktionen">
+        <button
+          type="button"
+          className="knopf"
+          disabled={!name || !pufferOk || !veraendert || laeuft}
+          onClick={async () => {
+            setLaeuft(true)
+            setFehler('')
+            try {
+              await adminApi.mannschaftAendern(satz.id, {
+                name,
+                puffer_minuten: entwurf.puffer_minuten,
+                startort: entwurf.startort.trim(),
+              })
+              setGespeichert(true)
+              await laden()
+              // Der Kopf zeigt den Namen — er muss den neuen zeigen, nicht den alten.
+              neuLaden()
+            } catch (x) {
+              if (x instanceof NichtAngemeldet) return abgemeldet()
+              setFehler(x instanceof Error ? x.message : 'Nicht gespeichert.')
+            } finally {
+              setLaeuft(false)
+            }
+          }}
+        >
+          {laeuft ? 'Speichert …' : 'Speichern'}
+        </button>
+        {gespeichert && (
+          <span className="satz__zusatz" style={{ alignSelf: 'center' }} role="status">
+            Gespeichert.
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** Mannschaften anlegen und auflösen — Sache des Gesamt-Admins (Abschnitt 12). */
+function Mannschaften({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLaden: () => void }) {
+  const { items, fehler, setFehler, laden } = useListe<Mannschaft>(adminApi.mannschaften, abgemeldet)
+  const [neu, setNeu] = useState('')
+  const [laeuft, setLaeuft] = useState(false)
+
+  return (
+    <div className="satz">
+      <div className="satz__kopf">
+        <span className="satz__name">Alle Mannschaften</span>
+        <span className="satz__zusatz">
+          Jede Mannschaft hat eigene Mitglieder, eigene Spieltage und einen eigenen Kapitän. Was
+          zentral steht — Rechtstexte, Sperrfrist, Sicherungen — gilt für alle gemeinsam.
+        </span>
+      </div>
+
+      {fehler && (
+        <p className="fehler" role="status">
+          {fehler}
+        </p>
+      )}
+
+      <div className="satz__aktionen">
+        <label className="feld" style={{ flex: '1 1 14rem' }}>
+          <span>Neue Mannschaft</span>
+          <input maxLength={60} value={neu} onChange={(x) => setNeu(x.target.value)} />
+        </label>
+        <button
+          type="button"
+          className="knopf"
+          disabled={!neu.trim() || laeuft}
+          onClick={async () => {
+            setLaeuft(true)
+            setFehler('')
+            try {
+              await adminApi.mannschaftAnlegen(neu.trim())
+              setNeu('')
+              await laden()
+              neuLaden()
+            } catch (x) {
+              if (x instanceof NichtAngemeldet) return abgemeldet()
+              setFehler(x instanceof Error ? x.message : 'Nicht angelegt.')
+            } finally {
+              setLaeuft(false)
+            }
+          }}
+        >
+          Anlegen
+        </button>
+      </div>
+
+      {items === null ? (
+        <p className="namen">Einen Moment …</p>
+      ) : (
+        <ul className="namen" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+          {items.map((t) => (
+            <li
+              key={t.id}
+              style={{
+                display: 'flex',
+                gap: '0.75rem',
+                alignItems: 'baseline',
+                padding: '0.35rem 0',
+                borderTop: 'var(--linie)',
+              }}
+            >
+              <span style={{ flex: '1 1 auto' }}>{t.name}</span>
+              <span className="satz__zusatz">{t.puffer_minuten} min Puffer</span>
+              <button
+                type="button"
+                className="knopf knopf--gefahr"
+                disabled={laeuft}
+                onClick={async () => {
+                  if (!window.confirm(`Mannschaft „${t.name}" auflösen?`)) return
+                  setLaeuft(true)
+                  setFehler('')
+                  try {
+                    await adminApi.mannschaftLoeschen(t.id)
+                    await laden()
+                    neuLaden()
+                  } catch (x) {
+                    if (x instanceof NichtAngemeldet) return abgemeldet()
+                    // Der Server lässt eine Mannschaft mit Inhalt nicht löschen und sagt warum.
+                    setFehler(x instanceof Error ? x.message : 'Nicht gelöscht.')
+                  } finally {
+                    setLaeuft(false)
+                  }
+                }}
+              >
+                Auflösen
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Konten für Kapitäne — Abschnitt 12.
+ *
+ * Das Passwort wird erzeugt und genau einmal angezeigt, wie der Einladungslink eines Mitglieds.
+ * Gespeichert wird davon nur ein Hash; herausholen kann es niemand, auch der Gesamt-Admin nicht.
+ */
+function Verwalterkonten({ abgemeldet }: { abgemeldet: () => void }) {
+  const { items, fehler, setFehler, laden } = useListe<Verwalterkonto>(adminApi.verwalter, abgemeldet)
+  const { items: teams } = useListe<Mannschaft>(adminApi.mannschaften, abgemeldet)
+  const [email, setEmail] = useState('')
+  const [team, setTeam] = useState('')
+  const [laeuft, setLaeuft] = useState(false)
+  const [gezeigt, setGezeigt] = useState<{ email: string; passwort: string } | null>(null)
+
+  const teamName = (id: string) => teams?.find((t) => t.id === id)?.name ?? '—'
+
+  async function fuehreAus(tun: () => Promise<unknown>) {
+    setLaeuft(true)
+    setFehler('')
+    try {
+      await tun()
+      await laden()
+    } catch (x) {
+      if (x instanceof NichtAngemeldet) return abgemeldet()
+      setFehler(x instanceof Error ? x.message : 'Das hat nicht geklappt.')
+    } finally {
+      setLaeuft(false)
+    }
+  }
+
+  return (
+    <div className="satz">
+      <div className="satz__kopf">
+        <span className="satz__name">Kapitäne</span>
+        <span className="satz__zusatz">
+          Jeder Kapitän sieht ausschließlich seine eigene Mannschaft — Mitglieder anlegen und
+          bearbeiten, Spieltage pflegen, Rückmeldungen korrigieren. Die zentralen Einstellungen und
+          die Sicherungen bekommt er nicht zu Gesicht.
+        </span>
+      </div>
+
+      {fehler && (
+        <p className="fehler" role="status">
+          {fehler}
+        </p>
+      )}
+
+      {gezeigt && (
+        <div className="token">
+          <p className="token__hinweis">Dieses Passwort wird genau einmal angezeigt</p>
+          <p style={{ margin: '0 0 0.5rem', fontSize: '0.85rem' }}>
+            Gib es <strong>{gezeigt.email}</strong> weiter, am besten im Einzelchat. Wieder
+            hervorholen lässt es sich nicht — gespeichert ist nur ein Hash. Ist es weg, erzeugst du
+            ein neues.
+          </p>
+          <p
+            style={{
+              margin: '0 0 0.5rem',
+              fontFamily: 'var(--schrift-mono, monospace)',
+              fontSize: '1.1rem',
+              wordBreak: 'break-all',
+            }}
+          >
+            {gezeigt.passwort}
+          </p>
+          <button type="button" className="knopf" onClick={() => setGezeigt(null)}>
+            Verstanden
+          </button>
+        </div>
+      )}
+
+      <div className="satz__aktionen">
+        <label className="feld" style={{ flex: '1 1 14rem' }}>
+          <span>E-Mail-Adresse</span>
+          <input
+            type="email"
+            autoComplete="off"
+            value={email}
+            onChange={(x) => setEmail(x.target.value)}
+          />
+        </label>
+        <label className="feld" style={{ flex: '0 1 12rem' }}>
+          <span>Mannschaft</span>
+          <select value={team} onChange={(x) => setTeam(x.target.value)}>
+            <option value="">— wählen —</option>
+            {(teams ?? []).map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="button"
+          className="knopf"
+          disabled={!email.trim() || !team || laeuft}
+          onClick={() =>
+            fuehreAus(async () => {
+              const d = await adminApi.verwalterAnlegen(email.trim(), 'kapitaen', team)
+              setGezeigt({ email: d.email, passwort: d.passwort })
+              setEmail('')
+              setTeam('')
+            })
+          }
+        >
+          Kapitän anlegen
+        </button>
+      </div>
+
+      {items === null ? (
+        <p className="namen">Einen Moment …</p>
+      ) : items.length === 0 ? (
+        <p className="namen">Noch keine Konten. Du selbst bist als Superuser angemeldet.</p>
+      ) : (
+        <ul className="namen" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+          {items.map((v) => (
+            <li
+              key={v.id}
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '0.75rem',
+                alignItems: 'baseline',
+                padding: '0.35rem 0',
+                borderTop: 'var(--linie)',
+              }}
+            >
+              <span style={{ flex: '1 1 14rem' }}>{v.email}</span>
+              <span className="satz__zusatz">
+                {v.rolle === 'gesamt' ? 'Gesamt' : teamName(v.team)}
+              </span>
+              <button
+                type="button"
+                className="knopf"
+                disabled={laeuft}
+                onClick={() =>
+                  fuehreAus(async () => {
+                    const d = await adminApi.verwalterAendern(v.id, { neues_passwort: true })
+                    if (d.passwort) setGezeigt({ email: v.email, passwort: d.passwort })
+                  })
+                }
+              >
+                Neues Passwort
+              </button>
+              <button
+                type="button"
+                className="knopf knopf--gefahr"
+                disabled={laeuft}
+                onClick={() => {
+                  if (!window.confirm(`Konto „${v.email}" löschen? Offene Sitzungen enden sofort.`)) return
+                  void fuehreAus(() => adminApi.verwalterLoeschen(v.id))
+                }}
+              >
+                Löschen
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   )
@@ -1248,8 +1718,8 @@ const WAS: Record<string, string> = {
   'backup.restore': 'Sicherung zurückgespielt',
 }
 
-function Protokoll({ abgemeldet }: { abgemeldet: () => void }) {
-  const { items, fehler } = useListe(adminApi.protokoll, abgemeldet)
+function Protokoll({ abgemeldet, team }: { abgemeldet: () => void; team: string }) {
+  const { items, fehler } = useListe(() => adminApi.protokoll(team), abgemeldet, team)
 
   if (!items) return <p>Einen Moment …</p>
   if (fehler) {

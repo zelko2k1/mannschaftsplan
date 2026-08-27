@@ -133,6 +133,18 @@
 }
 /* Ein Hinweis UNTER dem Feld, der sagt, was ein leeres Feld bedeutet. Muss die Auszeichnung
    von `.feld > span` zurücknehmen — die ist für die Beschriftung darüber gedacht. */
+/* Die Mannschaftsauswahl im Kopf. Sie steht neben der Adresse und soll nicht wie ein Formularfeld
+   wirken, sondern wie eine Angabe, die man antippen kann. */
+.admin__mannschaft {
+  font-family: var(--schrift-eng);
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 0.1rem 0.3rem;
+  background: #fff;
+  border: 2px solid var(--tinte);
+  color: var(--tinte);
+  max-width: 12rem;
+}
 .feld__hinweis {
   font-family: var(--schrift-mono);
   font-size: 0.72rem;

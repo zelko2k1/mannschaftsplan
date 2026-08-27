@@ -177,9 +177,11 @@ Danach die Spieltage eintragen — Datum, Anwurfzeit, Gegner, Ort, Entfernung. F
 
 Der Reiter **Einstellungen** hat vier Dinge:
 
-**Name der Mannschaft.** Er erscheint auf der Seite, die ein Mitglied beim Antippen des Links
+**Name des Vereins.** Er erscheint auf der Seite, die ein Mitglied beim Antippen des Links
 sieht, und in der Vorschau, die WhatsApp und andere Messenger erzeugen. Voreingestellt ist
-„Mannschaftsplan".
+„Mannschaftsplan". Wie die einzelne **Mannschaft** heißt, steht unter *Diese Mannschaft* —
+absichtlich getrennt: Die Einladungsseite schlägt das Token nicht nach und darf deshalb nicht
+verraten, zu welcher Mannschaft es gehört.
 
 > Diese Vorschau entsteht auf den Servern des Messengers, **bevor** ein Mensch den Link antippt.
 > Was dort steht, sieht also jeder, dem ein Link weitergeleitet wird. Der Mannschafts- oder
@@ -188,8 +190,14 @@ sieht, und in der Vorschau, die WhatsApp und andere Messenger erzeugen. Voreinge
 
 **Abfahrtszeit.** Die App trägt die Abfahrt nicht ein, sie rechnet sie: Strecke geteilt durch
 Tempo, plus Puffer, auf fünf Minuten gerundet, vom Anwurf abgezogen. Voreingestellt sind 80 km/h
-und 25 Minuten. Fahrt ihr über Land, stimmt ein höheres Tempo; in der Stadt ein niedrigeres. Der
-Puffer ist alles, was zwischen Ankunft und Anwurf passiert — parken, umziehen, einwerfen.
+und 25 Minuten. Fahrt ihr über Land, stimmt ein höheres Tempo; in der Stadt ein niedrigeres.
+
+Das **Tempo** steht zentral — es beschreibt eure Straßen, nicht eine Mannschaft. Der **Puffer**
+steht bei der Mannschaft: Er ist alles, was zwischen Ankunft und Anwurf passiert — parken,
+umziehen, einwerfen —, und das dauert nicht überall gleich lang.
+
+Am einzelnen Spieltag lässt sich die Abfahrt außerdem **von Hand** eintragen. Leer heißt weiter
+rechnen; nur ein gefülltes Feld übergeht die Formel.
 
 **Spieltage von selbst schließen.** Ein gespielter Spieltag soll keine Rückmeldungen mehr
 annehmen, sonst ändert jemand hinterher seine Zusage. Trägst du hier eine Stundenzahl ein,
@@ -228,6 +236,37 @@ Listen und ist sofort von allen Geräten abgemeldet.
 **Ein Spieltag ist gelaufen.** Auf „gesperrt" setzen — dann kann niemand mehr nachträglich seine
 Zusage ändern. Wenn du unter Einstellungen eine Frist hinterlegt hast, passiert das von selbst;
 im Protokoll steht die Zeile dann mit dem Vermerk „(automatisch)".
+
+### Mehrere Mannschaften
+
+Ein Verein mit sieben Mannschaften braucht keine sieben Instanzen. Eine reicht, und darin gibt es
+zwei Rollen:
+
+| | |
+|---|---|
+| **Gesamt** | Sieht alle Mannschaften und schaltet oben zwischen ihnen um. Legt Mannschaften und Kapitäne an. Ihm allein gehören die zentralen Einstellungen, die Rechtstexte und die Sicherungen. |
+| **Kapitän** | Sieht ausschließlich seine eigene Mannschaft: Mitglieder anlegen und bearbeiten, Spieltage pflegen, Rückmeldungen korrigieren, den Namen und den Puffer seiner Mannschaft setzen. Von den zentralen Einstellungen bekommt er nichts zu sehen. |
+
+Wer sich mit dem Zugang aus Einrichtungsschritt 7 anmeldet — dem Superuser —, ist immer *Gesamt*.
+Das ist Absicht und der Rettungsanker: Wer sich beim Verteilen der Rollen vergreift, kommt darüber
+wieder herein.
+
+**Kapitäne anlegen** geht unter Einstellungen → Kapitäne. Das Passwort wird erzeugt und **genau
+einmal angezeigt**, wie der Einladungslink eines Mitglieds; gespeichert ist davon nur ein Hash.
+Ist es weg, erzeugst du ein neues.
+
+> **Die Abschottung ist nicht nur eine Anzeigefrage.** Ein Kapitän ist kein Superuser: Auf keiner
+> Tabelle liegen Regeln, die ihm etwas erlaubten, und jeder seiner Zugriffe läuft durch die Routen
+> der Kapitänsansicht. Schickt er die Kennung einer fremden Mannschaft mit, wird sie nicht
+> gelesen — er bekommt seine eigene, so wie ein Mitglied im Aushang immer sich selbst ändert und
+> nie jemand anderen.
+
+Alle sieben teilen sich weiterhin **ein** Passwort für das Tor aus Schritt 4. Dessen Rolle ändert
+sich damit: Es ist die Vorfilterung, nicht die Anmeldung. Wird es doch einmal öffentlich, steht
+nicht die Verwaltung offen, sondern nur der Anmeldebildschirm.
+
+**Eine Mannschaft auflösen** geht erst, wenn sie leer ist — keine Mitglieder, keine Spieltage,
+kein Kapitän. Ein Klick, der ein Jahr Spielbetrieb mitnähme, wäre zu scharf.
 
 ### Zweiter Faktor für die Kapitänsansicht
 

@@ -11,17 +11,30 @@ routerAdd('GET', '/api/board', (e) => {
   const sitzung = u.mitgliedAusSession(e)
   if (!sitzung) return e.json(401, { message: 'Keine gültige Sitzung.' })
 
-  // Einmal pro Aufruf, nicht einmal pro Spieltag: die Fahrzeit-Formel braucht dieselben zwei
-  // Werte für alle Zeilen.
+  // Einmal pro Aufruf, nicht einmal pro Spieltag: die Fahrzeit-Formel braucht dieselben Werte
+  // für alle Zeilen. Das Tempo gilt für alle, der Puffer hängt an der Mannschaft (Abschnitt 12).
   const einst = u.einstellungen(e.app)
+  const team = sitzung.mitglied.getString('team')
+  const mannschaft = u.mannschaft(e.app, team)
 
-  const mitglieder = e.app.findRecordsByFilter('members', 'active = true', 'sort,name', 200, 0)
-  const spieltage = e.app.findRecordsByFilter('fixtures', "id != ''", 'date', 200, 0)
+  // Abschnitt 12 · JEDE dieser Abfragen ist auf die Mannschaft des Anfragenden eingegrenzt. Eine
+  // davon zu vergessen hieße nicht „sieht komisch aus", sondern: Die Herren lesen die
+  // Rückmeldungen der Damen. Die drei unteren gehen über die Beziehung zum Spieltag, weil an
+  // ihnen selbst kein Mannschaftsfeld hängt.
+  const mitglieder = e.app.findRecordsByFilter(
+    'members',
+    'active = true && team = {:t}',
+    'sort,name',
+    200,
+    0,
+    { t: team },
+  )
+  const spieltage = e.app.findRecordsByFilter('fixtures', 'team = {:t}', 'date', 200, 0, { t: team })
 
   // Alles auf einmal holen und im Speicher zuordnen, statt pro Spieltag drei Abfragen zu fahren.
-  const rueckmeldungen = e.app.findRecordsByFilter('responses', "id != ''", '', 2000, 0)
-  const fahrten = e.app.findRecordsByFilter('rides', "id != ''", '', 2000, 0)
-  const plaetze = e.app.findRecordsByFilter('seat_claims', "id != ''", '', 2000, 0)
+  const rueckmeldungen = e.app.findRecordsByFilter('responses', 'fixture.team = {:t}', '', 2000, 0, { t: team })
+  const fahrten = e.app.findRecordsByFilter('rides', 'fixture.team = {:t}', '', 2000, 0, { t: team })
+  const plaetze = e.app.findRecordsByFilter('seat_claims', 'fixture.team = {:t}', '', 2000, 0, { t: team })
 
   const proSpieltag = (satzListe) => {
     const map = {}
@@ -81,7 +94,7 @@ routerAdd('GET', '/api/board', (e) => {
       departure: heim
         ? null
         : u.alsISO(s.getDateTime('departure_manual').string()) ||
-          u.abfahrt(datum, s.getInt('km'), heim, einst.tempo_kmh, einst.puffer_minuten),
+          u.abfahrt(datum, s.getInt('km'), heim, einst.tempo_kmh, mannschaft.puffer_minuten),
       responses,
       rides,
       seat_claims,

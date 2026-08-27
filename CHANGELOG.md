@@ -30,6 +30,20 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   die Einladungslinks und der Aushang sind unberührt.
 
 ### Hinzugefügt
+- **Eine Instanz trägt jetzt mehrere Mannschaften.** Bis hierher war die App für genau eine
+  gebaut; ein Verein mit sieben hätte sieben Instanzen gebraucht — siebenmal sichern, siebenmal
+  aktualisieren, siebenmal dieselben Rechtstexte. Es gibt nun eine Rolle *Gesamt*, die alles
+  sieht und zwischen den Mannschaften umschaltet, und eine Rolle *Kapitän*, die ausschließlich
+  die eigene betreut.
+  Kapitäne sind dafür **keine Superuser** mehr, sondern Datensätze in einer eigenen
+  Auth-Collection — PocketBase hält weiterhin das Passwort (R13), aber auf keiner Tabelle liegt
+  eine Regel, die einem Kapitän etwas erlaubte. Sein gesamter Zugriff läuft durch die Routen der
+  Kapitänsansicht, und dort wird die Mannschaft nicht aus dem Request gelesen, sondern aus seinem
+  Konto — dieselbe Regel wie R3 auf der Mitgliederseite.
+  **Was zentral bleibt:** Rechtstexte, Sperrfrist, Tempo und die Sicherungen. **Was der Mannschaft
+  gehört:** ihr Name, ihr Puffer und ein Startort für später. Für bestehende Installationen ändert
+  sich nichts: Die Migration macht aus den bisherigen Einstellungen die erste Mannschaft und hängt
+  alle vorhandenen Mitglieder und Spieltage daran.
 - **Der Treffpunkt steht jetzt im Aushang.** Er ließ sich seit jeher am Spieltag eintragen, wurde
   vom Board mitgeliefert — und im Browser fallengelassen. Wer gemeinsam losfährt, musste woanders
   nachfragen, wohin. Er steht nun zusammen mit der Abfahrtszeit oben im aufgeklappten Bereich, wo

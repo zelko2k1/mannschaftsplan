@@ -107,6 +107,69 @@ module.exports = {
     return null
   },
 
+  /**
+   * Wer ist angemeldet, und was darf er? — Abschnitt 12.
+   *
+   * @returns null ohne Sitzung, sonst { email, rolle: 'gesamt'|'kapitaen', team }
+   */
+  kontext(e) {
+    const satz = this.sitzung(e)
+    if (!satz) return null
+    const email = satz.getString('email')
+
+    try {
+      const v = e.app.findFirstRecordByFilter('verwalter', 'email = {:m}', { m: email })
+      if (v) {
+        return {
+          email,
+          rolle: v.getString('rolle') === 'kapitaen' ? 'kapitaen' : 'gesamt',
+          team: v.getString('team') || '',
+        }
+      }
+    } catch {
+      /* kein Verwalterkonto zu dieser Adresse */
+    }
+
+    // Ein Superuser ohne Verwalterkonto ist immer Gesamt-Admin. Das ist der Rettungsanker: Wer
+    // sich beim Verteilen der Rollen vergreift — etwa das eigene Konto zum Kapitän macht —,
+    // kommt über den Superuser wieder herein und kann es geradeziehen.
+    return { email, rolle: 'gesamt', team: '' }
+  },
+
+  /**
+   * Vorprüfung und Rollenauskunft in einem. Für jede Route, die wissen muss, wer fragt.
+   *
+   * @returns { fehler } zum direkten Zurückgeben, oder { kontext }
+   */
+  pruefen(e) {
+    const raus = this.abweisen(e)
+    if (raus) return { fehler: raus }
+    return { kontext: this.kontext(e) }
+  },
+
+  /**
+   * Welche Mannschaft gilt für diese Anfrage?
+   *
+   * Für einen Kapitän IMMER die eigene — was im Request steht, wird nicht gelesen. Das ist
+   * dieselbe Regel wie R3 auf der Mitgliederseite: Die Identität kommt aus der Sitzung, nie aus
+   * dem Request. Für den Gesamt-Admin die gewünschte, oder '' für „alle".
+   */
+  teamFuer(kontext, gewuenscht) {
+    if (kontext.rolle === 'kapitaen') return kontext.team
+    return String(gewuenscht === null || gewuenscht === undefined ? '' : gewuenscht)
+  },
+
+  /**
+   * Darf dieser Verwalter einen Datensatz dieser Mannschaft anfassen?
+   *
+   * Ein Kapitän ohne eigene Mannschaft darf NICHTS — das ist ein halb angelegtes Konto, und im
+   * Zweifel ist zu wenig Recht besser als zu viel.
+   */
+  darfTeam(kontext, teamId) {
+    if (kontext.rolle === 'gesamt') return true
+    return !!kontext.team && String(teamId) === kontext.team
+  },
+
   protokoll(e, action, target, alt, neu) {
     const u = require(`${__hooks}/utils.js`)
     let wer = 'admin:?'

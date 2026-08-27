@@ -389,6 +389,30 @@ schied aus, weil es Einmalcodes per E-Mail verschickt und diese App bewusst kein
 hat. Damit ist Schritt 9 abgeschlossen. Das Tor aus R13b bleibt trotzdem die wirksamste
 Einzelmaßnahme und ersetzt nichts davon.
 
+#### R13d · Mehrere Mannschaften, getrennte Kapitäne
+
+Ein Verein hat mehr als eine Mannschaft, und jede hat ihren eigenen Kapitän. Sieben Instanzen
+wären die naheliegende, aber falsche Antwort: siebenmal Sicherungen, siebenmal Aktualisierungen,
+siebenmal dieselben Rechtstexte.
+
+Der Kapitän kann dafür kein Superuser mehr sein — sieben Superuser hieße sieben Zugänge zur
+gesamten Datenbank. Stattdessen eine eigene **Auth-Collection** `verwalter`: PocketBase hält
+weiterhin Hash und Prüfung (R13 bleibt gewahrt), aber auf keiner Tabelle liegt eine Regel, die
+einem Verwalter etwas erlaubte. Sein ganzer Zugriff läuft über `/admin/api`.
+
+Die Abschottung steht an drei Stellen, und zwar bewusst nicht nur in Prüfungen:
+
+1. **Im Schema.** `members.team` und `fixtures.team` sind Pflichtfelder. Ein Mitglied ohne
+   Mannschaft ist nicht speicherbar — wie `sessions.member` eine mitgliedslose Sitzung unmöglich
+   macht.
+2. **An einem Engpass.** `utils.zugangPruefen()` steht vor jeder schreibenden Mitglieder-Route
+   und gleicht die Mannschaft mit ab. Eine vierte Route käme dort ebenfalls vorbei.
+3. **In der Herkunft.** `adminauth.teamFuer()` liest den Wunsch aus dem Request nur für die Rolle
+   *Gesamt*. Ein Kapitän bekommt immer seine eigene Mannschaft — dieselbe Regel wie R3.
+
+Der Superuser bleibt ohne Verwalterkonto immer *Gesamt*. Das ist der Rettungsanker gegen das
+versehentliche Aussperren.
+
 ### R14 · Was das Modell nicht leistet
 Wer den Link eines Mitglieds weitergibt, ist dieses Mitglied. Das ist der bewusste Preis für
 „keiner meldet sich an". Abgemildert durch `audit_log` und R12. **Optional später:**

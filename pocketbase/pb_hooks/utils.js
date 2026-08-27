@@ -53,7 +53,6 @@ module.exports = {
     const standard = {
       anzeigename: ANZEIGENAME_STANDARD,
       tempo_kmh: TEMPO_STANDARD,
-      puffer_minuten: PUFFER_STANDARD,
       auto_sperre_stunden: AUTO_SPERRE_STANDARD,
       // Leer heißt: es gibt die Seite nicht, und der Link erscheint gar nicht erst.
       impressum: '',
@@ -64,15 +63,16 @@ module.exports = {
       if (!saetze || !saetze.length) return standard
       const satz = saetze[0]
       // Ein Feld, das die Migration noch nicht angelegt hat, liefert 0. Bei `tempo_kmh` wäre das
-      // eine Division durch null — und weil `puffer_minuten` aus derselben Migration stammt und
-      // 0 dort ein zulässiger Wunsch ist, entscheidet `tempo_kmh` für beide, ob überhaupt schon
-      // etwas dasteht. Halbe Wahrheiten wären hier schlimmer als der Standard.
+      // eine Division durch null, deshalb entscheidet es, ob überhaupt schon etwas dasteht.
+      // Halbe Wahrheiten wären hier schlimmer als der Standard.
       const tempo = satz.getInt('tempo_kmh')
       const gepflegt = tempo > 0
       return {
+        // Seit Abschnitt 12 der VEREINSname, nicht der einer Mannschaft: Er steht dort, wo es um
+        // die Anwendung als Ganzes geht — Einladungsseite, Rechtstexte, zweiter Faktor. Wie die
+        // einzelne Mannschaft heißt, steht in `teams`.
         anzeigename: satz.getString('anzeigename') || standard.anzeigename,
         tempo_kmh: gepflegt ? tempo : standard.tempo_kmh,
-        puffer_minuten: gepflegt ? satz.getInt('puffer_minuten') : standard.puffer_minuten,
         auto_sperre_stunden: Math.max(0, satz.getInt('auto_sperre_stunden')),
         impressum: satz.getString('impressum') || '',
         datenschutz: satz.getString('datenschutz') || '',
@@ -190,6 +190,34 @@ module.exports = {
   },
 
   /**
+   * Eine Mannschaft samt ihrer Werte — Abschnitt 12. Wie `einstellungen()` liefert sie im
+   * Zweifel den Standard statt einer Ausnahme: Der Aushang darf an einer fehlenden Mannschaft
+   * nicht scheitern.
+   */
+  mannschaft(app, teamId) {
+    const standard = {
+      id: '',
+      name: ANZEIGENAME_STANDARD,
+      puffer_minuten: PUFFER_STANDARD,
+      startort: '',
+    }
+    if (!teamId) return standard
+    try {
+      const satz = app.findRecordById('teams', String(teamId))
+      if (!satz) return standard
+      return {
+        id: satz.id,
+        name: satz.getString('name') || standard.name,
+        // 0 ist ein zulässiger Wunsch: „ohne Puffer".
+        puffer_minuten: Math.max(0, satz.getInt('puffer_minuten')),
+        startort: satz.getString('startort') || '',
+      }
+    } catch {
+      return standard
+    }
+  },
+
+  /**
    * R11 · Double-Submit-Prüfung. Der Wert im nicht-HttpOnly-Cookie muss mit der Kopfzeile
    * übereinstimmen. Fremde Seiten können zwar einen Request auslösen, aber das Cookie nicht lesen
    * und die Kopfzeile deshalb nicht setzen.
@@ -236,6 +264,17 @@ module.exports = {
     }
     // R4 · Der Spieltag muss existieren. 400 ohne Detailauskunft.
     if (!spieltag) return { fehler: { status: 400, message: 'Ungültige Angabe.' } }
+
+    // Abschnitt 12 · Und er muss zur Mannschaft DIESES Mitglieds gehören. Die Prüfung steht hier
+    // und nirgends sonst: Alle drei schreibenden Routen kommen hier vorbei, eine vierte käme es
+    // auch. Wer sie umgehen wollte, müsste den Spieltag selbst laden — und genau das tut außer
+    // dieser Stelle niemand.
+    //
+    // Dieselbe Antwort wie für „gibt es nicht" (R6): Ein Mitglied der Herren soll nicht
+    // herausfinden können, ob eine bestimmte ID ein Spieltag der Damen ist.
+    if (spieltag.getString('team') !== sitzung.mitglied.getString('team')) {
+      return { fehler: { status: 400, message: 'Ungültige Angabe.' } }
+    }
 
     if (spieltag.getBool('locked')) {
       return { fehler: { status: 403, message: 'Dieser Spieltag ist abgeschlossen.' } }
