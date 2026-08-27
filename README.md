@@ -229,6 +229,43 @@ Listen und ist sofort von allen Geräten abgemeldet.
 Zusage ändern. Wenn du unter Einstellungen eine Frist hinterlegt hast, passiert das von selbst;
 im Protokoll steht die Zeile dann mit dem Vermerk „(automatisch)".
 
+### Zweiter Faktor für die Kapitänsansicht
+
+Unter **Einstellungen → Zweiter Faktor** lässt sich zusätzlich zum Passwort ein sechsstelliger
+Code aus einer Authenticator-App verlangen. Wer dein Passwort erfährt, kommt damit trotzdem nicht
+in die Kapitänsansicht.
+
+Einrichten: auf **Einrichten** klicken, den angezeigten Link auf dem Handy antippen (dann öffnet
+sich die App von selbst) oder das Geheimnis am Rechner von Hand eintragen, dann einen Code
+eintippen. Erst damit gilt er — eine abgebrochene Einrichtung sperrt dich nicht aus. Es
+funktioniert mit jeder gängigen App: Aegis, 2FAS, Google Authenticator, Bitwarden, 1Password.
+
+Jeder Code gilt genau einmal. Nach dem Anmelden musst du für die nächste Aktion, die einen Code
+braucht, bis zum nächsten Wechsel warten — höchstens eine halbe Minute.
+
+> **Was er schützt und was nicht.** Er schützt die **Kapitänsansicht** unter `/admin`. Er schützt
+> **nicht** die darunterliegende PocketBase-API: Wer die Superuser-Adresse und das Passwort hat,
+> kommt über `https://deine-domain/api/…` weiterhin an die Daten, ohne je `/admin` zu berühren.
+> Das war vorher genauso und ändert sich durch den zweiten Faktor nicht. Was diese Stelle deckt,
+> ist das Tor aus Einrichtungsschritt 4 — und ein Passwort, das nirgendwo sonst vorkommt.
+
+**Handy verloren?** Dann kommst du über die Oberfläche nicht mehr hinein; das Abschalten verlangt
+selbst einen Code. Der Ausweg führt über die API, mit deinem Superuser-Passwort:
+
+```bash
+TOKEN=$(curl -s https://dart.mein-verein.de/api/collections/_superusers/auth-with-password \
+  -H 'Content-Type: application/json' \
+  -d '{"identity":"deine@adresse.de","password":"dein-passwort"}' \
+  | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')
+ID=$(curl -s https://dart.mein-verein.de/api/collections/admin_totp/records \
+  -H "Authorization: $TOKEN" \
+  | python3 -c 'import sys,json;print(json.load(sys.stdin)["items"][0]["id"])')
+curl -X DELETE "https://dart.mein-verein.de/api/collections/admin_totp/records/$ID" \
+  -H "Authorization: $TOKEN"
+```
+
+Danach genügt wieder das Passwort, und du kannst neu einrichten.
+
 ### Sicherungen
 
 Es gibt zwei Wege, und du brauchst beide.

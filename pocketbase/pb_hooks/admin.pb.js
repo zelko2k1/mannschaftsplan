@@ -13,9 +13,14 @@
 // vorgeschaltete Proxy-Anmeldung. Das ist die wirksamste Einzelmaßnahme, weil ein Fehler hier
 // dann von außen gar nicht erst ansprechbar ist.
 //
-// ACHTUNG: `validatePassword()` weiter unten prüft das Passwort direkt und geht an PocketBases
-// MFA vorbei. Ein am Superuser eingeschalteter zweiter Faktor schützt `/_/`, aber NICHT diesen
-// Login. Nachzurüsten in Schritt 9; bis dahin ist das Tor aus R13b die Stelle, die das deckt.
+// ZUM ZWEITEN FAKTOR: `validatePassword()` weiter unten prüft das Passwort direkt und geht damit
+// weiterhin an PocketBases eigenem MFA vorbei — ein im Dashboard am Superuser eingeschalteter
+// zweiter Faktor schützt `/_/`, aber NICHT diesen Login. Dieser Login bringt seinen eigenen mit
+// (`admin_totp`, siehe pb_hooks/totp.js): zeitbasierte Codes aus einer Authenticator-App, geprüft
+// direkt hinter der Passwortprüfung. PocketBases MFA kam nicht in Frage, weil es Einmalcodes per
+// E-Mail verschickt und diese App bewusst keinen Mailserver hat.
+//
+// Das Tor aus R13b bleibt trotzdem die wirksamste Einzelmaßnahme und ersetzt nichts davon.
 //
 // Alle Hilfen kommen aus adminauth.js und werden INNERHALB der Handler geholt. Funktionen im
 // Modul-Scope stehen den Handlern nicht zur Verfügung — sie laufen in isolierten Laufzeiten.
@@ -57,6 +62,55 @@ routerAdd('POST', '/admin/api/login', (e) => {
     return e.json(401, { message: 'Anmeldung fehlgeschlagen.' })
   }
 
+  // ── Zweiter Faktor (Abschnitt 9) ──────────────────────────────────────────────────────────
+  // Hier war die Lücke, die der Kopf dieser Datei jahrelang angekündigt hat: `validatePassword()`
+  // geht an PocketBases MFA vorbei, ein am Superuser eingeschalteter zweiter Faktor schützte
+  // deshalb nur `/_/`, nicht diesen Login. Jetzt prüft er hier selbst.
+  //
+  // Unbestätigte Einträge zählen nicht. Wer die Einrichtung abbricht, bevor ein Code gestimmt
+  // hat, sperrt sich sonst selbst aus — und zwar aus einer Ansicht, die er braucht, um es
+  // rückgängig zu machen.
+  let totpSatz = null
+  try {
+    totpSatz = e.app.findFirstRecordByFilter('admin_totp', 'email = {:m} && confirmed = true', {
+      m: email,
+    })
+  } catch {
+    totpSatz = null
+  }
+
+  if (totpSatz) {
+    const totp = require(`${__hooks}/totp.js`)
+    const code = String(koerper.code || '')
+
+    // Ohne Code ist das keine fehlgeschlagene Anmeldung, sondern eine halbe: Der Client soll
+    // das Codefeld zeigen und es noch einmal versuchen. Preisgegeben wird damit nichts, was
+    // nicht schon feststeht — wer bis hierher kommt, hat das richtige Passwort.
+    if (!code) {
+      return e.json(401, { mfa: true, message: 'Code aus der Authenticator-App nötig.' })
+    }
+
+    const schritt = totp.pruefen(
+      totpSatz.getString('secret'),
+      code,
+      Math.floor(Date.now() / 1000),
+      totpSatz.getInt('last_step'),
+    )
+    if (!schritt) {
+      return e.json(401, { mfa: true, message: 'Der Code stimmt nicht.' })
+    }
+
+    // Verbrauchen, damit derselbe Code kein zweites Mal gilt.
+    try {
+      totpSatz.set('last_step', schritt)
+      e.app.save(totpSatz)
+    } catch {
+      /* nicht schlimm genug, um die Anmeldung scheitern zu lassen */
+    }
+  }
+
+  // Erst JETZT zurücksetzen. Stünde das oben hinter dem Passwort, könnte jemand mit dem
+  // richtigen Passwort beliebig viele Codes durchprobieren, ohne je an die Sperre zu stoßen.
   limit.zuruecksetzen(e.app, `login:${e.realIP()}`)
 
   // Eigene Sitzung, eigener Cookie-Name, eigener Pfad. Der PocketBase-Token landet NICHT im
@@ -706,4 +760,145 @@ routerAdd('POST', '/admin/api/backup/{name}/restore', (e) => {
   }
 
   return e.json(200, { name: name, sicherheitskopie: rettung })
+})
+
+
+// ── Zweiter Faktor verwalten (Abschnitt 9) ──────────────────────────────────────────────────
+// Der Ablauf ist bewusst zweistufig: `POST` legt ein Geheimnis an, das noch NICHT gilt, und
+// `POST /confirm` schaltet es scharf, nachdem ein Code daraus gestimmt hat. Wer sonst die App
+// falsch einrichtet oder das Fenster zu früh schließt, hätte einen zweiten Faktor, den er nicht
+// erzeugen kann — und käme an die Ansicht, die ihn abschalten würde, nicht mehr heran.
+
+// ── GET /admin/api/totp · Was ist eingerichtet ──────────────────────────────────────────────
+routerAdd('GET', '/admin/api/totp', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const raus = a.abweisen(e)
+  if (raus) return raus
+
+  const email = a.sitzung(e).getString('email')
+  let satz = null
+  try {
+    satz = e.app.findFirstRecordByFilter('admin_totp', 'email = {:m}', { m: email })
+  } catch {
+    satz = null
+  }
+
+  // Das Geheimnis selbst geht hier NIE mit. Es verlässt den Server genau einmal, beim Anlegen.
+  return e.json(200, {
+    aktiv: !!satz && satz.getBool('confirmed'),
+    ausstehend: !!satz && !satz.getBool('confirmed'),
+  })
+})
+
+// ── POST /admin/api/totp · Einrichtung beginnen ─────────────────────────────────────────────
+routerAdd('POST', '/admin/api/totp', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const raus = a.abweisen(e)
+  if (raus) return raus
+
+  const totp = require(`${__hooks}/totp.js`)
+  const u = require(`${__hooks}/utils.js`)
+  const email = a.sitzung(e).getString('email')
+
+  let satz = null
+  try {
+    satz = e.app.findFirstRecordByFilter('admin_totp', 'email = {:m}', { m: email })
+  } catch {
+    satz = null
+  }
+
+  // Einen bereits scharfen zweiten Faktor überschreibt das hier nicht. Sonst genügte ein
+  // Klick, um ihn durch einen neuen zu ersetzen — und der Schutz wäre keiner.
+  if (satz && satz.getBool('confirmed')) {
+    return e.json(409, { message: 'Es ist bereits ein zweiter Faktor eingerichtet.' })
+  }
+
+  const geheimnis = totp.neuesGeheimnis()
+  if (!satz) satz = new Record(e.app.findCollectionByNameOrId('admin_totp'))
+  satz.set('email', email)
+  satz.set('secret', geheimnis)
+  satz.set('confirmed', false)
+  satz.set('last_step', 0)
+  e.app.save(satz)
+
+  const einst = u.einstellungen(e.app)
+  return e.json(200, {
+    geheimnis: geheimnis,
+    uri: totp.otpauthUri(geheimnis, email, einst.anzeigename || 'Mannschaftsplan'),
+  })
+})
+
+// ── POST /admin/api/totp/confirm · Scharf schalten ──────────────────────────────────────────
+routerAdd('POST', '/admin/api/totp/confirm', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const raus = a.abweisen(e)
+  if (raus) return raus
+
+  const totp = require(`${__hooks}/totp.js`)
+  const email = a.sitzung(e).getString('email')
+
+  let satz = null
+  try {
+    satz = e.app.findFirstRecordByFilter('admin_totp', 'email = {:m}', { m: email })
+  } catch {
+    satz = null
+  }
+  if (!satz) return e.json(400, { message: 'Es läuft keine Einrichtung.' })
+  if (satz.getBool('confirmed')) return e.json(409, { message: 'Bereits eingerichtet.' })
+
+  const koerper = e.requestInfo().body || {}
+  const schritt = totp.pruefen(
+    satz.getString('secret'),
+    String(koerper.code || ''),
+    Math.floor(Date.now() / 1000),
+    satz.getInt('last_step'),
+  )
+  if (!schritt) return e.json(400, { message: 'Der Code stimmt nicht.' })
+
+  satz.set('confirmed', true)
+  satz.set('last_step', schritt)
+  e.app.save(satz)
+
+  a.protokoll(e, 'admin.totp.on', '', '', '')
+  return e.json(200, { aktiv: true })
+})
+
+// ── DELETE /admin/api/totp · Wieder abschalten ──────────────────────────────────────────────
+// Auch dafür ein gültiger Code. Eine übernommene Sitzung soll den zweiten Faktor nicht mit
+// einem Klick loswerden können — sonst schützte er nur, bis jemand drin ist.
+//
+// Wer sein Gerät verloren hat, kommt hier nicht weiter. Für diesen Fall gibt es den Weg über
+// die Kommandozeile auf dem Server, und er steht in der README.
+routerAdd('DELETE', '/admin/api/totp', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const raus = a.abweisen(e)
+  if (raus) return raus
+
+  const totp = require(`${__hooks}/totp.js`)
+  const email = a.sitzung(e).getString('email')
+
+  let satz = null
+  try {
+    satz = e.app.findFirstRecordByFilter('admin_totp', 'email = {:m}', { m: email })
+  } catch {
+    satz = null
+  }
+  if (!satz) return e.json(200, { aktiv: false })
+
+  // Eine noch unbestätigte Einrichtung darf ohne Code weg — sie schützt ja noch nichts, und
+  // wer sie nicht loswird, kann auch keine neue beginnen.
+  if (satz.getBool('confirmed')) {
+    const koerper = e.requestInfo().body || {}
+    const schritt = totp.pruefen(
+      satz.getString('secret'),
+      String(koerper.code || ''),
+      Math.floor(Date.now() / 1000),
+      satz.getInt('last_step'),
+    )
+    if (!schritt) return e.json(400, { message: 'Der Code stimmt nicht.' })
+  }
+
+  e.app.delete(satz)
+  a.protokoll(e, 'admin.totp.off', '', '', '')
+  return e.json(200, { aktiv: false })
 })

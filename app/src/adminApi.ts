@@ -57,6 +57,17 @@ export type Sicherung = {
   geaendert: string
 }
 
+/**
+ * Passwort stimmte, aber es fehlt der Code aus der Authenticator-App. Kein Fehlschlag im
+ * eigentlichen Sinn, sondern die halbe Anmeldung: Die Maske zeigt jetzt das Codefeld.
+ */
+export class ZweiterFaktorNoetig extends Error {
+  constructor(meldung: string) {
+    super(meldung)
+    this.name = 'ZweiterFaktorNoetig'
+  }
+}
+
 /** Wird geworfen, wenn keine Kapitänssitzung (mehr) besteht — der Server antwortet mit 404. */
 export class NichtAngemeldet extends Error {
   constructor() {
@@ -98,20 +109,30 @@ async function ruf<T>(pfad: string, optionen: RequestInit = {}): Promise<T> {
 export const adminApi = {
   werBinIch: () => ruf<{ email: string }>('/me'),
 
-  anmelden: async (email: string, password: string) => {
+  anmelden: async (email: string, password: string, code?: string) => {
     // Nicht über ruf(): der Login hat naturgemäß noch kein CSRF-Cookie, und ein 404 wäre hier
     // eine echte Fehlermeldung statt „bitte anmelden".
     const antwort = await fetch('/admin/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, ...(code ? { code } : {}) }),
     })
     if (!antwort.ok) {
       const koerper = await antwort.json().catch(() => null)
-      throw new Error(koerper?.message || 'Anmeldung fehlgeschlagen.')
+      const meldung = koerper?.message || 'Anmeldung fehlgeschlagen.'
+      if (koerper?.mfa) throw new ZweiterFaktorNoetig(meldung)
+      throw new Error(meldung)
     }
     return antwort.json() as Promise<{ email: string }>
   },
+
+  zweiterFaktor: () => ruf<{ aktiv: boolean; ausstehend: boolean }>('/totp'),
+  /** Legt ein noch nicht geltendes Geheimnis an. Es verlässt den Server genau hier, ein Mal. */
+  zweiterFaktorBeginnen: () => ruf<{ geheimnis: string; uri: string }>('/totp', { method: 'POST' }),
+  zweiterFaktorBestaetigen: (code: string) =>
+    ruf<{ aktiv: boolean }>('/totp/confirm', { method: 'POST', body: JSON.stringify({ code }) }),
+  zweiterFaktorAus: (code: string) =>
+    ruf<{ aktiv: boolean }>('/totp', { method: 'DELETE', body: JSON.stringify({ code }) }),
 
   abmelden: () => ruf<unknown>('/logout', { method: 'POST' }),
 

@@ -15,6 +15,19 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   API-Tests war der Seed ohnehin nie nötig — sie legen ihre eigenen Datensätze an.
 
 ### Hinzugefügt
+- **Der Kapitäns-Login kennt einen zweiten Faktor.** Unter Einstellungen lässt sich ein
+  zeitbasierter Code aus einer Authenticator-App verlangen (TOTP nach RFC 6238). Das war der
+  letzte offene Punkt aus Abschnitt 9 des Umsetzungsplans: `admin.pb.js` prüft das Passwort
+  direkt über `validatePassword()` und geht damit an PocketBases eigenem MFA vorbei — ein im
+  Dashboard eingeschalteter zweiter Faktor schützte deshalb nur `/_/`, nicht `/admin`. Dieser
+  Login bringt nun seinen eigenen mit. PocketBases MFA kam nicht in Frage, weil es Einmalcodes
+  per E-Mail verschickt und diese App bewusst keinen Mailserver hat.
+  Die Einrichtung ist zweistufig: Das Geheimnis gilt erst, wenn ein Code daraus gestimmt hat —
+  wer die Einrichtung abbricht, sperrt sich nicht aus. Jeder Code gilt genau einmal, und auch
+  das Abschalten verlangt einen, damit eine übernommene Sitzung ihn nicht einfach loswird.
+  **Er schützt `/admin`, nicht die darunterliegende API** — wer Superuser-Adresse und Passwort
+  hat, kommt weiterhin über `/api/…` an die Daten. Das war vorher genauso; die README sagt es
+  jetzt ausdrücklich.
 - **Sicherungen gehen jetzt ohne SSH.** Unter Einstellungen steht ein Abschnitt „Sicherungen":
   erstellen, herunterladen, zurückgeben, löschen — und im Ernstfall zurückspielen. Bisher führte
   der einzige Weg über `scripts/backup.sh`, einen SSH-Zugang und die Kenntnis mehrerer Pfade;

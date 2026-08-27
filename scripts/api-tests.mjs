@@ -12,6 +12,7 @@
 // bleiben Handprüfungen.
 
 import { randomBytes, createHash } from 'node:crypto'
+import { createRequire } from 'node:module'
 
 const BASIS = process.env.PB_URL || 'http://127.0.0.1:8090'
 const EMAIL = process.env.PB_SUPERUSER_EMAIL
@@ -586,13 +587,14 @@ const ADMIN_ROUTEN = [
   '/admin/api/settings',
   '/admin/api/audit',
   '/admin/api/backups',
+  '/admin/api/totp',
 ]
 
-async function adminAnmelden(passwort = PASSWORT) {
+async function adminAnmelden(passwort = PASSWORT, code = '') {
   const antwort = await roh('/admin/api/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: EMAIL, password: passwort }),
+    body: JSON.stringify({ email: EMAIL, password: passwort, ...(code ? { code } : {}) }),
   })
   return { antwort, ...kekse(antwort) }
 }
@@ -1062,6 +1064,175 @@ await pruefe('T14d', 'Zurückspielen ohne abgetippten Namen passiert nicht', asy
   } finally {
     await ruf(`/admin/api/backup/${name}`, { method: 'DELETE' })
   }
+})
+
+// ── Zweiter Faktor (Abschnitt 9) ───────────────────────────────────────────────────────────
+// `totp.js` rechnet SHA1 und HMAC-SHA1 selbst, weil $security beides nicht anbietet und RFC 6238
+// es verlangt. Deshalb steht hier zuerst der Nachweis gegen die veröffentlichten Testvektoren:
+// Stimmt einer davon nicht, ist jede weitere Aussage über den Login wertlos.
+
+const totp = (() => {
+  // Die Hook-Laufzeit stellt $security bereit, node nicht. Für die reinen Rechenfunktionen
+  // genügt eine Attrappe.
+  globalThis.$security ??= { randomStringWithAlphabet: () => '', equal: (a, b) => a === b }
+  return createRequire(import.meta.url)(
+    new URL('../pocketbase/pb_hooks/totp.js', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'),
+  )
+})()
+
+const alsBytes = (s) => Array.from(s, (c) => c.charCodeAt(0))
+const alsHex = (b) => b.map((x) => x.toString(16).padStart(2, '0')).join('')
+
+await pruefe('T15', 'SHA1, HMAC-SHA1 und TOTP stimmen mit den RFC-Vektoren überein', async () => {
+  // RFC 3174
+  gleich(alsHex(totp.sha1([])), 'da39a3ee5e6b4b0d3255bfef95601890afd80709', 'SHA1("")')
+  gleich(alsHex(totp.sha1(alsBytes('abc'))), 'a9993e364706816aba3e25717850c26c9cd0d89d', 'SHA1("abc")')
+  gleich(
+    alsHex(totp.sha1(alsBytes('abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq'))),
+    '84983e441c3bd26ebaae4aa1f95129e5e54670f1',
+    'SHA1(56 Zeichen)',
+  )
+
+  // RFC 2202
+  gleich(
+    alsHex(totp.hmacSha1(new Array(20).fill(0x0b), alsBytes('Hi There'))),
+    'b617318655057264e28bc0b6fb378c8ef146be00',
+    'HMAC Fall 1',
+  )
+  gleich(
+    alsHex(totp.hmacSha1(alsBytes('Jefe'), alsBytes('what do ya want for nothing?'))),
+    'effcdf6ae5eb2fa2d27416d5f184df9c259a7c79',
+    'HMAC Fall 2',
+  )
+  gleich(
+    alsHex(totp.hmacSha1(new Array(80).fill(0xaa), alsBytes('Test Using Larger Than Block-Size Key - Hash Key First'))),
+    'aa4ae5e15272d00e95705637ce8a3b55ed402112',
+    'HMAC mit überlangem Schlüssel',
+  )
+
+  // RFC 6238 — das Geheimnis des RFC in Base32, und damit zugleich die Base32-Prüfung.
+  const g = totp.base32Kodieren(alsBytes('12345678901234567890'))
+  gleich(g, 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ', 'Base32 des RFC-Geheimnisses')
+  for (const [zeit, acht] of [
+    [59, '94287082'],
+    [1111111109, '07081804'],
+    [1111111111, '14050471'],
+    [1234567890, '89005924'],
+    [2000000000, '69279037'],
+    [20000000000, '65353130'],
+  ]) {
+    gleich(totp.codeFuer(g, Math.floor(zeit / 30)), acht.slice(2), `TOTP bei T=${zeit}`)
+  }
+})
+
+/** Merkt den Datensatz fürs Aufräumen vor, damit ein zweiter Testlauf nicht am Code scheitert. */
+async function totpAufraeumenVormerken() {
+  const liste = await pb('/api/collections/admin_totp/records?perPage=200')
+  for (const satz of liste.items) {
+    if (!aufraeumen.some(([c, id]) => c === 'admin_totp' && id === satz.id)) {
+      aufraeumen.push(['admin_totp', satz.id])
+    }
+  }
+}
+
+/** Entfernt einen vorhandenen zweiten Faktor an der Oberfläche vorbei — für saubere Startlagen. */
+async function totpWegraeumen() {
+  const liste = await pb('/api/collections/admin_totp/records?perPage=200')
+  for (const satz of liste.items) {
+    await pb(`/api/collections/admin_totp/records/${satz.id}`, { method: 'DELETE' })
+  }
+}
+
+const totpSchritt = () => Math.floor(Date.now() / 30000)
+
+await pruefe('T15b', 'Einrichten gilt erst, wenn ein Code gestimmt hat', async () => {
+  await totpWegraeumen()
+  const { jar } = await adminAnmelden()
+  const ruf = alsKapitaen(jar)
+
+  gleich(JSON.stringify(await (await ruf('/admin/api/totp')).json()), '{"aktiv":false,"ausstehend":false}', 'Anfangslage')
+
+  const start = await (await ruf('/admin/api/totp', { method: 'POST' })).json()
+  await totpAufraeumenVormerken()
+  gleich(start.geheimnis.length, 32, 'Länge des Geheimnisses')
+  stimmt(start.uri.includes('algorithm=SHA1'), 'Die URI nennt SHA1 nicht')
+
+  // Solange nicht bestätigt, darf der Login nichts verlangen — sonst sperrt sich aus, wer die
+  // Einrichtung abbricht.
+  gleich(
+    JSON.stringify(await (await ruf('/admin/api/totp')).json()),
+    '{"aktiv":false,"ausstehend":true}',
+    'Zwischenstand',
+  )
+  gleich((await adminAnmelden()).antwort.status, 200, 'Login bei unbestätigter Einrichtung')
+
+  gleich(
+    (await ruf('/admin/api/totp/confirm', { method: 'POST', body: JSON.stringify({ code: '000000' }) })).status,
+    400,
+    'Bestätigen mit falschem Code',
+  )
+  gleich(
+    (
+      await ruf('/admin/api/totp/confirm', {
+        method: 'POST',
+        body: JSON.stringify({ code: totp.codeFuer(start.geheimnis, totpSchritt()) }),
+      })
+    ).status,
+    200,
+    'Bestätigen mit richtigem Code',
+  )
+  gleich(JSON.stringify(await (await ruf('/admin/api/totp')).json()), '{"aktiv":true,"ausstehend":false}', 'Endstand')
+
+  // Das Bestätigen hat den aktuellen Schritt verbraucht; der nächste liegt noch in der Toleranz.
+  gleich(
+    (await ruf('/admin/api/totp', { method: 'DELETE', body: '{}' })).status,
+    400,
+    'Abschalten ohne Code',
+  )
+  gleich(
+    (
+      await ruf('/admin/api/totp', {
+        method: 'DELETE',
+        body: JSON.stringify({ code: totp.codeFuer(start.geheimnis, totpSchritt() + 1) }),
+      })
+    ).status,
+    200,
+    'Abschalten mit Code',
+  )
+})
+
+await pruefe('T15c', 'Der Login verlangt den Code und nimmt ihn nur einmal', async () => {
+  await totpWegraeumen()
+  const { jar } = await adminAnmelden()
+  const ruf = alsKapitaen(jar)
+
+  const start = await (await ruf('/admin/api/totp', { method: 'POST' })).json()
+  await totpAufraeumenVormerken()
+  await ruf('/admin/api/totp/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ code: totp.codeFuer(start.geheimnis, totpSchritt()) }),
+  })
+
+  const ohne = await adminAnmelden()
+  gleich(ohne.antwort.status, 401, 'Login ohne Code')
+  gleich(ohne.anzahl, 0, 'Set-Cookie ohne Code')
+  const koerperOhne = await ohne.antwort.json()
+  stimmt(koerperOhne.mfa === true, 'Die Antwort sagt dem Client nicht, dass ein Code fehlt')
+
+  const falsch = await adminAnmelden(PASSWORT, '000000')
+  gleich(falsch.antwort.status, 401, 'Login mit falschem Code')
+  gleich(falsch.anzahl, 0, 'Set-Cookie bei falschem Code')
+
+  // Der Schritt von der Bestätigung ist verbraucht — der nächste gilt.
+  const gut = totp.codeFuer(start.geheimnis, totpSchritt() + 1)
+  const mit = await adminAnmelden(PASSWORT, gut)
+  gleich(mit.antwort.status, 200, 'Login mit gültigem Code')
+
+  // Wiedervorlage desselben Codes: Wer beim Eintippen zusieht, soll ihn nicht nachnutzen können.
+  gleich((await adminAnmelden(PASSWORT, gut)).antwort.status, 401, 'derselbe Code ein zweites Mal')
+
+  await totpWegraeumen()
+  gleich((await adminAnmelden()).antwort.status, 200, 'Login wieder ohne Code')
 })
 
 await pruefe('T9', '6× falsches Passwort → gesperrt, auch für das richtige', async () => {

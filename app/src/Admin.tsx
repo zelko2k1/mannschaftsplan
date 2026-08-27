@@ -7,6 +7,7 @@ import {
   type Einstellungen as EinstellungenDaten,
   type Protokollzeile,
   type Sicherung,
+  ZweiterFaktorNoetig,
 } from './adminApi'
 import { ausEingabe, fuerEingabe, systemDatum, systemDatumZeit } from './format'
 import './admin.css'
@@ -93,6 +94,10 @@ export default function Admin() {
 function Anmeldung({ fertig }: { fertig: (email: string) => void }) {
   const [email, setEmail] = useState('')
   const [passwort, setPasswort] = useState('')
+  const [code, setCode] = useState('')
+  // Erscheint erst, wenn der Server ihn verlangt. Vorher weiß die Maske nicht einmal, ob es für
+  // dieses Konto einen zweiten Faktor gibt — und soll es auch nicht (R6).
+  const [brauchtCode, setBrauchtCode] = useState(false)
   const [fehler, setFehler] = useState('')
   const [laeuft, setLaeuft] = useState(false)
 
@@ -108,9 +113,13 @@ function Anmeldung({ fertig }: { fertig: (email: string) => void }) {
           setLaeuft(true)
           setFehler('')
           try {
-            const d = await adminApi.anmelden(email, passwort)
+            const d = await adminApi.anmelden(email, passwort, code)
             fertig(d.email)
           } catch (problem) {
+            if (problem instanceof ZweiterFaktorNoetig) {
+              setBrauchtCode(true)
+              setCode('')
+            }
             setFehler(problem instanceof Error ? problem.message : 'Anmeldung fehlgeschlagen.')
           } finally {
             setLaeuft(false)
@@ -138,6 +147,21 @@ function Anmeldung({ fertig }: { fertig: (email: string) => void }) {
               onChange={(x) => setPasswort(x.target.value)}
             />
           </label>
+          {brauchtCode && (
+            <label className="feld">
+              <span>Code aus der Authenticator-App</span>
+              <input
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern="[0-9]*"
+                maxLength={6}
+                required
+                autoFocus
+                value={code}
+                onChange={(x) => setCode(x.target.value.replace(/\D/g, ''))}
+              />
+            </label>
+          )}
         </div>
         <button type="submit" className="knopf" disabled={laeuft} style={{ width: '100%' }}>
           {laeuft ? 'Einen Moment …' : 'Anmelden'}
@@ -764,8 +788,217 @@ function Einstellungen({ abgemeldet }: { abgemeldet: () => void }) {
         </div>
       </div>
     </form>
+    <ZweiterFaktor abgemeldet={abgemeldet} />
     <Sicherungen abgemeldet={abgemeldet} />
     </>
+  )
+}
+
+/**
+ * Zweiter Faktor für den Kapitäns-Login — Abschnitt 9, der letzte offene Punkt aus dem
+ * Umsetzungsplan.
+ *
+ * Zweistufig mit Absicht: Das Geheimnis entsteht beim ersten Klick, gilt aber erst, wenn ein
+ * Code daraus gestimmt hat. Wer das Fenster zu früh schließt oder die App falsch einrichtet,
+ * hätte sonst einen zweiten Faktor, den er nicht erzeugen kann — und käme an genau diese
+ * Ansicht, die ihn abschalten würde, nicht mehr heran.
+ */
+function ZweiterFaktor({ abgemeldet }: { abgemeldet: () => void }) {
+  const [stand, setStand] = useState<{ aktiv: boolean; ausstehend: boolean } | null>(null)
+  const [start, setStart] = useState<{ geheimnis: string; uri: string } | null>(null)
+  const [code, setCode] = useState('')
+  const [abschalten, setAbschalten] = useState(false)
+  const [fehler, setFehler] = useState('')
+  const [laeuft, setLaeuft] = useState(false)
+
+  const laden = useCallback(async () => {
+    try {
+      setStand(await adminApi.zweiterFaktor())
+    } catch (x) {
+      if (x instanceof NichtAngemeldet) return abgemeldet()
+      setFehler(x instanceof Error ? x.message : 'Konnte nicht geladen werden.')
+    }
+  }, [abgemeldet])
+
+  useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect
+    void laden()
+  }, [laden])
+
+  async function fuehreAus(tun: () => Promise<unknown>) {
+    setFehler('')
+    setLaeuft(true)
+    try {
+      await tun()
+      await laden()
+    } catch (x) {
+      if (x instanceof NichtAngemeldet) return abgemeldet()
+      setFehler(x instanceof Error ? x.message : 'Das hat nicht geklappt.')
+    } finally {
+      setLaeuft(false)
+    }
+  }
+
+  return (
+    <div className="satz">
+      <div className="satz__kopf">
+        <span className="satz__name">Zweiter Faktor</span>
+        <span className="satz__zusatz">
+          Zusätzlich zum Passwort ein sechsstelliger Code aus einer Authenticator-App auf deinem
+          Handy. Wer dein Passwort erfährt, kommt damit trotzdem nicht in die Kapitänsansicht.
+          Funktioniert mit jeder gängigen App — Aegis, 2FAS, Google Authenticator, Bitwarden,
+          1Password.
+        </span>
+      </div>
+
+      {fehler && (
+        <p className="fehler" role="status">
+          {fehler}
+        </p>
+      )}
+
+      {stand === null ? (
+        <p className="namen">Einen Moment …</p>
+      ) : stand.aktiv && !abschalten ? (
+        <div className="satz__aktionen">
+          <span className="satz__zusatz" style={{ flex: '1 1 12rem' }}>
+            <strong>Eingeschaltet.</strong> Beim Anmelden fragt die App nach dem Code.
+          </span>
+          <button
+            type="button"
+            className="knopf knopf--gefahr"
+            disabled={laeuft}
+            onClick={() => {
+              setAbschalten(true)
+              setCode('')
+              setFehler('')
+            }}
+          >
+            Abschalten
+          </button>
+        </div>
+      ) : stand.aktiv && abschalten ? (
+        <div className="token">
+          <p className="token__hinweis">Zum Abschalten einen gültigen Code eintippen</p>
+          <p style={{ margin: '0 0 0.5rem', fontSize: '0.85rem' }}>
+            Auch das Abschalten braucht den zweiten Faktor. Sonst genügte eine übernommene
+            Sitzung, um ihn mit einem Klick loszuwerden — und er schützte nur, bis jemand drin ist.
+          </p>
+          <label className="feld">
+            <span>Code</span>
+            <input
+              inputMode="numeric"
+              maxLength={6}
+              autoComplete="one-time-code"
+              value={code}
+              onChange={(x) => setCode(x.target.value.replace(/\D/g, ''))}
+            />
+          </label>
+          <div className="satz__aktionen">
+            <button
+              type="button"
+              className="knopf knopf--gefahr"
+              disabled={code.length !== 6 || laeuft}
+              onClick={() =>
+                fuehreAus(async () => {
+                  await adminApi.zweiterFaktorAus(code)
+                  setAbschalten(false)
+                  setCode('')
+                })
+              }
+            >
+              Abschalten
+            </button>
+            <button type="button" className="knopf" disabled={laeuft} onClick={() => setAbschalten(false)}>
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      ) : start ? (
+        <div className="token">
+          <p className="token__hinweis">Jetzt in die App eintragen — danach mit einem Code bestätigen</p>
+          <p style={{ margin: '0 0 0.5rem', fontSize: '0.85rem' }}>
+            Auf dem Handy: den Link antippen, dann öffnet sich deine Authenticator-App von selbst.
+            Am Rechner: das Geheimnis von Hand eintragen.
+          </p>
+          <p style={{ margin: '0 0 0.5rem' }}>
+            <a href={start.uri}>In der Authenticator-App öffnen</a>
+          </p>
+          <p
+            style={{
+              margin: '0 0 0.75rem',
+              fontFamily: 'var(--schrift-fest, monospace)',
+              wordBreak: 'break-all',
+              fontSize: '1.05rem',
+            }}
+          >
+            {(start.geheimnis.match(/.{1,4}/g) || []).join(' ')}
+          </p>
+          <label className="feld">
+            <span>Code aus der App</span>
+            <input
+              inputMode="numeric"
+              maxLength={6}
+              autoComplete="one-time-code"
+              value={code}
+              onChange={(x) => setCode(x.target.value.replace(/\D/g, ''))}
+            />
+          </label>
+          <div className="satz__aktionen">
+            <button
+              type="button"
+              className="knopf"
+              disabled={code.length !== 6 || laeuft}
+              onClick={() =>
+                fuehreAus(async () => {
+                  await adminApi.zweiterFaktorBestaetigen(code)
+                  setStart(null)
+                  setCode('')
+                })
+              }
+            >
+              {laeuft ? 'Prüft …' : 'Einschalten'}
+            </button>
+            <button
+              type="button"
+              className="knopf"
+              disabled={laeuft}
+              onClick={() =>
+                fuehreAus(async () => {
+                  await adminApi.zweiterFaktorAus('')
+                  setStart(null)
+                  setCode('')
+                })
+              }
+            >
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="satz__aktionen">
+          <span className="satz__zusatz" style={{ flex: '1 1 12rem' }}>
+            {stand.ausstehend
+              ? 'Eine Einrichtung wurde begonnen, aber nie bestätigt. Sie gilt nicht.'
+              : 'Ausgeschaltet. Es genügt das Passwort.'}
+          </span>
+          <button
+            type="button"
+            className="knopf"
+            disabled={laeuft}
+            onClick={() =>
+              fuehreAus(async () => {
+                if (stand.ausstehend) await adminApi.zweiterFaktorAus('')
+                setStart(await adminApi.zweiterFaktorBeginnen())
+                setCode('')
+              })
+            }
+          >
+            Einrichten
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -979,6 +1212,8 @@ const WAS: Record<string, string> = {
   'fixture.delete': 'Spieltag gelöscht',
   'settings.update': 'Einstellung geändert',
   'fixture.lock': 'Spieltag gesperrt',
+  'admin.totp.on': 'Zweiter Faktor eingeschaltet',
+  'admin.totp.off': 'Zweiter Faktor abgeschaltet',
   'backup.create': 'Sicherung erstellt',
   'backup.download': 'Sicherung heruntergeladen',
   'backup.upload': 'Sicherung hochgeladen',
