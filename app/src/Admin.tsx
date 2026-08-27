@@ -1556,13 +1556,20 @@ function Kapitaene({ abgemeldet, team }: { abgemeldet: () => void; team: string 
 
       <div className="satz__aktionen">
         <label className="feld" style={{ flex: '1 1 16rem' }}>
-          <span>E-Mail-Adresse</span>
+          <span>Anmeldename</span>
           <input
             type="email"
             autoComplete="off"
             value={email}
             onChange={(x) => setEmail(x.target.value)}
           />
+          {/* Die Form ist eine Vorgabe von PocketBase, nicht von uns — und sie lädt zu dem
+              Missverständnis ein, hier müsse eine echte Adresse stehen. */}
+          <span className="feld__hinweis">
+            In E-Mail-Form, muss aber keine echte Adresse sein — etwa
+            <code> kapitaen@verein.intern</code>. Es wird nie etwas dorthin geschickt; die App hat
+            keinen Mailserver.
+          </span>
         </label>
         <label className="feld" style={{ flex: '0 1 12rem' }}>
           <span>Spielt als</span>

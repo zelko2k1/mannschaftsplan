@@ -271,9 +271,11 @@ Alles, was einer Mannschaft gehört, steht im Reiter **Mannschaften**: ihr Name,
 und ihre Kapitäne. Welche Mannschaft gemeint ist, wählst du oben aus; ein Kapitän hat
 dort genau eine.
 
-**Kapitäne anlegen** geht ebenfalls dort. Das Passwort wird erzeugt und **genau einmal
-angezeigt**, wie der Einladungslink eines Mitglieds; gespeichert ist davon nur ein Hash. Ist es
-weg, erzeugst du ein neues.
+**Kapitäne anlegen** geht ebenfalls dort. Der **Anmeldename** hat E-Mail-Form — das verlangt
+PocketBase —, muss aber **keine echte Adresse sein**: `kapitaen@verein.intern` genügt. Es wird nie
+etwas dorthin geschickt, die App hat keinen Mailserver. Das Passwort wird erzeugt und **genau
+einmal angezeigt**, wie der Einladungslink eines Mitglieds; gespeichert ist davon nur ein Hash.
+Ist es weg, erzeugst du ein neues.
 
 **Mehrere Kapitäne je Mannschaft sind vorgesehen** — eine Vertretung ist schlicht ein zweites
 Konto mit denselben Rechten. Einen eigenen Begriff dafür gibt es nicht: Wer was getan hat, steht
