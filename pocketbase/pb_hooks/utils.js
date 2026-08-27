@@ -290,15 +290,28 @@ module.exports = {
    *
    * @returns ISO-Zeitstempel oder null bei Heimspiel
    */
+  /**
+   * PocketBase liefert "2026-09-05 19:30:00.000Z" — mit Leerzeichen statt „T". Node schluckt das,
+   * die JS-Engine von PocketBase nicht: dort kommt NaN heraus, und die Zeit fehlt stillschweigend.
+   * Diese Stelle einmal richtig, statt an jeder Fundstelle neu — sie hat schon einmal Zeit
+   * gekostet.
+   *
+   * @returns ISO-Zeichenkette, oder null bei leer und unlesbar
+   */
+  alsISO(wert) {
+    const roh = String(wert === null || wert === undefined ? '' : wert).trim()
+    if (!roh) return null
+    const normalisiert = roh.replace(' ', 'T')
+    const d = new Date(/[Zz]|[+-]\d\d:?\d\d$/.test(normalisiert) ? normalisiert : normalisiert + 'Z')
+    return isNaN(d.getTime()) ? null : d.toISOString()
+  },
+
   abfahrt(anwurfISO, km, istHeimspiel, tempo, puffer) {
     if (istHeimspiel) return null
 
-    // PocketBase liefert "2026-09-05 19:30:00.000Z" — mit Leerzeichen statt „T". Node schluckt
-    // das, die JS-Engine von PocketBase nicht: dort kommt NaN heraus und die Abfahrtszeit fehlte
-    // stillschweigend. Deshalb vor dem Parsen begradigen.
-    const normalisiert = String(anwurfISO).trim().replace(' ', 'T')
-    const anwurf = new Date(/[Zz]|[+-]\d\d:?\d\d$/.test(normalisiert) ? normalisiert : normalisiert + 'Z')
-    if (isNaN(anwurf.getTime())) return null
+    const anwurfISOSauber = this.alsISO(anwurfISO)
+    if (!anwurfISOSauber) return null
+    const anwurf = new Date(anwurfISOSauber)
 
     // Tempo und Puffer kommen aus den Einstellungen (Abschnitt 6.3). Die Standardwerte stehen
     // hier nur als letzte Rückfallebene — wer die Formel ändern will, tut das in der

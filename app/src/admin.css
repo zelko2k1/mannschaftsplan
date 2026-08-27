@@ -131,6 +131,16 @@
   text-transform: uppercase;
   color: var(--grau);
 }
+/* Ein Hinweis UNTER dem Feld, der sagt, was ein leeres Feld bedeutet. Muss die Auszeichnung
+   von `.feld > span` zurücknehmen — die ist für die Beschriftung darüber gedacht. */
+.feld__hinweis {
+  font-family: var(--schrift-mono);
+  font-size: 0.72rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--grau);
+}
 .feld input,
 .feld select,
 .feld textarea {

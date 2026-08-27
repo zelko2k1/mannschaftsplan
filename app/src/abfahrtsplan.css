@@ -194,6 +194,13 @@
   padding: 0.2rem 0.9rem 1rem;
   border-top: var(--linie-innen);
 }
+/* Abfahrt und Treffpunkt stehen ganz oben im aufgeklappten Bereich: Wer ihn öffnet, will als
+   Erstes wissen, wann und wo — die Rückmeldeknöpfe kommen danach. */
+.detail__treffpunkt {
+  margin: 0.7rem 0 0;
+  font-family: var(--schrift-mono);
+  font-size: 0.85rem;
+}
 .detail__titel {
   margin: 0.9rem 0 0.4rem;
   font-family: var(--schrift-eng);

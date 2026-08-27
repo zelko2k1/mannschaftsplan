@@ -179,8 +179,14 @@ routerAdd('GET', '/admin/api/me', (e) => {
 // ── Spieltage ───────────────────────────────────────────────────────────────────────────────
 routerAdd('GET', '/admin/api/fixtures', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
+  const u = require(`${__hooks}/utils.js`)
   const raus = a.abweisen(e)
   if (raus) return raus
+
+  // Für den Hinweis am Eingabefeld: Was stünde dort, wenn nichts von Hand eingetragen ist?
+  // Gerechnet wird im Backend, nicht im Browser — sonst zeigte die Kapitänsansicht am Ende
+  // eine andere Abfahrt als der Aushang (6.3).
+  const einst = u.einstellungen(e.app)
 
   const alle = e.app.findRecordsByFilter('fixtures', "id != ''", 'date', 500, 0)
   return e.json(200, {
@@ -193,6 +199,14 @@ routerAdd('GET', '/admin/api/fixtures', (e) => {
       venue: s.getString('venue'),
       km: s.getInt('km'),
       meeting_point: s.getString('meeting_point'),
+      departure_manual: s.getDateTime('departure_manual').string(),
+      departure_berechnet: u.abfahrt(
+        s.getDateTime('date').string(),
+        s.getInt('km'),
+        s.getBool('is_home'),
+        einst.tempo_kmh,
+        einst.puffer_minuten,
+      ),
       needed_players: s.getInt('needed_players'),
       locked: s.getBool('locked'),
     })),

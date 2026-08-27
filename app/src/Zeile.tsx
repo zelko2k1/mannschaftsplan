@@ -141,6 +141,20 @@ export default function Zeile({
       <div id={bereichId} hidden={!offen}>
         {offen && (
           <div className="detail">
+            {/* Der Treffpunkt stand bislang nur in der Kapitänsansicht: Er wurde eingegeben, vom
+                Board mitgeliefert — und hier fallengelassen. Wer gemeinsam losfährt, muss wissen,
+                wohin. Bei Heimspielen fährt niemand los, dort bleibt die Zeile weg. */}
+            {!spieltag.is_home && (spieltag.meeting_point || spieltag.departure) && (
+              <p className="detail__treffpunkt">
+                {spieltag.departure && (
+                  <>
+                    Abfahrt <strong>{uhrzeit(spieltag.departure)}</strong>
+                  </>
+                )}
+                {spieltag.departure && spieltag.meeting_point && ' · '}
+                {spieltag.meeting_point && <>Treffpunkt: {spieltag.meeting_point}</>}
+              </p>
+            )}
             {spieltag.locked ? (
               <p className="gesperrt">
                 Dieser Spieltag ist abgeschlossen. Änderungen sind nicht mehr möglich.

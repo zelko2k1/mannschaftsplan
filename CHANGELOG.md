@@ -30,6 +30,18 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   die Einladungslinks und der Aushang sind unberührt.
 
 ### Hinzugefügt
+- **Der Treffpunkt steht jetzt im Aushang.** Er ließ sich seit jeher am Spieltag eintragen, wurde
+  vom Board mitgeliefert — und im Browser fallengelassen. Wer gemeinsam losfährt, musste woanders
+  nachfragen, wohin. Er steht nun zusammen mit der Abfahrtszeit oben im aufgeklappten Bereich, wo
+  auch der Fahrdienst liegt; bei Heimspielen bleibt die Zeile weg, dort fährt niemand los.
+- **Die Abfahrtszeit lässt sich von Hand setzen.** Die Formel aus Abschnitt 6.3 ist eine
+  Schätzung, und sie stimmt nicht für jede Fahrt — eine Fähre, eine Dauerbaustelle, ein Umweg
+  über den Kollegen ohne Auto. Bisher blieb nur, an der Entfernung zu drehen, bis die Zahl
+  passte; das machte die Entfernung falsch, damit die Abfahrt stimmte. **Leer heißt weiterhin
+  rechnen** — nur ein gefülltes Feld übergeht die Formel, und die Eingabemaske zeigt daneben, was
+  die Berechnung ergäbe. Wäre der berechnete Wert stattdessen beim Anlegen fest eingetragen
+  worden, hinge er danach still fest: Eine spätere Änderung an Tempo oder Puffer erreichte diesen
+  Spieltag nie mehr, und niemand wüsste warum.
 - **Der Kapitäns-Login kennt einen zweiten Faktor.** Unter Einstellungen lässt sich ein
   zeitbasierter Code aus einer Authenticator-App verlangen (TOTP nach RFC 6238). Das war der
   letzte offene Punkt aus Abschnitt 9 des Umsetzungsplans: `admin.pb.js` prüft das Passwort

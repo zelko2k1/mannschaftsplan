@@ -76,7 +76,12 @@ routerAdd('GET', '/api/board', (e) => {
       locked: s.getBool('locked'),
       // Berechnet, nicht gespeichert (Abschnitt 6.3). Bei Heimspielen null — dort zeigt die
       // Zeitspalte den Anwurf mit dem Label „ANWURF" statt „ABFAHRT".
-      departure: u.abfahrt(datum, s.getInt('km'), heim, einst.tempo_kmh, einst.puffer_minuten),
+      // Eine von Hand eingetragene Abfahrt schlägt die Formel. Leer heißt rechnen (6.3) —
+      // nur so erreicht eine spätere Änderung an Tempo oder Puffer auch alte Spieltage.
+      departure: heim
+        ? null
+        : u.alsISO(s.getDateTime('departure_manual').string()) ||
+          u.abfahrt(datum, s.getInt('km'), heim, einst.tempo_kmh, einst.puffer_minuten),
       responses,
       rides,
       seat_claims,

@@ -221,8 +221,13 @@ function Spieltage({ abgemeldet }: { abgemeldet: () => void }) {
   const speichern = async () => {
     if (!entwurf) return
     try {
-      // Das Feld liefert Ortszeit ("2026-08-29T19:30"), PocketBase speichert UTC.
-      const daten = { ...entwurf, date: ausEingabe(entwurf.date) }
+      // Die Felder liefern Ortszeit ("2026-08-29T19:30"), PocketBase speichert UTC.
+      // Leere Abfahrt bleibt leer — das ist die Anweisung „rechne selbst" (6.3).
+      const daten = {
+        ...entwurf,
+        date: ausEingabe(entwurf.date),
+        departure_manual: ausEingabe(entwurf.departure_manual),
+      }
       if (entwurf.id) await adminApi.spieltagAendern(entwurf.id, daten)
       else await adminApi.spieltagAnlegen(daten)
       setEntwurf(null)
@@ -273,8 +278,12 @@ function Spieltage({ abgemeldet }: { abgemeldet: () => void }) {
               type="button"
               className="knopf"
               onClick={() =>
-                // Das Feld will Ortszeit im Format "YYYY-MM-DDTHH:MM".
-                setEntwurf({ ...s, date: fuerEingabe(s.date) })
+                // Die Felder wollen Ortszeit im Format "YYYY-MM-DDTHH:MM".
+                setEntwurf({
+                  ...s,
+                  date: fuerEingabe(s.date),
+                  departure_manual: fuerEingabe(s.departure_manual),
+                })
               }
             >
               Bearbeiten
@@ -396,6 +405,24 @@ function Spieltagformular({
             onChange={(x) => setze('meeting_point', x.target.value)}
           />
         </label>
+        {/* Nur bei Auswärtsspielen — zu einem Heimspiel fährt niemand gemeinsam los (6.3). */}
+        {!entwurf.is_home && (
+          <label className="feld feld--datum">
+            <span>Abfahrt</span>
+            <input
+              type="datetime-local"
+              value={entwurf.departure_manual || ''}
+              onChange={(x) => setze('departure_manual', x.target.value)}
+            />
+            <span className="feld__hinweis">
+              {entwurf.departure_manual
+                ? 'Von Hand gesetzt — die Berechnung wird für diesen Spieltag übergangen.'
+                : entwurf.departure_berechnet
+                  ? `Leer: berechnet ${systemDatumZeit(entwurf.departure_berechnet)}`
+                  : 'Leer: wird aus Entfernung, Tempo und Puffer berechnet.'}
+            </span>
+          </label>
+        )}
         <label className="feld">
           <span>Spieler nötig</span>
           <input

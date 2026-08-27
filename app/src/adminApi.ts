@@ -10,6 +10,10 @@ export type AdminSpieltag = {
   venue: string
   km: number
   meeting_point: string
+  /** Von Hand eingetragene Abfahrt. Leer = die Formel rechnet (6.3). */
+  departure_manual: string
+  /** Was die Formel ergäbe — nur zur Anzeige, wird nicht zurückgeschickt. */
+  departure_berechnet: string | null
   needed_players: number
   locked: boolean
 }

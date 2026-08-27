@@ -324,6 +324,77 @@ await pruefe('B2', 'Die Abfahrtszeit rechnet das Backend (Abschnitt 6.3)', async
   const minuten = (anwurf - new Date(auswaerts.departure)) / 60000
   gleich(minuten, 85, 'Vorlauf in Minuten')
   gleich(heim.departure, null, 'Heimspiel hat keine Abfahrt')
+
+  // Der Treffpunkt reiste lange bis in den Browser und wurde dort fallengelassen. Damit das
+  // nicht unbemerkt wieder passiert, steht er jetzt hier.
+  gleich(auswaerts.meeting_point, 'test-Parkplatz', 'Treffpunkt im Board')
+})
+
+await pruefe('B2b', 'Eine von Hand gesetzte Abfahrt schlägt die Berechnung', async () => {
+  const { klartext } = await testMitglied('board-manuell')
+  const { jar } = await anmelden(klartext)
+
+  // Dieselben 80 km wie in B2 — die Formel ergäbe 18:05, von Hand steht dort 16:00.
+  const spieltag = await testSpieltag({
+    km: 80,
+    is_home: false,
+    date: '2026-09-05 19:30:00',
+    departure_manual: '2026-09-05 16:00:00',
+  })
+  const gerechnet = await testSpieltag({ km: 80, is_home: false, date: '2026-09-05 19:30:00' })
+
+  const board = await (await alsMitglied(jar)('/api/board')).json()
+  const vonHand = board.fixtures.find((f) => f.id === spieltag.id)
+  const ohne = board.fixtures.find((f) => f.id === gerechnet.id)
+
+  gleich(new Date(vonHand.departure).toISOString(), '2026-09-05T16:00:00.000Z', 'Abfahrt von Hand')
+  stimmt(
+    new Date(ohne.departure).toISOString() !== '2026-09-05T16:00:00.000Z',
+    'Der Spieltag ohne Eintrag übernimmt die Zeit des anderen',
+  )
+
+  // Ein Heimspiel hat auch dann keine Abfahrt, wenn jemand eine einträgt — dort fährt niemand
+  // gemeinsam los, und eine Zeit ohne Fahrt wäre eine Falschaussage.
+  const heimspiel = await testSpieltag({
+    is_home: true,
+    km: 0,
+    date: '2026-09-12 19:00:00',
+    departure_manual: '2026-09-12 17:00:00',
+  })
+  const board2 = await (await alsMitglied(jar)('/api/board')).json()
+  gleich(board2.fixtures.find((f) => f.id === heimspiel.id).departure, null, 'Heimspiel bleibt ohne')
+})
+
+await pruefe('A8b', 'Der Kapitän kann die Abfahrt setzen und wieder freigeben', async () => {
+  const { jar } = await adminAnmelden()
+  const ruf = alsKapitaen(jar)
+  const spieltag = await testSpieltag({ km: 80, is_home: false, date: '2026-09-05 19:30:00' })
+
+  // Der berechnete Wert wird mitgeliefert, damit die Eingabemaske zeigen kann, was „leer" heißt.
+  const vorher = (await (await ruf('/admin/api/fixtures')).json()).items.find((x) => x.id === spieltag.id)
+  gleich(vorher.departure_manual, '', 'anfangs nichts von Hand')
+  stimmt(!!vorher.departure_berechnet, 'der berechnete Wert fehlt in der Kapitänsansicht')
+
+  gleich(
+    (
+      await ruf(`/admin/api/fixtures/${spieltag.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ departure_manual: '2026-09-05 16:00:00' }),
+      })
+    ).status,
+    200,
+    'setzen',
+  )
+  const gesetzt = (await (await ruf('/admin/api/fixtures')).json()).items.find((x) => x.id === spieltag.id)
+  stimmt(gesetzt.departure_manual.startsWith('2026-09-05 16:00'), `steht: ${gesetzt.departure_manual}`)
+
+  // Und wieder leeren — sonst gäbe es keinen Weg zurück zur Berechnung.
+  await ruf(`/admin/api/fixtures/${spieltag.id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ departure_manual: '' }),
+  })
+  const geleert = (await (await ruf('/admin/api/fixtures')).json()).items.find((x) => x.id === spieltag.id)
+  gleich(geleert.departure_manual, '', 'wieder leer')
 })
 
 // ── T5 · Identität kommt aus der Sitzung, nie aus dem Request (R3) ─────────────────────────

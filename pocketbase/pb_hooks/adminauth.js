@@ -20,6 +20,7 @@ const SPIELTAG_FELDER = [
   'venue',
   'km',
   'meeting_point',
+  'departure_manual',
   'needed_players',
   'locked',
 ]
