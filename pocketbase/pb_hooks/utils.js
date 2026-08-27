@@ -345,6 +345,22 @@ module.exports = {
     return isNaN(d.getTime()) ? null : d.toISOString()
   },
 
+  /**
+   * Welche Fahrzeitwerte gelten für DIESEN Spieltag? — Abschnitt 6.3.
+   *
+   * Die Reihenfolge steht an einer Stelle, damit sie überall dieselbe ist: Spieltag schlägt
+   * Mannschaft schlägt zentrale Einstellung. `-1` heißt „nicht gesetzt" — die Null ist beim
+   * Puffer ein gültiger Wunsch und taugt deshalb nicht als Platzhalter.
+   */
+  fahrzeitwerte(spieltag, mannschaft, einstellungen) {
+    const eigenesTempo = spieltag.getInt('tempo_kmh')
+    const eigenerPuffer = spieltag.getInt('puffer_minuten')
+    return {
+      tempo: eigenesTempo > 0 ? eigenesTempo : einstellungen.tempo_kmh,
+      puffer: eigenerPuffer >= 0 ? eigenerPuffer : mannschaft.puffer_minuten,
+    }
+  },
+
   abfahrt(anwurfISO, km, istHeimspiel, tempo, puffer) {
     if (istHeimspiel) return null
 

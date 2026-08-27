@@ -15,7 +15,7 @@ import {
 import { ausEingabe, fuerEingabe, systemDatum, systemDatumZeit } from './format'
 import './admin.css'
 
-type Reiter = 'spieltage' | 'mitglieder' | 'einstellungen' | 'protokoll'
+type Reiter = 'spieltage' | 'mannschaften' | 'einstellungen' | 'protokoll'
 
 export default function Admin() {
   const [ich, setIch] = useState<Wer | null>(null)
@@ -100,7 +100,7 @@ export default function Admin() {
         {(
           [
             ['spieltage', 'Spieltage'],
-            ['mitglieder', 'Mitglieder'],
+            ['mannschaften', 'Mannschaften'],
             ['einstellungen', 'Einstellungen'],
             ['protokoll', 'Protokoll'],
           ] as [Reiter, string][]
@@ -119,14 +119,18 @@ export default function Admin() {
 
       <div className="admin__inhalt">
         {reiter === 'spieltage' && <Spieltage abgemeldet={abgemeldet} team={gewaehlt} />}
-        {reiter === 'mitglieder' && <Mitglieder abgemeldet={abgemeldet} team={gewaehlt} />}
-        {reiter === 'einstellungen' && (
-          <Einstellungen
+        {/* Alles, was einer Mannschaft gehört, an einem Ort: ihre Werte, ihre Mitglieder und
+            ihre Kapitäne. Vorher lag das über zwei Reiter und die Einstellungen verstreut. */}
+        {reiter === 'mannschaften' && (
+          <MannschaftenReiter
             abgemeldet={abgemeldet}
             team={gewaehlt}
             rolle={ich.rolle}
             neuLaden={() => void werBinIch()}
           />
+        )}
+        {reiter === 'einstellungen' && (
+          <Einstellungen abgemeldet={abgemeldet} rolle={ich.rolle} />
         )}
         {/* Der Gesamt-Admin sieht das ganze Protokoll — die zentralen Ereignisse gehören zu
             keiner Mannschaft und fielen sonst durch jeden Filter. */}
@@ -261,6 +265,10 @@ const LEER: Partial<AdminSpieltag> = {
   venue: '',
   km: 0,
   meeting_point: '',
+  // -1 heißt „nicht gesetzt": Puffer von der Mannschaft, Tempo aus den Einstellungen. Die Null
+  // wäre hier ein Tempo von null und ein Spieltag ohne Abfahrtszeit.
+  tempo_kmh: -1,
+  puffer_minuten: -1,
   needed_players: 4,
 }
 
@@ -462,6 +470,48 @@ function Spieltagformular({
         </label>
         {/* Nur bei Auswärtsspielen — zu einem Heimspiel fährt niemand gemeinsam los (6.3). */}
         {!entwurf.is_home && (
+          <label className="feld" style={{ flex: '0 1 9rem' }}>
+            <span>Tempo (km/h)</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={20}
+              max={200}
+              value={(entwurf.tempo_kmh ?? -1) < 0 ? '' : entwurf.tempo_kmh}
+              onChange={(x) => setze('tempo_kmh', x.target.value === '' ? -1 : Number(x.target.value))}
+            />
+            <span className="feld__hinweis">
+              {(entwurf.tempo_kmh ?? -1) >= 0
+                ? 'Gilt nur hier.'
+                : entwurf.tempo_effektiv
+                  ? `Leer: ${entwurf.tempo_effektiv} km/h`
+                  : 'Leer: aus den Einstellungen'}
+            </span>
+          </label>
+        )}
+        {!entwurf.is_home && (
+          <label className="feld" style={{ flex: '0 1 9rem' }}>
+            <span>Puffer (Minuten)</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={180}
+              value={(entwurf.puffer_minuten ?? -1) < 0 ? '' : entwurf.puffer_minuten}
+              onChange={(x) =>
+                setze('puffer_minuten', x.target.value === '' ? -1 : Number(x.target.value))
+              }
+            />
+            <span className="feld__hinweis">
+              {(entwurf.puffer_minuten ?? -1) >= 0
+                ? 'Gilt nur hier.'
+                : entwurf.puffer_effektiv !== undefined
+                  ? `Leer: ${entwurf.puffer_effektiv} min der Mannschaft`
+                  : 'Leer: von der Mannschaft'}
+            </span>
+          </label>
+        )}
+        {!entwurf.is_home && (
           <label className="feld feld--datum">
             <span>Abfahrt</span>
             <input
@@ -619,18 +669,11 @@ function Mitglieder({ abgemeldet, team }: { abgemeldet: () => void; team: string
 // ── Einstellungen ───────────────────────────────────────────────────────────────────────────
 // Ein Formular, ein Knopf. Geschickt wird nur, was sich geändert hat — der Server schreibt je
 // geändertem Feld eine Protokollzeile, und eine Zeile „80 → 80" wäre Rauschen.
-function Einstellungen({
-  abgemeldet,
-  team,
-  rolle,
-  neuLaden,
-}: {
-  abgemeldet: () => void
-  team: string
-  rolle: 'gesamt' | 'kapitaen'
-  /** Nach einer Umbenennung muss die Auswahl im Kopf den neuen Namen zeigen. */
-  neuLaden: () => void
-}) {
+/**
+ * Was für ALLE Mannschaften gilt — plus der eigene zweite Faktor, der zu keiner gehört, sondern
+ * zur angemeldeten Person. Was einer einzelnen Mannschaft gehört, steht im Reiter „Mannschaften".
+ */
+function Einstellungen({ abgemeldet, rolle }: { abgemeldet: () => void; rolle: 'gesamt' | 'kapitaen' }) {
   const [daten, setDaten] = useState<EinstellungenDaten | null>(null)
   const [entwurf, setEntwurf] = useState<EinstellungenDaten | null>(null)
   const [fehler, setFehler] = useState('')
@@ -873,9 +916,6 @@ function Einstellungen({
       </div>
     </form>
     )}
-    <Mannschaftseinstellungen abgemeldet={abgemeldet} team={team} neuLaden={neuLaden} />
-    {rolle === 'gesamt' && <Mannschaften abgemeldet={abgemeldet} neuLaden={neuLaden} />}
-    {rolle === 'gesamt' && <Verwalterkonten abgemeldet={abgemeldet} />}
     <ZweiterFaktor abgemeldet={abgemeldet} />
     {rolle === 'gesamt' && <Sicherungen abgemeldet={abgemeldet} />}
     </>
@@ -1091,6 +1131,33 @@ function ZweiterFaktor({ abgemeldet }: { abgemeldet: () => void }) {
 }
 
 /**
+ * Der Reiter „Mannschaften" — alles, was einer Mannschaft gehört, an einem Ort.
+ *
+ * Welche Mannschaft gemeint ist, steht in der Auswahl im Kopf. Ein Kapitän hat dort genau eine;
+ * für ihn ist dieser Reiter schlicht „meine Mannschaft".
+ */
+function MannschaftenReiter({
+  abgemeldet,
+  team,
+  rolle,
+  neuLaden,
+}: {
+  abgemeldet: () => void
+  team: string
+  rolle: 'gesamt' | 'kapitaen'
+  neuLaden: () => void
+}) {
+  return (
+    <>
+      <Mannschaftseinstellungen abgemeldet={abgemeldet} team={team} neuLaden={neuLaden} />
+      <Mitglieder abgemeldet={abgemeldet} team={team} />
+      {rolle === 'gesamt' && <Kapitaene abgemeldet={abgemeldet} team={team} />}
+      {rolle === 'gesamt' && <Mannschaften abgemeldet={abgemeldet} neuLaden={neuLaden} />}
+    </>
+  )
+}
+
+/**
  * Was einer einzelnen Mannschaft gehört — Abschnitt 12. Das darf ihr Kapitän ändern, denn es ist
  * seine Mannschaft; die zentralen Einstellungen darüber sieht er gar nicht.
  */
@@ -1130,10 +1197,7 @@ function Mannschaftseinstellungen({
 
   const name = entwurf.name.trim()
   const pufferOk = Number.isFinite(entwurf.puffer_minuten)
-  const veraendert =
-    name !== satz.name ||
-    entwurf.puffer_minuten !== satz.puffer_minuten ||
-    entwurf.startort.trim() !== satz.startort
+  const veraendert = name !== satz.name || entwurf.puffer_minuten !== satz.puffer_minuten
 
   return (
     <div className="satz">
@@ -1183,23 +1247,6 @@ function Mannschaftseinstellungen({
       </div>
 
       <div className="satz__aktionen">
-        <label className="feld" style={{ flex: '1 1 18rem' }}>
-          <span>Startort</span>
-          <input
-            maxLength={120}
-            value={entwurf.startort}
-            onChange={(x) => {
-              setEntwurf({ ...entwurf, startort: x.target.value })
-              setGespeichert(false)
-            }}
-          />
-          <span className="feld__hinweis">
-            Von wo diese Mannschaft losfährt. Heute nur eine Notiz. Keine Privatadresse.
-          </span>
-        </label>
-      </div>
-
-      <div className="satz__aktionen">
         <button
           type="button"
           className="knopf"
@@ -1211,7 +1258,6 @@ function Mannschaftseinstellungen({
               await adminApi.mannschaftAendern(satz.id, {
                 name,
                 puffer_minuten: entwurf.puffer_minuten,
-                startort: entwurf.startort.trim(),
               })
               setGespeichert(true)
               await laden()
@@ -1335,22 +1381,25 @@ function Mannschaften({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLad
     </div>
   )
 }
-
 /**
- * Konten für Kapitäne — Abschnitt 12.
+ * Die Kapitäne EINER Mannschaft — Abschnitt 12.
+ *
+ * Mehrere sind ausdrücklich vorgesehen und brauchen keinen eigenen Begriff: Eine Vertretung ist
+ * schlicht ein zweites Konto auf dieselbe Mannschaft, mit denselben Rechten. Wer was getan hat,
+ * steht ohnehin im Protokoll.
  *
  * Das Passwort wird erzeugt und genau einmal angezeigt, wie der Einladungslink eines Mitglieds.
- * Gespeichert wird davon nur ein Hash; herausholen kann es niemand, auch der Gesamt-Admin nicht.
+ * Gespeichert ist davon nur ein Hash; herausholen kann es niemand, auch der Gesamt-Admin nicht.
  */
-function Verwalterkonten({ abgemeldet }: { abgemeldet: () => void }) {
+function Kapitaene({ abgemeldet, team }: { abgemeldet: () => void; team: string }) {
   const { items, fehler, setFehler, laden } = useListe<Verwalterkonto>(adminApi.verwalter, abgemeldet)
-  const { items: teams } = useListe<Mannschaft>(adminApi.mannschaften, abgemeldet)
   const [email, setEmail] = useState('')
-  const [team, setTeam] = useState('')
   const [laeuft, setLaeuft] = useState(false)
   const [gezeigt, setGezeigt] = useState<{ email: string; passwort: string } | null>(null)
 
-  const teamName = (id: string) => teams?.find((t) => t.id === id)?.name ?? '—'
+  // Nur die dieser Mannschaft. Der Gesamt-Admin selbst taucht hier nicht auf — er gehört zu
+  // keiner, und ihn versehentlich zu löschen wäre der schnellste Weg, sich auszusperren.
+  const meine = (items ?? []).filter((v) => v.rolle === 'kapitaen' && v.team === team)
 
   async function fuehreAus(tun: () => Promise<unknown>) {
     setLaeuft(true)
@@ -1369,11 +1418,12 @@ function Verwalterkonten({ abgemeldet }: { abgemeldet: () => void }) {
   return (
     <div className="satz">
       <div className="satz__kopf">
-        <span className="satz__name">Kapitäne</span>
+        <span className="satz__name">Kapitäne dieser Mannschaft</span>
         <span className="satz__zusatz">
-          Jeder Kapitän sieht ausschließlich seine eigene Mannschaft — Mitglieder anlegen und
-          bearbeiten, Spieltage pflegen, Rückmeldungen korrigieren. Die zentralen Einstellungen und
-          die Sicherungen bekommt er nicht zu Gesicht.
+          Ein Kapitän sieht ausschließlich diese Mannschaft: Mitglieder anlegen und bearbeiten,
+          Spieltage pflegen, Rückmeldungen korrigieren. Von den zentralen Einstellungen und den
+          Sicherungen bekommt er nichts zu sehen. <strong>Mehrere sind möglich</strong> — eine
+          Vertretung ist einfach ein zweites Konto.
         </span>
       </div>
 
@@ -1408,7 +1458,7 @@ function Verwalterkonten({ abgemeldet }: { abgemeldet: () => void }) {
       )}
 
       <div className="satz__aktionen">
-        <label className="feld" style={{ flex: '1 1 14rem' }}>
+        <label className="feld" style={{ flex: '1 1 16rem' }}>
           <span>E-Mail-Adresse</span>
           <input
             type="email"
@@ -1416,17 +1466,6 @@ function Verwalterkonten({ abgemeldet }: { abgemeldet: () => void }) {
             value={email}
             onChange={(x) => setEmail(x.target.value)}
           />
-        </label>
-        <label className="feld" style={{ flex: '0 1 12rem' }}>
-          <span>Mannschaft</span>
-          <select value={team} onChange={(x) => setTeam(x.target.value)}>
-            <option value="">— wählen —</option>
-            {(teams ?? []).map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
         </label>
         <button
           type="button"
@@ -1437,21 +1476,22 @@ function Verwalterkonten({ abgemeldet }: { abgemeldet: () => void }) {
               const d = await adminApi.verwalterAnlegen(email.trim(), 'kapitaen', team)
               setGezeigt({ email: d.email, passwort: d.passwort })
               setEmail('')
-              setTeam('')
             })
           }
         >
-          Kapitän anlegen
+          {meine.length ? 'Weiteren Kapitän anlegen' : 'Kapitän anlegen'}
         </button>
       </div>
 
       {items === null ? (
         <p className="namen">Einen Moment …</p>
-      ) : items.length === 0 ? (
-        <p className="namen">Noch keine Konten. Du selbst bist als Superuser angemeldet.</p>
+      ) : meine.length === 0 ? (
+        <p className="namen">
+          Noch kein Kapitän. Solange keiner da ist, betreust du diese Mannschaft selbst.
+        </p>
       ) : (
         <ul className="namen" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-          {items.map((v) => (
+          {meine.map((v) => (
             <li
               key={v.id}
               style={{
@@ -1465,8 +1505,29 @@ function Verwalterkonten({ abgemeldet }: { abgemeldet: () => void }) {
             >
               <span style={{ flex: '1 1 14rem' }}>{v.email}</span>
               <span className="satz__zusatz">
-                {v.rolle === 'gesamt' ? 'Gesamt' : teamName(v.team)}
+                {v.totp ? 'zweiter Faktor an' : 'nur Passwort'}
               </span>
+              {v.totp && (
+                <button
+                  type="button"
+                  className="knopf"
+                  disabled={laeuft}
+                  onClick={() => {
+                    // Das ist eine Schwächung — sie gehört bestätigt und steht im Protokoll.
+                    if (
+                      !window.confirm(
+                        `Zweiten Faktor von „${v.email}" abschalten? ` +
+                          'Danach genügt sein Passwort. Er kann ihn selbst wieder einrichten.',
+                      )
+                    ) {
+                      return
+                    }
+                    void fuehreAus(() => adminApi.verwalterZweiterFaktorAus(v.id))
+                  }}
+                >
+                  Faktor abschalten
+                </button>
+              )}
               <button
                 type="button"
                 className="knopf"

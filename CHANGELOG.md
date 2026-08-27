@@ -29,7 +29,29 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   direkt auf 8090 geht, ist nicht betroffen; dort steht kein Reverse Proxy. Die App selbst,
   die Einladungslinks und der Aushang sind unberührt.
 
+### Geändert
+- **Alles zur Mannschaft steht jetzt im eigenen Reiter „Mannschaften"** — ihr Name, ihr Puffer,
+  ihre Mitglieder und ihre Kapitäne. Vorher lag das über zwei Reiter und die Einstellungen
+  verteilt, was schon bei zwei Mannschaften unübersichtlich wurde. Der Reiter *Mitglieder*
+  entfällt dafür; die Einstellungen tragen nur noch, was für alle gilt.
+- **Der Startort einer Mannschaft ist aus der Oberfläche verschwunden.** Er war für eine
+  Routenberechnung gedacht, die zurückgestellt wurde — ein Feld, das man ausfüllen kann und das
+  nichts bewirkt, verwirrt mehr, als die Spalte kostet. Im Schema bleibt sie stehen.
+
 ### Hinzugefügt
+- **Tempo und Puffer lassen sich am einzelnen Spieltag übergehen.** Bisher galt eine Formel für
+  alle Fahrten einer Mannschaft; die Autobahn nach Köln und die Halle im Nachbarort teilen sich
+  aber weder Tempo noch Rüstzeit. Leer heißt weiterhin erben — Puffer von der Mannschaft, Tempo
+  aus den zentralen Einstellungen. Die Eingabemaske zeigt daneben, was ein leeres Feld bedeutet.
+- **Der Gesamt-Admin sieht den zweiten Faktor seiner Kapitäne und kann ihn abschalten.** Bisher
+  konnte ein Kapitän ihn zwar selbst einrichten, aber niemand sah, wer einen hatte, und bei einem
+  verlorenen Handy führte der einzige Weg über die Kommandozeile. **Einrichten** kann er ihn
+  weiterhin nicht für andere: Ein Geheimnis, das über einen fremden Bildschirm liefe, wäre keines
+  mehr. Jedes Abschalten steht im Protokoll.
+- **Mehrere Kapitäne je Mannschaft.** Eine Vertretung ist ein zweites Konto mit denselben
+  Rechten — technisch ging das schon, es fehlte nur die Ansicht dafür. Ein eigener Rollenbegriff
+  wäre eine Stufe mehr, die in jeder Abfrage richtig geprüft werden müsste, ohne dass sie etwas
+  könnte.
 - **Eine Instanz trägt jetzt mehrere Mannschaften.** Bis hierher war die App für genau eine
   gebaut; ein Verein mit sieben hätte sieben Instanzen gebraucht — siebenmal sichern, siebenmal
   aktualisieren, siebenmal dieselben Rechtstexte. Es gibt nun eine Rolle *Gesamt*, die alles

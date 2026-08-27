@@ -192,12 +192,16 @@ verraten, zu welcher Mannschaft es gehört.
 Tempo, plus Puffer, auf fünf Minuten gerundet, vom Anwurf abgezogen. Voreingestellt sind 80 km/h
 und 25 Minuten. Fahrt ihr über Land, stimmt ein höheres Tempo; in der Stadt ein niedrigeres.
 
-Das **Tempo** steht zentral — es beschreibt eure Straßen, nicht eine Mannschaft. Der **Puffer**
-steht bei der Mannschaft: Er ist alles, was zwischen Ankunft und Anwurf passiert — parken,
-umziehen, einwerfen —, und das dauert nicht überall gleich lang.
+Beide Werte gelten in drei Stufen, und die feinere schlägt die gröbere:
 
-Am einzelnen Spieltag lässt sich die Abfahrt außerdem **von Hand** eintragen. Leer heißt weiter
-rechnen; nur ein gefülltes Feld übergeht die Formel.
+| | |
+|---|---|
+| **Zentral** | Das Tempo — es beschreibt eure Straßen, nicht eine Mannschaft. |
+| **Bei der Mannschaft** | Der Puffer, unter *Mannschaften*. Was zwischen Ankunft und Anwurf passiert — parken, umziehen, einwerfen — dauert nicht überall gleich lang. |
+| **Am Spieltag** | Beides, nur für diese eine Fahrt. Die Autobahn nach Köln und die Halle im Nachbarort teilen sich weder Tempo noch Rüstzeit. |
+
+Leer heißt jeweils: von der Stufe darüber. Und über allem steht die **von Hand eingetragene
+Abfahrt** am Spieltag — die übergeht die Formel ganz.
 
 **Spieltage von selbst schließen.** Ein gespielter Spieltag soll keine Rückmeldungen mehr
 annehmen, sonst ändert jemand hinterher seine Zusage. Trägst du hier eine Stundenzahl ein,
@@ -251,9 +255,23 @@ Wer sich mit dem Zugang aus Einrichtungsschritt 7 anmeldet — dem Superuser —
 Das ist Absicht und der Rettungsanker: Wer sich beim Verteilen der Rollen vergreift, kommt darüber
 wieder herein.
 
-**Kapitäne anlegen** geht unter Einstellungen → Kapitäne. Das Passwort wird erzeugt und **genau
-einmal angezeigt**, wie der Einladungslink eines Mitglieds; gespeichert ist davon nur ein Hash.
-Ist es weg, erzeugst du ein neues.
+Alles, was einer Mannschaft gehört, steht im Reiter **Mannschaften**: ihr Name, ihr Puffer, ihre
+Mitglieder und ihre Kapitäne. Welche Mannschaft gemeint ist, wählst du oben aus; ein Kapitän hat
+dort genau eine.
+
+**Kapitäne anlegen** geht ebenfalls dort. Das Passwort wird erzeugt und **genau einmal
+angezeigt**, wie der Einladungslink eines Mitglieds; gespeichert ist davon nur ein Hash. Ist es
+weg, erzeugst du ein neues.
+
+**Mehrere Kapitäne je Mannschaft sind vorgesehen** — eine Vertretung ist schlicht ein zweites
+Konto mit denselben Rechten. Einen eigenen Begriff dafür gibt es nicht: Wer was getan hat, steht
+ohnehin im Protokoll.
+
+**Zum zweiten Faktor der Kapitäne** siehst du in der Liste, wer einen eingerichtet hat, und
+kannst ihn **abschalten** — der Ausweg, wenn jemand sein Handy verliert. *Einrichten* kannst du
+ihn nicht für andere, und das ist Absicht: Ein Geheimnis, das über deinen Bildschirm liefe, wäre
+keines mehr, denn du könntest dich danach als dieser Kapitän anmelden. Jedes Abschalten steht im
+Protokoll.
 
 > **Die Abschottung ist nicht nur eine Anzeigefrage.** Ein Kapitän ist kein Superuser: Auf keiner
 > Tabelle liegen Regeln, die ihm etwas erlaubten, und jeder seiner Zugriffe läuft durch die Routen

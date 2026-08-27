@@ -94,7 +94,10 @@ routerAdd('GET', '/api/board', (e) => {
       departure: heim
         ? null
         : u.alsISO(s.getDateTime('departure_manual').string()) ||
-          u.abfahrt(datum, s.getInt('km'), heim, einst.tempo_kmh, mannschaft.puffer_minuten),
+          (() => {
+            const w = u.fahrzeitwerte(s, mannschaft, einst)
+            return u.abfahrt(datum, s.getInt('km'), heim, w.tempo, w.puffer)
+          })(),
       responses,
       rides,
       seat_claims,

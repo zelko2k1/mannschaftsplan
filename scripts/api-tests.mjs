@@ -151,6 +151,11 @@ async function testSpieltag(eigenschaften = {}) {
       venue: 'test-Halle',
       km: 80,
       meeting_point: 'test-Parkplatz',
+      // -1 = erben. Die Route der Kapitänsansicht setzt das selbst; wer wie hier direkt in die
+      // Collection schreibt, muss daran denken — 0 hieße „ohne Puffer", nicht „von der
+      // Mannschaft".
+      tempo_kmh: -1,
+      puffer_minuten: -1,
       needed_players: 4,
       locked: false,
       ...eigenschaften,
@@ -1533,6 +1538,134 @@ await pruefe('T16b', 'Eine Mannschaft mit Inhalt lässt sich nicht auflösen', a
     (await ruf(`/admin/api/teams/${voll.id}`, { method: 'DELETE' })).status,
     409,
     'Mannschaft mit Mitgliedern',
+  )
+})
+
+await pruefe('A10b', 'Tempo und Puffer lassen sich am einzelnen Spieltag übergehen', async () => {
+  const { jar: kapitaen } = await adminAnmelden()
+  const ruf = alsKapitaen(kapitaen)
+  const { klartext } = await testMitglied('a10b')
+  const { jar } = await anmelden(klartext)
+
+  // Mannschaft auf 20 Minuten Puffer, zentral 80 km/h. 80 km → 60 min + 20 = 80.
+  await ruf('/admin/api/settings', { method: 'PATCH', body: JSON.stringify({ tempo_kmh: 80 }) })
+  await ruf(`/admin/api/teams/${await testTeam()}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ puffer_minuten: 20 }),
+  })
+
+  const spieltag = await testSpieltag({ km: 80, is_home: false, date: '2026-10-10 19:00:00' })
+  const vorlauf = async () => {
+    const board = await (await alsMitglied(jar)('/api/board')).json()
+    const s = board.fixtures.find((f) => f.id === spieltag.id)
+    return (new Date(s.date.replace(' ', 'T')) - new Date(s.departure)) / 60000
+  }
+
+  try {
+    gleich(await vorlauf(), 80, 'geerbt: 80 km/h und 20 min')
+
+    // Nur für diesen Spieltag: halbes Tempo. 80 km bei 40 km/h sind 120 min, plus 20 = 140.
+    gleich(
+      (await ruf(`/admin/api/fixtures/${spieltag.id}`, { method: 'PATCH', body: '{"tempo_kmh":40}' })).status,
+      200,
+      'Tempo setzen',
+    )
+    gleich(await vorlauf(), 140, 'eigenes Tempo')
+
+    // Und ein eigener Puffer von 0 — die Null muss hier „keine Rüstzeit" heißen und nicht
+    // „erben", sonst wäre der Wunsch nicht ausdrückbar.
+    gleich(
+      (await ruf(`/admin/api/fixtures/${spieltag.id}`, { method: 'PATCH', body: '{"puffer_minuten":0}' })).status,
+      200,
+      'Puffer 0 setzen',
+    )
+    gleich(await vorlauf(), 120, 'eigener Puffer von 0')
+
+    // Zurück auf erben.
+    await ruf(`/admin/api/fixtures/${spieltag.id}`, {
+      method: 'PATCH',
+      body: '{"tempo_kmh":-1,"puffer_minuten":-1}',
+    })
+    gleich(await vorlauf(), 80, 'wieder geerbt')
+
+    // Grenzen — und -1 muss ausdrücklich durchkommen.
+    for (const [koerper, soll] of [
+      ['{"tempo_kmh":19}', 400],
+      ['{"tempo_kmh":201}', 400],
+      ['{"puffer_minuten":-2}', 400],
+      ['{"puffer_minuten":181}', 400],
+      ['{"tempo_kmh":-1}', 200],
+    ]) {
+      gleich(
+        (await ruf(`/admin/api/fixtures/${spieltag.id}`, { method: 'PATCH', body: koerper })).status,
+        soll,
+        koerper,
+      )
+    }
+
+    // Die Kapitänsansicht liefert mit, was tatsächlich gilt — sonst müsste der Browser rechnen.
+    const liste = await (await ruf('/admin/api/fixtures')).json()
+    const x = liste.items.find((f) => f.id === spieltag.id)
+    gleich(x.tempo_effektiv, 80, 'tempo_effektiv')
+    gleich(x.puffer_effektiv, 20, 'puffer_effektiv')
+  } finally {
+    await ruf(`/admin/api/teams/${await testTeam()}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ puffer_minuten: 25 }),
+    })
+  }
+})
+
+await pruefe('T17', 'Der Gesamt-Admin sieht den zweiten Faktor der Kapitäne und kann ihn abschalten', async () => {
+  const { jar } = await adminAnmelden()
+  const ruf = alsKapitaen(jar)
+
+  const konto = await (
+    await ruf('/admin/api/verwalter', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: `test-t17-${randomBytes(4).toString('hex')}@example.org`,
+        rolle: 'kapitaen',
+        team: await testTeam(),
+      }),
+    })
+  ).json()
+  aufraeumen.push(['verwalter', konto.id])
+
+  const finde = async () =>
+    (await (await ruf('/admin/api/verwalter')).json()).items.find((v) => v.id === konto.id)
+
+  gleich((await finde()).totp, false, 'anfangs kein zweiter Faktor')
+
+  // Der Kapitän richtet ihn selbst ein — der Gesamt-Admin kann das nicht für ihn tun, sonst
+  // liefe das Geheimnis über dessen Bildschirm.
+  const anmeldung = await roh('/admin/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: konto.email, password: konto.passwort }),
+  })
+  const alsKapitaenSelbst = alsKapitaen(kekse(anmeldung).jar)
+  const start = await (await alsKapitaenSelbst('/admin/api/totp', { method: 'POST' })).json()
+  await alsKapitaenSelbst('/admin/api/totp/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ code: totp.codeFuer(start.geheimnis, Math.floor(Date.now() / 30000)) }),
+  })
+
+  gleich((await finde()).totp, true, 'nach der Einrichtung sichtbar')
+
+  // Und der Ausweg bei verlorenem Handy.
+  gleich(
+    (await ruf(`/admin/api/verwalter/${konto.id}/totp`, { method: 'DELETE' })).status,
+    200,
+    'abschalten',
+  )
+  gleich((await finde()).totp, false, 'danach wieder aus')
+
+  // Es steht im Protokoll — eine Schwächung, die nachvollziehbar sein muss.
+  const protokoll = await (await ruf('/admin/api/audit?limit=200')).json()
+  stimmt(
+    protokoll.items.some((z) => z.action === 'verwalter.totp.off'),
+    'Das Abschalten steht nicht im Protokoll',
   )
 })
 

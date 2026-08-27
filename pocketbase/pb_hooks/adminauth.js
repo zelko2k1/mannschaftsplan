@@ -21,6 +21,8 @@ const SPIELTAG_FELDER = [
   'km',
   'meeting_point',
   'departure_manual',
+  'tempo_kmh',
+  'puffer_minuten',
   'needed_players',
   'locked',
 ]
@@ -204,6 +206,17 @@ module.exports = {
         const zahl = Number(koerper[feld])
         if (!isFinite(zahl) || zahl < 0) return 'Ungültige Angabe.'
         satz.set(feld, Math.round(zahl))
+      } else if (feld === 'tempo_kmh' || feld === 'puffer_minuten') {
+        // -1 heißt „nicht gesetzt" und ist deshalb ausdrücklich erlaubt. Sonst dieselben
+        // Grenzen wie zentral bzw. an der Mannschaft — die Datenbank lehnte anderes ohnehin ab,
+        // nur mit einer Meldung, die dem Kapitän nichts sagt.
+        const zahl = Number(koerper[feld])
+        if (!isFinite(zahl) || zahl !== Math.round(zahl)) return 'Ungültige Angabe.'
+        if (zahl !== -1) {
+          if (feld === 'tempo_kmh' && (zahl < 20 || zahl > 200)) return 'Ungültige Angabe.'
+          if (feld === 'puffer_minuten' && (zahl < 0 || zahl > 180)) return 'Ungültige Angabe.'
+        }
+        satz.set(feld, zahl)
       } else {
         satz.set(feld, String(koerper[feld] === null || koerper[feld] === undefined ? '' : koerper[feld]))
       }

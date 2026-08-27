@@ -238,13 +238,16 @@ routerAdd('GET', '/admin/api/fixtures', (e) => {
       team: s.getString('team'),
       meeting_point: s.getString('meeting_point'),
       departure_manual: s.getDateTime('departure_manual').string(),
-      departure_berechnet: u.abfahrt(
-        s.getDateTime('date').string(),
-        s.getInt('km'),
-        s.getBool('is_home'),
-        einst.tempo_kmh,
-        einst.puffer_minuten,
-      ),
+      tempo_kmh: s.getInt('tempo_kmh'),
+      puffer_minuten: s.getInt('puffer_minuten'),
+      // Was tatsächlich gilt, samt Herkunft — die Eingabemaske zeigt daneben an, was ein leeres
+      // Feld bedeutet, und muss dafür nicht selbst rechnen (die Formel bleibt im Backend).
+      tempo_effektiv: u.fahrzeitwerte(s, u.mannschaft(e.app, s.getString('team')), einst).tempo,
+      puffer_effektiv: u.fahrzeitwerte(s, u.mannschaft(e.app, s.getString('team')), einst).puffer,
+      departure_berechnet: (() => {
+        const w = u.fahrzeitwerte(s, u.mannschaft(e.app, s.getString('team')), einst)
+        return u.abfahrt(s.getDateTime('date').string(), s.getInt('km'), s.getBool('is_home'), w.tempo, w.puffer)
+      })(),
       needed_players: s.getInt('needed_players'),
       locked: s.getBool('locked'),
     })),
@@ -273,6 +276,10 @@ routerAdd('POST', '/admin/api/fixtures', (e) => {
   const satz = new Record(e.app.findCollectionByNameOrId('fixtures'))
   satz.set('team', team)
   // PocketBase kennt keine Defaultwerte — was Abschnitt 3 als „default" führt, muss hier stehen.
+  // Bei Tempo und Puffer ist der Standard „nicht gesetzt", nicht die Null: 0 hieße ein Tempo von
+  // null und einen Spieltag ohne Abfahrtszeit.
+  satz.set('tempo_kmh', -1)
+  satz.set('puffer_minuten', -1)
   satz.set('needed_players', 4)
   satz.set('km', 0)
   satz.set('locked', false)
@@ -1223,12 +1230,25 @@ routerAdd('GET', '/admin/api/verwalter', (e) => {
   if (vor.kontext.rolle !== 'gesamt') return e.json(404, { message: 'Nicht gefunden.' })
 
   const alle = e.app.findRecordsByFilter('verwalter', "id != ''", 'email', 100, 0)
+
+  // Wer hat einen zweiten Faktor? Nur diese Auskunft, nie das Geheimnis — das verlässt den
+  // Server ausschließlich bei der Einrichtung, und die macht jeder für sich.
+  const mitFaktor = {}
+  try {
+    for (const t of e.app.findRecordsByFilter('admin_totp', 'confirmed = true', '', 200, 0)) {
+      mitFaktor[t.getString('email')] = true
+    }
+  } catch {
+    /* noch keine Tabelle */
+  }
+
   return e.json(200, {
     items: alle.map((v) => ({
       id: v.id,
       email: v.getString('email'),
       rolle: v.getString('rolle'),
       team: v.getString('team'),
+      totp: !!mitFaktor[v.getString('email')],
     })),
   })
 })
@@ -1316,6 +1336,40 @@ routerAdd('PATCH', '/admin/api/verwalter/{id}', (e) => {
   e.app.save(satz)
   a.protokoll(e, 'verwalter.update', satz.id, '', satz.getString('email'))
   return e.json(200, { id: satz.id, passwort: passwort })
+})
+
+// ── DELETE /admin/api/verwalter/{id}/totp · Zweiten Faktor eines Kapitäns abschalten ────────
+// Der Ausweg für „Handy verloren". Der Gesamt-Admin kann ihn AUSschalten, aber nicht
+// einrichten: Ein Geheimnis, das über seinen Bildschirm liefe, wäre keines mehr — er könnte
+// sich danach als dieser Kapitän anmelden. Einrichten bleibt Sache des Kapitäns.
+routerAdd('DELETE', '/admin/api/verwalter/{id}/totp', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const vor = a.pruefen(e)
+  if (vor.fehler) return vor.fehler
+  if (vor.kontext.rolle !== 'gesamt') return e.json(404, { message: 'Nicht gefunden.' })
+
+  let satz
+  try {
+    satz = e.app.findRecordById('verwalter', e.request.pathValue('id'))
+  } catch {
+    return e.json(400, { message: 'Ungültige Angabe.' })
+  }
+
+  const email = satz.getString('email')
+  let weg = 0
+  try {
+    for (const t of e.app.findRecordsByFilter('admin_totp', 'email = {:m}', '', 10, 0, { m: email })) {
+      e.app.delete(t)
+      weg += 1
+    }
+  } catch {
+    /* keiner eingerichtet */
+  }
+
+  // Ins Protokoll gehört das unbedingt: Es ist eine Schwächung, und sie soll nachvollziehbar
+  // sein — auch für den Kapitän, dessen zweiter Faktor plötzlich weg ist.
+  if (weg) a.protokoll(e, 'verwalter.totp.off', satz.id, email, '')
+  return e.json(200, { totp: false })
 })
 
 routerAdd('DELETE', '/admin/api/verwalter/{id}', (e) => {

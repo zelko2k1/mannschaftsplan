@@ -13,6 +13,13 @@ export type AdminSpieltag = {
   meeting_point: string
   /** Von Hand eingetragene Abfahrt. Leer = die Formel rechnet (6.3). */
   departure_manual: string
+  /** Nur für diesen Spieltag. -1 = die zentrale Einstellung gilt. */
+  tempo_kmh: number
+  /** Nur für diesen Spieltag. -1 = der Wert der Mannschaft gilt. */
+  puffer_minuten: number
+  /** Was tatsächlich gilt — nur zur Anzeige, wird nicht zurückgeschickt. */
+  tempo_effektiv: number
+  puffer_effektiv: number
   /** Was die Formel ergäbe — nur zur Anzeige, wird nicht zurückgeschickt. */
   departure_berechnet: string | null
   needed_players: number
@@ -65,6 +72,10 @@ export type Mannschaft = {
   sort: number
   /** Zeit vor dem Anwurf, die zusätzlich eingeplant wird — je Mannschaft. */
   puffer_minuten: number
+  /**
+   * Bleibt im Schema, erscheint aber nirgends mehr: Er war für eine Routenberechnung gedacht,
+   * die zurückgestellt wurde. Ein leeres Feld ohne Wirkung verwirrt mehr, als die Spalte kostet.
+   */
   startort: string
 }
 
@@ -73,6 +84,8 @@ export type Verwalterkonto = {
   email: string
   rolle: 'gesamt' | 'kapitaen'
   team: string
+  /** Ob dieses Konto einen zweiten Faktor eingerichtet hat. Nie das Geheimnis selbst. */
+  totp: boolean
 }
 
 /** Wer angemeldet ist und was er darf. Kommt aus `/admin/api/me`. */
@@ -220,6 +233,13 @@ export const adminApi = {
       body: JSON.stringify(daten),
     }),
   verwalterLoeschen: (id: string) => ruf<unknown>(`/verwalter/${id}`, { method: 'DELETE' }),
+  /**
+   * Den zweiten Faktor eines Kapitäns abschalten — der Ausweg bei verlorenem Handy. Einrichten
+   * kann ihn nur der Kapitän selbst: Ein Geheimnis, das über einen fremden Bildschirm liefe,
+   * wäre keines mehr.
+   */
+  verwalterZweiterFaktorAus: (id: string) =>
+    ruf<{ totp: boolean }>(`/verwalter/${id}/totp`, { method: 'DELETE' }),
 
   sicherungen: () => ruf<{ items: Sicherung[] }>('/backups'),
   sicherungErstellen: () => ruf<{ name: string }>('/backup', { method: 'POST' }),
