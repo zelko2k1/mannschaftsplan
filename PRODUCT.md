@@ -11,57 +11,92 @@ web
 
 ## Users
 
-**Eine** Dartmannschaft, 8–10 Personen. Zwei Rollen, sonst nichts:
+Ein **Verein** mit mehreren Mannschaften auf einer selbst betriebenen Instanz. Drei Rollen:
 
-- **Mitglied** — meldet sich für Spieltage zurück (dabei / unsicher / kann nicht) und trägt sich
-  in den Fahrdienst ein. Hat **kein Konto und kein Passwort**: es kommt über einen persönlichen
-  Token-Link herein, den der Kapitän einmal per Einzelchat verschickt.
-- **Kapitän / Mannschaftsführer** — pflegt Spieltage und Mitglieder, korrigiert Rückmeldungen,
-  stellt Token neu aus, liest das Protokoll. Meldet sich mit Passwort an.
+- **Spieler** — meldet sich für Spieltage zurück (dabei / unsicher / kann nicht) und trägt sich
+  in den Fahrdienst ein. Hat **kein Konto und kein Passwort**: Er kommt über einen persönlichen
+  Token-Link herein, den sein Kapitän einmal per Einzelchat verschickt.
+- **Kapitän** — betreut genau **eine** Mannschaft: Spieler anlegen und bearbeiten, Spieltage
+  pflegen, Rückmeldungen korrigieren, Token neu ausstellen, das Protokoll seiner Mannschaft
+  lesen. Meldet sich mit Anmeldename und Passwort an. Mehrere je Mannschaft sind vorgesehen; eine
+  Vertretung ist schlicht ein zweites Konto. Sein Konto lässt sich mit seinem Spielereintrag
+  verknüpfen, wenn er selbst mitspielt.
+- **Admin** — sieht und darf alles: Mannschaften und Konten anlegen, Rechtstexte pflegen,
+  Sicherungen ziehen und einspielen. Hat **weder Mannschaft noch Spielereintrag**; wer verwaltet,
+  soll in seiner eigenen Verwaltung nicht Partei sein.
 
-Einsatzsituation: das Handy in der Kneipe oder auf dem Sofa, ein paar Tage vor dem Spieltag.
-Kurzer Blick, ein bis zwei Antippen, wieder weg. Niemand sitzt „in der App".
+Einsatzsituation der Spieler: das Handy in der Kneipe oder auf dem Sofa, ein paar Tage vor dem
+Spieltag. Kurzer Blick, ein bis zwei Antippen, wieder weg. Niemand sitzt „in der App".
 
 ## Product Purpose
 
 Die Frage „Wer kommt mit, und wer fährt?" aus dem WhatsApp-Gruppenchat herausholen, wo sie
-zwischen 40 Nachrichten verlorengeht. Erfolg heißt: Der Kapitän sieht auf einen Blick, ob die
+zwischen 40 Nachrichten verlorengeht. Erfolg heißt: Der Kapitän sieht auf einen Blick, ob seine
 Mannschaft vollzählig ist und ob genug Autos da sind — ohne selbst nachzuzählen und ohne jemanden
 einzeln anzuschreiben.
 
 ## Positioning
 
-Der Unterschied zu jeder Umfrage-App: **kein Konto, keine Anmeldung, keine Installation.** Link
-antippen, drei Knöpfe, fertig. Der Preis dafür steht offen im Plan (R14): wer den Link eines
-Mitglieds weitergibt, ist dieses Mitglied. Für eine Mannschaft, die sich seit Jahren kennt, ist
-das der richtige Tausch.
+Der Unterschied zu jeder Umfrage-App: **Für den Spieler kein Konto, keine Anmeldung, keine
+Installation.** Link antippen, drei Knöpfe, fertig. Der Preis dafür steht offen im Plan (R14):
+Wer den Link eines Spielers weitergibt, ist dieser Spieler. Für eine Mannschaft, die sich seit
+Jahren kennt, ist das der richtige Tausch.
+
+Der Unterschied zu sieben Einzelinstanzen: **ein Verein, eine Instanz.** Einmal sichern, einmal
+aktualisieren, ein Satz Rechtstexte — und die Mannschaften sehen einander trotzdem nicht.
 
 **Nicht zu verwechseln** mit DartsZentrale — der großen Vereins-App mit Darts-Counter,
-Ligabetrieb und Statistik. Dieses Produkt kennt weder Ergebnisse noch Averages und will sie auch
-nicht kennen.
+Ligabetrieb und Statistik. Zwei getrennte Produkte. Das Rollenmodell (Spielerliste als einzige
+Quelle sportlicher Personen, Konten davon getrennt und optional damit verknüpft) ist von dort
+übernommen, weil es sich bewährt hat — nicht als Schritt zur Zusammenführung.
 
 ## Operating Context
 
+- **Zielgruppe ist jeder Verein, der die App selbst hostet** — nicht ein bestimmter. Der
+  Einrichtungsaufwand, die Mehr-Mannschaften-Fähigkeit und die hinterlegbaren Rechtstexte gehören
+  deshalb zum Produkt und nicht zum Sonderfall eines Betreibers.
 - **Handy zuerst.** Ab 320 px Breite bedienbar; Tastatur- und Desktopbedienung müssen möglich
   sein, sind aber nicht der Regelfall.
 - **Der Einstieg ist ein Link aus WhatsApp** — der Messenger ruft ihn zur Vorschau serverseitig
   ab, bevor ein Mensch ihn antippt.
 - **Selbst gehostet:** PocketBase als ein Binary hinter einem Reverse Proxy; lokal ohne Docker
   entwickelt, betrieben als Container auf einem eigenen Server.
-- **Deutsch, Du-Form.** Keine Mehrsprachigkeit vorgesehen.
+- **Deutsch, Du-Form.**
 
 ## Capabilities and Constraints
 
-- Spielplan mit Heim/Auswärts, Gegner, Ort, Anwurf, Entfernung.
+**Was die App kann:**
+
+- Mehrere Mannschaften unter einem Dach, strikt voneinander getrennt.
+- Spielplan je Mannschaft mit Heim/Auswärts, Gegner, Ort, Anwurf, Entfernung, Treffpunkt.
 - **Berechnete Abfahrtszeit** für Auswärtsspiele — im Backend gerechnet, damit alle dieselbe Zeit
-  sehen.
+  sehen. Tempo und Rüstzeit lassen sich je Spieltag überschreiben, die Abfahrt selbst von Hand
+  setzen; leer heißt jeweils: der eingebaute Standard rechnet.
 - Rückmeldung pro Spieler und Spieltag: dabei / unsicher / kann nicht.
 - Fahrdienst: wer fährt mit wie vielen Plätzen, und wer sitzt in welchem Auto.
-- Kapitänsansicht: Spieltage und Mitglieder pflegen, Token neu ausstellen, Protokoll.
-- **Bewusst nicht:** WhatsApp-Anbindung, Ergebnisse, Statistiken, Averages, Push-Nachrichten.
-- **Constraint:** keine externen CDNs, keine Tracker, keine Analytics; Schriften selbst gehostet.
-  Gespeichert werden Name, Verfügbarkeit, Fahrbereitschaft — sonst nichts. Keine Telefonnummern,
-  Adressen, Geburtsdaten oder E-Mail-Adressen der Spieler.
+- Spieltage schließen sich nach einer einstellbaren Frist von selbst.
+- Konten für Kapitäne und Admins, mit optionalem zweitem Faktor (TOTP). Der Admin sieht, wer
+  einen hat, und kann ihn abschalten — einrichten kann ihn nur die Person selbst.
+- Sicherungen aus der Oberfläche: erstellen, herunterladen, zurückgeben, einspielen.
+- Impressum und Datenschutzhinweis hinterlegbar, ohne Anmeldung erreichbar.
+
+**Verbindliche Grundsätze — hier ist nichts offen:**
+
+- Keine externen CDNs, keine Tracker, keine Analytics; Schriften selbst gehostet.
+- Von Spielern werden Name, Verfügbarkeit und Fahrbereitschaft gespeichert — **keine
+  Telefonnummern, Adressen, Geburtsdaten oder E-Mail-Adressen.** Konten haben einen Anmeldenamen
+  in E-Mail-Form; er ist kein Kontaktweg, und die App hat keinen Mailserver.
+- Einladungslinks werden nur als Prüfsumme gespeichert und tauchen in keinem Protokoll auf.
+- Das PocketBase-Dashboard ist nie öffentlich erreichbar; vor der Kapitänsansicht und der
+  Superuser-Anmeldung steht ein Tor im Reverse Proxy (R13a–c).
+
+**Heute nicht gebaut — als Stand, nicht als Schwur:**
+
+Ergebnisse, Statistiken und Averages; Push-Nachrichten; WhatsApp-Anbindung; Mehrsprachigkeit;
+Konten für Spieler; eine Routenberechnung über einen Kartendienst (erwogen und zurückgestellt,
+weil sie einen API-Schlüssel und eine Abhängigkeit einführte, die das Produkt bisher nicht hat).
+Diese Liste beschreibt den Umfang von heute und darf sich ändern — sie steht hier, damit eine
+Erweiterung eine Entscheidung ist und kein Versehen.
 
 ## Brand Commitments
 
@@ -73,25 +108,30 @@ nicht kennen.
 - Farben und Schriften sind in Abschnitt 6.2 des Umsetzungsplans festgelegt und nicht Gegenstand
   weiterer Gestaltung.
 - **Sprache:** kurze Sätze, Du-Form. Knöpfe benennen die Handlung („Dabei", nicht „Absenden").
+  Die Person, die eine Mannschaft betreut, heißt durchgehend **Kapitän**.
 - (Kein Logo, keine erfundenen Claims oder Referenzen.)
 
 ## Evidence on Hand
 
-- Lauffähiges Backend mit 22 automatisierten Prüfungen aus Abschnitt 11 des Umsetzungsplans.
+- Lauffähiges Backend mit **52 automatisierten Prüfungen**; dazu fünf Handprüfungen aus
+  Abschnitt 11 des Umsetzungsplans, die auf einem echten Server durchgeführt wurden.
 - Die Auslieferung enthält keine Daten und keine Konten: keine Beispielmannschaft, kein
   Demo-Spielplan, kein vorgegebener Zugang. Wer die App aufsetzt, legt alles selbst an.
-- **Bewusste Absenz:** keine Marketing-Seite, keine Nutzerzahlen, keine Referenzen. Das Produkt
-  hat genau eine Mannschaft als Zielgruppe — künftige Arbeit darf hier nichts erfinden.
+- **Bewusste Absenz:** keine Marketing-Seite, keine Nutzerzahlen, keine Referenzen, keine
+  Kundenstimmen. Künftige Arbeit darf hier nichts erfinden.
 
 ## Product Principles
 
-1. **Kein Konto, keine Hürde** — der Weg vom Link zur Rückmeldung ist ein Antippen.
-2. **Auf einen Blick lesbar** — der Zustand eines Spieltags (vollzählig? Auto da?) muss sichtbar
-   sein, ohne aufzuklappen.
-3. **Der Server entscheidet nichts, was Menschen entscheiden** — wer aus einem vollen Auto
+1. **Für den Spieler kein Konto, keine Hürde** — der Weg vom Link zur Rückmeldung ist ein
+   Antippen. Konten gibt es nur für die, die verwalten.
+2. **Auf einen Blick lesbar** — der Zustand eines Spieltags (vollzählig? Auto da? abgeschlossen?)
+   muss sichtbar sein, ohne aufzuklappen.
+3. **Trennung ist Bauweise, nicht Sorgfalt** — dass eine Mannschaft die andere nicht sieht, steht
+   im Schema und an einem Engpass, nicht in Prüfungen, die man vergessen kann.
+4. **Der Server entscheidet nichts, was Menschen entscheiden** — wer aus einem vollen Auto
    aussteigt, klärt der Fahrer, nicht die Software.
-4. **Sparsam mit Daten** — was nicht gespeichert wird, kann nicht verlorengehen.
-5. **Ehrlich statt hübsch** — lieber eine Zeile Klartext („Nicht gespeichert — nochmal antippen.")
+5. **Sparsam mit Daten** — was nicht gespeichert wird, kann nicht verlorengehen.
+6. **Ehrlich statt hübsch** — lieber eine Zeile Klartext („Nicht gespeichert — nochmal antippen.")
    als eine Animation, die einen Fehler verdeckt.
 
 ## Accessibility & Inclusion
@@ -100,6 +140,7 @@ nicht kennen.
 - Sichtbarer Fokusrahmen für Tastaturbedienung.
 - `prefers-reduced-motion` wird respektiert — Bewegung ist hier immer Zutat, nie Information.
 - Der Zustand darf nie allein über Farbe transportiert werden: Heim/Auswärts steht zusätzlich im
-  Text, Rückmeldungen tragen Beschriftungen.
+  Text, Rückmeldungen tragen Beschriftungen, ein abgeschlossener Spieltag ist nicht nur blasser,
+  sondern auch beschriftet und mit einer Kante versehen.
 - (Kein formaler A11y-Standard verbindlich festgelegt; hier stehen die bekannten
   produktspezifischen Bedürfnisse.)
