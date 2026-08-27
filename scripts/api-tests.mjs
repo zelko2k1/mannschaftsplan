@@ -116,7 +116,7 @@ async function testTeam() {
 async function zweiteMannschaft() {
   const satz = await pb('/api/collections/teams/records', {
     method: 'POST',
-    body: JSON.stringify({ name: `test-Mannschaft-${randomBytes(3).toString('hex')}`, puffer_minuten: 25 }),
+    body: JSON.stringify({ name: `test-Mannschaft-${randomBytes(3).toString('hex')}` }),
   })
   aufraeumen.push(['teams', satz.id])
   return satz
@@ -936,57 +936,17 @@ await pruefe('A9', 'Anzeigename wirkt auf die Einladungsseite und wird escaped',
   }
 })
 
-await pruefe('A10', 'Die Fahrzeit-Formel folgt den Einstellungen', async () => {
-  const { jar: kapitaen } = await adminAnmelden()
-  const ruf = alsKapitaen(kapitaen)
+await pruefe('A10', 'Die zentralen Einstellungen nehmen keine unsinnigen Werte an', async () => {
+  const { jar } = await adminAnmelden()
+  const ruf = alsKapitaen(jar)
   const vorher = await (await ruf('/admin/api/settings')).json()
 
-  const { klartext } = await testMitglied('formel')
-  const { jar } = await anmelden(klartext)
-  const spieltag = await testSpieltag({ km: 60, is_home: false, date: '2026-10-03 19:00:00' })
-
-  const vorlauf = async () => {
-    const board = await (await alsMitglied(jar)('/api/board')).json()
-    const s = board.fixtures.find((f) => f.id === spieltag.id)
-    return (new Date(s.date.replace(' ', 'T')) - new Date(s.departure)) / 60000
-  }
-
   try {
-    // 60 km bei 60 km/h sind 60 Minuten, plus 10 Minuten Puffer. Seit Abschnitt 12 kommen die
-    // beiden Werte aus zwei Quellen: das Tempo gilt für alle, der Puffer hängt an der Mannschaft.
-    gleich(
-      (
-        await ruf('/admin/api/settings', {
-          method: 'PATCH',
-          body: JSON.stringify({ tempo_kmh: 60 }),
-        })
-      ).status,
-      200,
-      'Tempo speichern',
-    )
-    gleich(
-      (
-        await ruf(`/admin/api/teams/${await testTeam()}`, {
-          method: 'PATCH',
-          body: JSON.stringify({ puffer_minuten: 10 }),
-        })
-      ).status,
-      200,
-      'Puffer speichern',
-    )
-    gleich(await vorlauf(), 70, 'Vorlauf bei 60 km/h und 10 min Puffer')
-
-    // Dasselbe Spiel bei halbem Tempo: doppelte Fahrzeit, Puffer unverändert.
-    await ruf('/admin/api/settings', { method: 'PATCH', body: JSON.stringify({ tempo_kmh: 30 }) })
-    gleich(await vorlauf(), 130, 'Vorlauf bei 30 km/h')
-
-    // Grenzen aus der Migration, hier gespiegelt: sonst lehnte erst die Datenbank ab.
+    // Grenzen aus der Migration, hier gespiegelt: sonst lehnte erst die Datenbank ab, mit einer
+    // Meldung, die dem Kapitän nichts sagt.
     for (const [feld, wert] of [
-      ['tempo_kmh', 19],
-      ['tempo_kmh', 201],
       ['auto_sperre_stunden', -1],
       ['auto_sperre_stunden', 169],
-      ['tempo_kmh', 80.5],
     ]) {
       gleich(
         (await ruf('/admin/api/settings', { method: 'PATCH', body: JSON.stringify({ [feld]: wert }) })).status,
@@ -995,30 +955,17 @@ await pruefe('A10', 'Die Fahrzeit-Formel folgt den Einstellungen', async () => {
       )
     }
 
-    // Dieselbe Grenze an der Mannschaft — sie wohnt jetzt dort.
-    for (const wert of [-1, 181]) {
-      gleich(
-        (
-          await ruf(`/admin/api/teams/${await testTeam()}`, {
-            method: 'PATCH',
-            body: JSON.stringify({ puffer_minuten: wert }),
-          })
-        ).status,
-        400,
-        `puffer_minuten = ${wert}`,
-      )
-    }
+    // Ein leerer Vereinsname ginge auf der Einladungsseite als Überschrift durch — dort steht
+    // dann nichts, und die Linkvorschau zeigt eine leere Zeile.
+    gleich(
+      (await ruf('/admin/api/settings', { method: 'PATCH', body: '{"anzeigename":"  "}' })).status,
+      400,
+      'leerer Vereinsname',
+    )
   } finally {
     await ruf('/admin/api/settings', {
       method: 'PATCH',
-      body: JSON.stringify({
-        tempo_kmh: vorher.tempo_kmh,
-        auto_sperre_stunden: vorher.auto_sperre_stunden,
-      }),
-    })
-    await ruf(`/admin/api/teams/${await testTeam()}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ puffer_minuten: 25 }),
+      body: JSON.stringify({ auto_sperre_stunden: vorher.auto_sperre_stunden }),
     })
   }
 })
@@ -1504,7 +1451,7 @@ await pruefe('T16', 'Ein Kapitän sieht und ändert nur seine eigene Mannschaft'
   // Zentrales bleibt zu — und zwar mit 404, nicht 403: Er soll nicht einmal erfahren, dass es
   // hier etwas gibt (R6).
   for (const [was, pfad, optionen] of [
-    ['Einstellungen ändern', '/admin/api/settings', { method: 'PATCH', body: '{"tempo_kmh":90}' }],
+    ['Einstellungen ändern', '/admin/api/settings', { method: 'PATCH', body: '{"auto_sperre_stunden":3}' }],
     ['Sicherungen auflisten', '/admin/api/backups', {}],
     ['Sicherung erstellen', '/admin/api/backup', { method: 'POST' }],
     ['Verwalter auflisten', '/admin/api/verwalter', {}],
@@ -1514,12 +1461,13 @@ await pruefe('T16', 'Ein Kapitän sieht und ändert nur seine eigene Mannschaft'
   }
 
   // Was er darf: seine eigene Mannschaft benennen — das ist „die Einstellung der Mannschaft".
+  const alterName = (await (await ruf('/admin/api/teams')).json()).items[0].name
   gleich(
-    (await ruf(`/admin/api/teams/${eigenes}`, { method: 'PATCH', body: '{"puffer_minuten":30}' })).status,
+    (await ruf(`/admin/api/teams/${eigenes}`, { method: 'PATCH', body: '{"name":"test-Umbenannt"}' })).status,
     200,
     'eigene Mannschaft ändern',
   )
-  await ruf(`/admin/api/teams/${eigenes}`, { method: 'PATCH', body: '{"puffer_minuten":25}' })
+  await ruf(`/admin/api/teams/${eigenes}`, { method: 'PATCH', body: JSON.stringify({ name: alterName }) })
 
   // Einstellungen LESEN darf er — Impressum und Datenschutz sind keine Geheimnisse.
   gleich((await ruf('/admin/api/settings')).status, 200, 'Einstellungen lesen')
@@ -1541,19 +1489,13 @@ await pruefe('T16b', 'Eine Mannschaft mit Inhalt lässt sich nicht auflösen', a
   )
 })
 
-await pruefe('A10b', 'Tempo und Puffer lassen sich am einzelnen Spieltag übergehen', async () => {
+await pruefe('A10b', 'Tempo und Puffer stehen am Spieltag, sonst gilt der Standard', async () => {
   const { jar: kapitaen } = await adminAnmelden()
   const ruf = alsKapitaen(kapitaen)
   const { klartext } = await testMitglied('a10b')
   const { jar } = await anmelden(klartext)
 
-  // Mannschaft auf 20 Minuten Puffer, zentral 80 km/h. 80 km → 60 min + 20 = 80.
-  await ruf('/admin/api/settings', { method: 'PATCH', body: JSON.stringify({ tempo_kmh: 80 }) })
-  await ruf(`/admin/api/teams/${await testTeam()}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ puffer_minuten: 20 }),
-  })
-
+  // Standard ist 80 km/h und 25 Minuten. 80 km → 60 min + 25 = 85.
   const spieltag = await testSpieltag({ km: 80, is_home: false, date: '2026-10-10 19:00:00' })
   const vorlauf = async () => {
     const board = await (await alsMitglied(jar)('/api/board')).json()
@@ -1561,59 +1503,52 @@ await pruefe('A10b', 'Tempo und Puffer lassen sich am einzelnen Spieltag überge
     return (new Date(s.date.replace(' ', 'T')) - new Date(s.departure)) / 60000
   }
 
-  try {
-    gleich(await vorlauf(), 80, 'geerbt: 80 km/h und 20 min')
+  gleich(await vorlauf(), 85, 'Standard')
 
-    // Nur für diesen Spieltag: halbes Tempo. 80 km bei 40 km/h sind 120 min, plus 20 = 140.
+  // Nur für diesen Spieltag: halbes Tempo. 80 km bei 40 km/h sind 120 min, plus 25 = 145.
+  gleich(
+    (await ruf(`/admin/api/fixtures/${spieltag.id}`, { method: 'PATCH', body: '{"tempo_kmh":40}' })).status,
+    200,
+    'Tempo setzen',
+  )
+  gleich(await vorlauf(), 145, 'eigenes Tempo')
+
+  // Ein eigener Puffer von 0 — die Null muss „keine Rüstzeit" heißen und nicht „Standard",
+  // sonst wäre der Wunsch nicht ausdrückbar.
+  gleich(
+    (await ruf(`/admin/api/fixtures/${spieltag.id}`, { method: 'PATCH', body: '{"puffer_minuten":0}' })).status,
+    200,
+    'Puffer 0 setzen',
+  )
+  gleich(await vorlauf(), 120, 'eigener Puffer von 0')
+
+  // Zurück auf Standard.
+  await ruf(`/admin/api/fixtures/${spieltag.id}`, {
+    method: 'PATCH',
+    body: '{"tempo_kmh":-1,"puffer_minuten":-1}',
+  })
+  gleich(await vorlauf(), 85, 'wieder Standard')
+
+  // Grenzen — und -1 muss ausdrücklich durchkommen.
+  for (const [koerper, soll] of [
+    ['{"tempo_kmh":19}', 400],
+    ['{"tempo_kmh":201}', 400],
+    ['{"puffer_minuten":-2}', 400],
+    ['{"puffer_minuten":181}', 400],
+    ['{"tempo_kmh":-1}', 200],
+  ]) {
     gleich(
-      (await ruf(`/admin/api/fixtures/${spieltag.id}`, { method: 'PATCH', body: '{"tempo_kmh":40}' })).status,
-      200,
-      'Tempo setzen',
+      (await ruf(`/admin/api/fixtures/${spieltag.id}`, { method: 'PATCH', body: koerper })).status,
+      soll,
+      koerper,
     )
-    gleich(await vorlauf(), 140, 'eigenes Tempo')
-
-    // Und ein eigener Puffer von 0 — die Null muss hier „keine Rüstzeit" heißen und nicht
-    // „erben", sonst wäre der Wunsch nicht ausdrückbar.
-    gleich(
-      (await ruf(`/admin/api/fixtures/${spieltag.id}`, { method: 'PATCH', body: '{"puffer_minuten":0}' })).status,
-      200,
-      'Puffer 0 setzen',
-    )
-    gleich(await vorlauf(), 120, 'eigener Puffer von 0')
-
-    // Zurück auf erben.
-    await ruf(`/admin/api/fixtures/${spieltag.id}`, {
-      method: 'PATCH',
-      body: '{"tempo_kmh":-1,"puffer_minuten":-1}',
-    })
-    gleich(await vorlauf(), 80, 'wieder geerbt')
-
-    // Grenzen — und -1 muss ausdrücklich durchkommen.
-    for (const [koerper, soll] of [
-      ['{"tempo_kmh":19}', 400],
-      ['{"tempo_kmh":201}', 400],
-      ['{"puffer_minuten":-2}', 400],
-      ['{"puffer_minuten":181}', 400],
-      ['{"tempo_kmh":-1}', 200],
-    ]) {
-      gleich(
-        (await ruf(`/admin/api/fixtures/${spieltag.id}`, { method: 'PATCH', body: koerper })).status,
-        soll,
-        koerper,
-      )
-    }
-
-    // Die Kapitänsansicht liefert mit, was tatsächlich gilt — sonst müsste der Browser rechnen.
-    const liste = await (await ruf('/admin/api/fixtures')).json()
-    const x = liste.items.find((f) => f.id === spieltag.id)
-    gleich(x.tempo_effektiv, 80, 'tempo_effektiv')
-    gleich(x.puffer_effektiv, 20, 'puffer_effektiv')
-  } finally {
-    await ruf(`/admin/api/teams/${await testTeam()}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ puffer_minuten: 25 }),
-    })
   }
+
+  // Die Kapitänsansicht liefert mit, was tatsächlich gilt — sonst müsste der Browser rechnen.
+  const liste = await (await ruf('/admin/api/fixtures')).json()
+  const x = liste.items.find((f) => f.id === spieltag.id)
+  gleich(x.tempo_effektiv, 80, 'tempo_effektiv')
+  gleich(x.puffer_effektiv, 25, 'puffer_effektiv')
 })
 
 await pruefe('T17', 'Der Gesamt-Admin sieht den zweiten Faktor der Kapitäne und kann ihn abschalten', async () => {

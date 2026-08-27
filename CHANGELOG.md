@@ -30,6 +30,12 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   die Einladungslinks und der Aushang sind unberührt.
 
 ### Geändert
+- **Tempo und Rüstzeit stehen nur noch am Spieltag.** Es gab drei Stufen — zentral, Mannschaft,
+  Spieltag —, gedacht als Bequemlichkeit: einmal einstellen, überall gültig. In der Bedienung war
+  es das Gegenteil. Wer eine Abfahrtszeit erklären wollte, musste an drei Stellen nachsehen, und
+  zwei davon lagen in verschiedenen Reitern. Ein leeres Feld nimmt jetzt den eingebauten Standard
+  (80 km/h, 25 Minuten). Die beiden Spalten, die dazwischenstanden, sind weg: Ein Wert, den
+  niemand mehr sehen, aber jeder spüren kann, ist schlimmer als gar keiner.
 - **Alles zur Mannschaft steht jetzt im eigenen Reiter „Mannschaften"** — ihr Name, ihr Puffer,
   ihre Mitglieder und ihre Kapitäne. Vorher lag das über zwei Reiter und die Einstellungen
   verteilt, was schon bei zwei Mannschaften unübersichtlich wurde. Der Reiter *Mitglieder*

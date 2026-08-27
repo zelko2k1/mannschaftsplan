@@ -481,11 +481,7 @@ function Spieltagformular({
               onChange={(x) => setze('tempo_kmh', x.target.value === '' ? -1 : Number(x.target.value))}
             />
             <span className="feld__hinweis">
-              {(entwurf.tempo_kmh ?? -1) >= 0
-                ? 'Gilt nur hier.'
-                : entwurf.tempo_effektiv
-                  ? `Leer: ${entwurf.tempo_effektiv} km/h`
-                  : 'Leer: aus den Einstellungen'}
+              {(entwurf.tempo_kmh ?? -1) >= 0 ? 'Gilt nur hier.' : 'Leer: 80 km/h'}
             </span>
           </label>
         )}
@@ -503,11 +499,7 @@ function Spieltagformular({
               }
             />
             <span className="feld__hinweis">
-              {(entwurf.puffer_minuten ?? -1) >= 0
-                ? 'Gilt nur hier.'
-                : entwurf.puffer_effektiv !== undefined
-                  ? `Leer: ${entwurf.puffer_effektiv} min der Mannschaft`
-                  : 'Leer: von der Mannschaft'}
+              {(entwurf.puffer_minuten ?? -1) >= 0 ? 'Gilt nur hier.' : 'Leer: 25 Minuten'}
             </span>
           </label>
         )}
@@ -713,10 +705,9 @@ function Einstellungen({ abgemeldet, rolle }: { abgemeldet: () => void; rolle: '
   const zahl = (wert: string) => (wert === '' ? Number.NaN : Number(wert))
 
   const name = entwurf.anzeigename.trim()
-  const zahlenOk = Number.isFinite(entwurf.tempo_kmh) && Number.isFinite(entwurf.auto_sperre_stunden)
+  const zahlenOk = Number.isFinite(entwurf.auto_sperre_stunden)
   const veraendert =
     name !== daten.anzeigename ||
-    entwurf.tempo_kmh !== daten.tempo_kmh ||
     entwurf.auto_sperre_stunden !== daten.auto_sperre_stunden ||
     entwurf.impressum.trim() !== daten.impressum ||
     entwurf.datenschutz.trim() !== daten.datenschutz
@@ -727,7 +718,6 @@ function Einstellungen({ abgemeldet, rolle }: { abgemeldet: () => void; rolle: '
 
     const aenderung: Partial<EinstellungenDaten> = {}
     if (name !== daten.anzeigename) aenderung.anzeigename = name
-    if (entwurf.tempo_kmh !== daten.tempo_kmh) aenderung.tempo_kmh = entwurf.tempo_kmh
     if (entwurf.auto_sperre_stunden !== daten.auto_sperre_stunden) {
       aenderung.auto_sperre_stunden = entwurf.auto_sperre_stunden
     }
@@ -794,32 +784,6 @@ function Einstellungen({ abgemeldet, rolle }: { abgemeldet: () => void; rolle: '
             bekommt. Der Mannschaftsname ist dafür in Ordnung — Namen einzelner Personen, Adressen
             oder Spielorte gehören nicht hierher.
           </p>
-        </div>
-      </div>
-
-      {/* ── Fahrzeit ─────────────────────────────────────────────────────────────────────── */}
-      <div className="satz">
-        <div className="satz__kopf">
-          <span className="satz__name">Abfahrtszeit</span>
-          <span className="satz__zusatz">
-            Die Abfahrt im Aushang wird gerechnet, nicht eingetragen: Strecke geteilt durch Tempo,
-            plus Puffer, auf fünf Minuten gerundet und vom Anwurf abgezogen. Auf dem Land trägt ein
-            höheres Tempo, in der Stadt ein niedrigeres.
-          </span>
-        </div>
-
-        <div className="satz__aktionen">
-          <label className="feld" style={{ flex: '0 1 10rem' }}>
-            <span>Tempo (km/h)</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={20}
-              max={200}
-              value={Number.isFinite(entwurf.tempo_kmh) ? entwurf.tempo_kmh : ''}
-              onChange={(x) => setzen({ tempo_kmh: zahl(x.target.value) })}
-            />
-          </label>
         </div>
       </div>
 
@@ -1196,16 +1160,16 @@ function Mannschaftseinstellungen({
   if (!satz || !entwurf) return <p className="namen">Einen Moment …</p>
 
   const name = entwurf.name.trim()
-  const pufferOk = Number.isFinite(entwurf.puffer_minuten)
-  const veraendert = name !== satz.name || entwurf.puffer_minuten !== satz.puffer_minuten
+  const veraendert = name !== satz.name
 
   return (
     <div className="satz">
       <div className="satz__kopf">
         <span className="satz__name">Diese Mannschaft</span>
         <span className="satz__zusatz">
-          Der Name steht im Aushang und in dieser Ansicht. Der Puffer ist die Zeit, die vor dem
-          Anwurf zusätzlich zur Fahrzeit eingeplant wird — parken, umziehen, einwerfen.
+          Der Name steht im Aushang und in dieser Ansicht. Tempo und Rüstzeit stehen am einzelnen
+          Spieltag — sie unterscheiden sich von Fahrt zu Fahrt mehr als von Mannschaft zu
+          Mannschaft.
         </span>
       </div>
 
@@ -1227,38 +1191,18 @@ function Mannschaftseinstellungen({
             }}
           />
         </label>
-        <label className="feld" style={{ flex: '0 1 10rem' }}>
-          <span>Puffer (Minuten)</span>
-          <input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            max={180}
-            value={Number.isFinite(entwurf.puffer_minuten) ? entwurf.puffer_minuten : ''}
-            onChange={(x) => {
-              setEntwurf({
-                ...entwurf,
-                puffer_minuten: x.target.value === '' ? Number.NaN : Number(x.target.value),
-              })
-              setGespeichert(false)
-            }}
-          />
-        </label>
       </div>
 
       <div className="satz__aktionen">
         <button
           type="button"
           className="knopf"
-          disabled={!name || !pufferOk || !veraendert || laeuft}
+          disabled={!name || !veraendert || laeuft}
           onClick={async () => {
             setLaeuft(true)
             setFehler('')
             try {
-              await adminApi.mannschaftAendern(satz.id, {
-                name,
-                puffer_minuten: entwurf.puffer_minuten,
-              })
+              await adminApi.mannschaftAendern(satz.id, { name })
               setGespeichert(true)
               await laden()
               // Der Kopf zeigt den Namen — er muss den neuen zeigen, nicht den alten.
@@ -1350,7 +1294,6 @@ function Mannschaften({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLad
               }}
             >
               <span style={{ flex: '1 1 auto' }}>{t.name}</span>
-              <span className="satz__zusatz">{t.puffer_minuten} min Puffer</span>
               <button
                 type="button"
                 className="knopf knopf--gefahr"

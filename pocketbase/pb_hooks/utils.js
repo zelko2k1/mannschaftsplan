@@ -52,7 +52,6 @@ module.exports = {
   einstellungen(app) {
     const standard = {
       anzeigename: ANZEIGENAME_STANDARD,
-      tempo_kmh: TEMPO_STANDARD,
       auto_sperre_stunden: AUTO_SPERRE_STANDARD,
       // Leer heißt: es gibt die Seite nicht, und der Link erscheint gar nicht erst.
       impressum: '',
@@ -62,17 +61,11 @@ module.exports = {
       const saetze = app.findAllRecords('settings')
       if (!saetze || !saetze.length) return standard
       const satz = saetze[0]
-      // Ein Feld, das die Migration noch nicht angelegt hat, liefert 0. Bei `tempo_kmh` wäre das
-      // eine Division durch null, deshalb entscheidet es, ob überhaupt schon etwas dasteht.
-      // Halbe Wahrheiten wären hier schlimmer als der Standard.
-      const tempo = satz.getInt('tempo_kmh')
-      const gepflegt = tempo > 0
       return {
         // Seit Abschnitt 12 der VEREINSname, nicht der einer Mannschaft: Er steht dort, wo es um
         // die Anwendung als Ganzes geht — Einladungsseite, Rechtstexte, zweiter Faktor. Wie die
         // einzelne Mannschaft heißt, steht in `teams`.
         anzeigename: satz.getString('anzeigename') || standard.anzeigename,
-        tempo_kmh: gepflegt ? tempo : standard.tempo_kmh,
         auto_sperre_stunden: Math.max(0, satz.getInt('auto_sperre_stunden')),
         impressum: satz.getString('impressum') || '',
         datenschutz: satz.getString('datenschutz') || '',
@@ -195,12 +188,7 @@ module.exports = {
    * nicht scheitern.
    */
   mannschaft(app, teamId) {
-    const standard = {
-      id: '',
-      name: ANZEIGENAME_STANDARD,
-      puffer_minuten: PUFFER_STANDARD,
-      startort: '',
-    }
+    const standard = { id: '', name: ANZEIGENAME_STANDARD, startort: '' }
     if (!teamId) return standard
     try {
       const satz = app.findRecordById('teams', String(teamId))
@@ -208,8 +196,6 @@ module.exports = {
       return {
         id: satz.id,
         name: satz.getString('name') || standard.name,
-        // 0 ist ein zulässiger Wunsch: „ohne Puffer".
-        puffer_minuten: Math.max(0, satz.getInt('puffer_minuten')),
         startort: satz.getString('startort') || '',
       }
     } catch {
@@ -348,16 +334,20 @@ module.exports = {
   /**
    * Welche Fahrzeitwerte gelten für DIESEN Spieltag? — Abschnitt 6.3.
    *
-   * Die Reihenfolge steht an einer Stelle, damit sie überall dieselbe ist: Spieltag schlägt
-   * Mannschaft schlägt zentrale Einstellung. `-1` heißt „nicht gesetzt" — die Null ist beim
-   * Puffer ein gültiger Wunsch und taugt deshalb nicht als Platzhalter.
+   * Zwei Stufen, mehr nicht: der Spieltag, sonst der eingebaute Standard. Es gab einmal noch
+   * eine zentrale Einstellung und einen Wert an der Mannschaft dazwischen — gedacht als
+   * Bequemlichkeit, in der Bedienung aber das Gegenteil: Wer eine Abfahrtszeit erklären wollte,
+   * musste an drei Stellen nachsehen.
+   *
+   * `-1` heißt „nicht gesetzt". Die Null ist beim Puffer ein gültiger Wunsch — ein Spieltag ohne
+   * Rüstzeit — und taugt deshalb nicht als Platzhalter.
    */
-  fahrzeitwerte(spieltag, mannschaft, einstellungen) {
+  fahrzeitwerte(spieltag) {
     const eigenesTempo = spieltag.getInt('tempo_kmh')
     const eigenerPuffer = spieltag.getInt('puffer_minuten')
     return {
-      tempo: eigenesTempo > 0 ? eigenesTempo : einstellungen.tempo_kmh,
-      puffer: eigenerPuffer >= 0 ? eigenerPuffer : mannschaft.puffer_minuten,
+      tempo: eigenesTempo > 0 ? eigenesTempo : TEMPO_STANDARD,
+      puffer: eigenerPuffer >= 0 ? eigenerPuffer : PUFFER_STANDARD,
     }
   },
 

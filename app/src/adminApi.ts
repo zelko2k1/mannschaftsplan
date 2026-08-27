@@ -13,9 +13,9 @@ export type AdminSpieltag = {
   meeting_point: string
   /** Von Hand eingetragene Abfahrt. Leer = die Formel rechnet (6.3). */
   departure_manual: string
-  /** Nur für diesen Spieltag. -1 = die zentrale Einstellung gilt. */
+  /** -1 = der eingebaute Standard gilt (80 km/h). */
   tempo_kmh: number
-  /** Nur für diesen Spieltag. -1 = der Wert der Mannschaft gilt. */
+  /** -1 = der eingebaute Standard gilt (25 Minuten). 0 heißt ausdrücklich „ohne Puffer". */
   puffer_minuten: number
   /** Was tatsächlich gilt — nur zur Anzeige, wird nicht zurückgeschickt. */
   tempo_effektiv: number
@@ -46,8 +46,6 @@ export type AdminMitglied = {
 export type Einstellungen = {
   /** Der VEREINSname. Steht auf der Einladungsseite, über den Rechtstexten und im zweiten Faktor. */
   anzeigename: string
-  /** Angenommene Durchschnittsgeschwindigkeit für die Abfahrtszeit. */
-  tempo_kmh: number
   /** Stunden nach dem Anwurf, nach denen ein Spieltag von selbst schließt. 0 = aus. */
   auto_sperre_stunden: number
   /** Freitext, kein HTML. Leer = die Seite gibt es nicht und nichts verlinkt darauf. */
@@ -70,8 +68,6 @@ export type Mannschaft = {
   id: string
   name: string
   sort: number
-  /** Zeit vor dem Anwurf, die zusätzlich eingeplant wird — je Mannschaft. */
-  puffer_minuten: number
   /**
    * Bleibt im Schema, erscheint aber nirgends mehr: Er war für eine Routenberechnung gedacht,
    * die zurückgestellt wurde. Ein leeres Feld ohne Wirkung verwirrt mehr, als die Spalte kostet.

@@ -192,16 +192,12 @@ verraten, zu welcher Mannschaft es gehört.
 Tempo, plus Puffer, auf fünf Minuten gerundet, vom Anwurf abgezogen. Voreingestellt sind 80 km/h
 und 25 Minuten. Fahrt ihr über Land, stimmt ein höheres Tempo; in der Stadt ein niedrigeres.
 
-Beide Werte gelten in drei Stufen, und die feinere schlägt die gröbere:
+Beide Werte stehen **am einzelnen Spieltag** — die Autobahn nach Köln und die Halle im
+Nachbarort teilen sich weder Tempo noch Rüstzeit. Bleiben die Felder leer, gelten 80 km/h und
+25 Minuten.
 
-| | |
-|---|---|
-| **Zentral** | Das Tempo — es beschreibt eure Straßen, nicht eine Mannschaft. |
-| **Bei der Mannschaft** | Der Puffer, unter *Mannschaften*. Was zwischen Ankunft und Anwurf passiert — parken, umziehen, einwerfen — dauert nicht überall gleich lang. |
-| **Am Spieltag** | Beides, nur für diese eine Fahrt. Die Autobahn nach Köln und die Halle im Nachbarort teilen sich weder Tempo noch Rüstzeit. |
-
-Leer heißt jeweils: von der Stufe darüber. Und über allem steht die **von Hand eingetragene
-Abfahrt** am Spieltag — die übergeht die Formel ganz.
+Und über allem steht die **von Hand eingetragene Abfahrt** am Spieltag: Die übergeht die Formel
+ganz.
 
 **Spieltage von selbst schließen.** Ein gespielter Spieltag soll keine Rückmeldungen mehr
 annehmen, sonst ändert jemand hinterher seine Zusage. Trägst du hier eine Stundenzahl ein,
@@ -255,8 +251,8 @@ Wer sich mit dem Zugang aus Einrichtungsschritt 7 anmeldet — dem Superuser —
 Das ist Absicht und der Rettungsanker: Wer sich beim Verteilen der Rollen vergreift, kommt darüber
 wieder herein.
 
-Alles, was einer Mannschaft gehört, steht im Reiter **Mannschaften**: ihr Name, ihr Puffer, ihre
-Mitglieder und ihre Kapitäne. Welche Mannschaft gemeint ist, wählst du oben aus; ein Kapitän hat
+Alles, was einer Mannschaft gehört, steht im Reiter **Mannschaften**: ihr Name, ihre Mitglieder
+und ihre Kapitäne. Welche Mannschaft gemeint ist, wählst du oben aus; ein Kapitän hat
 dort genau eine.
 
 **Kapitäne anlegen** geht ebenfalls dort. Das Passwort wird erzeugt und **genau einmal

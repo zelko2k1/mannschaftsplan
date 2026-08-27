@@ -214,11 +214,6 @@ routerAdd('GET', '/admin/api/fixtures', (e) => {
   if (vor.fehler) return vor.fehler
   const kontext = vor.kontext
 
-  // Für den Hinweis am Eingabefeld: Was stünde dort, wenn nichts von Hand eingetragen ist?
-  // Gerechnet wird im Backend, nicht im Browser — sonst zeigte die Kapitänsansicht am Ende
-  // eine andere Abfahrt als der Aushang (6.3).
-  const einst = u.einstellungen(e.app)
-
   // Abschnitt 12 · Ein Kapitän sieht nur seine Mannschaft, der Gesamt-Admin die gewählte oder
   // alle. `teamFuer` liest den Wunsch aus dem Request NUR für den Gesamt-Admin — bei einem
   // Kapitän steht dort immer die eigene, egal was er mitschickt.
@@ -242,10 +237,10 @@ routerAdd('GET', '/admin/api/fixtures', (e) => {
       puffer_minuten: s.getInt('puffer_minuten'),
       // Was tatsächlich gilt, samt Herkunft — die Eingabemaske zeigt daneben an, was ein leeres
       // Feld bedeutet, und muss dafür nicht selbst rechnen (die Formel bleibt im Backend).
-      tempo_effektiv: u.fahrzeitwerte(s, u.mannschaft(e.app, s.getString('team')), einst).tempo,
-      puffer_effektiv: u.fahrzeitwerte(s, u.mannschaft(e.app, s.getString('team')), einst).puffer,
+      tempo_effektiv: u.fahrzeitwerte(s).tempo,
+      puffer_effektiv: u.fahrzeitwerte(s).puffer,
       departure_berechnet: (() => {
-        const w = u.fahrzeitwerte(s, u.mannschaft(e.app, s.getString('team')), einst)
+        const w = u.fahrzeitwerte(s)
         return u.abfahrt(s.getDateTime('date').string(), s.getInt('km'), s.getBool('is_home'), w.tempo, w.puffer)
       })(),
       needed_players: s.getInt('needed_players'),
@@ -578,7 +573,6 @@ routerAdd('PATCH', '/admin/api/settings', (e) => {
   // R4 · Whitelist mit Grenzen. Die Grenzen spiegeln die Migration — ohne sie lehnte erst die
   // Datenbank ab, mit einer Meldung, die dem Kapitän nichts sagt.
   const ZAHLEN = {
-    tempo_kmh: { min: 20, max: 200 },
     puffer_minuten: { min: 0, max: 180 },
     auto_sperre_stunden: { min: 0, max: 168 },
   }
@@ -1103,7 +1097,6 @@ routerAdd('GET', '/admin/api/teams', (e) => {
       id: t.id,
       name: t.getString('name'),
       sort: t.getInt('sort'),
-      puffer_minuten: t.getInt('puffer_minuten'),
       startort: t.getString('startort'),
     })),
   })
@@ -1123,7 +1116,6 @@ routerAdd('POST', '/admin/api/teams', (e) => {
   const satz = new Record(e.app.findCollectionByNameOrId('teams'))
   satz.set('name', name)
   satz.set('sort', Number(koerper.sort) || 0)
-  satz.set('puffer_minuten', 25)
   satz.set('startort', '')
   try {
     e.app.save(satz)
@@ -1158,13 +1150,6 @@ routerAdd('PATCH', '/admin/api/teams/{id}', (e) => {
     if (!name || name.length > 60) return e.json(400, { message: 'Ungültige Angabe.' })
     if (name !== satz.getString('name')) geaendert.push(['name', satz.getString('name'), name])
     satz.set('name', name)
-  }
-  if ('puffer_minuten' in koerper) {
-    const zahl = Number(koerper.puffer_minuten)
-    if (!isFinite(zahl) || zahl < 0 || zahl > 180) return e.json(400, { message: 'Ungültige Angabe.' })
-    const alt = satz.getInt('puffer_minuten')
-    if (Math.round(zahl) !== alt) geaendert.push(['puffer_minuten', String(alt), String(Math.round(zahl))])
-    satz.set('puffer_minuten', Math.round(zahl))
   }
   if ('startort' in koerper) satz.set('startort', String(koerper.startort || '').slice(0, 120))
   // Die Reihenfolge ordnet nur der Gesamt-Admin — sie betrifft die Liste aller Mannschaften.

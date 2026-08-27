@@ -11,11 +11,8 @@ routerAdd('GET', '/api/board', (e) => {
   const sitzung = u.mitgliedAusSession(e)
   if (!sitzung) return e.json(401, { message: 'Keine gültige Sitzung.' })
 
-  // Einmal pro Aufruf, nicht einmal pro Spieltag: die Fahrzeit-Formel braucht dieselben Werte
-  // für alle Zeilen. Das Tempo gilt für alle, der Puffer hängt an der Mannschaft (Abschnitt 12).
   const einst = u.einstellungen(e.app)
   const team = sitzung.mitglied.getString('team')
-  const mannschaft = u.mannschaft(e.app, team)
 
   // Abschnitt 12 · JEDE dieser Abfragen ist auf die Mannschaft des Anfragenden eingegrenzt. Eine
   // davon zu vergessen hieße nicht „sieht komisch aus", sondern: Die Herren lesen die
@@ -95,7 +92,7 @@ routerAdd('GET', '/api/board', (e) => {
         ? null
         : u.alsISO(s.getDateTime('departure_manual').string()) ||
           (() => {
-            const w = u.fahrzeitwerte(s, mannschaft, einst)
+            const w = u.fahrzeitwerte(s)
             return u.abfahrt(datum, s.getInt('km'), heim, w.tempo, w.puffer)
           })(),
       responses,
