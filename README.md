@@ -231,24 +231,45 @@ im Protokoll steht die Zeile dann mit dem Vermerk „(automatisch)".
 
 ### Sicherungen
 
-Die App bringt ein Sicherungsskript mit. Es lässt die Datenbank ein Backup erzeugen, holt es ab,
-verschlüsselt es und wirft Stände älter als 30 Tage weg:
+Es gibt zwei Wege, und du brauchst beide.
+
+**Von Hand, in der Kapitänsansicht.** Unter **Einstellungen → Sicherungen** liegen vier Knöpfe:
+erstellen, herunterladen, zurückgeben, löschen. Dafür brauchst du weder SSH noch einen Dateipfad
+— die Datei landet in deinem Download-Ordner wie jeder andere Download auch. Nimm sie **vom
+Server weg**: Eine Kopie, die neben dem Original liegt, ist im Ernstfall genauso verloren wie das
+Original.
+
+> Die heruntergeladene Datei ist **unverschlüsselt** und enthält den gesamten Datenbestand, also
+> alle Namen. Sie gehört auf deinen eigenen Rechner — nicht in eine Cloud und nicht in einen
+> Gruppenchat.
+
+**Automatisch, als nächtlicher Cronjob.** Der Knopf wird gedrückt, wenn jemand daran denkt;
+dazwischen liegt der Datenverlust. Das Skript läuft auf **einer anderen Maschine** — deinem
+Rechner zu Hause, einem kleinen Server, was du hast:
 
 ```bash
-PB_SUPERUSER_EMAIL=… PB_SUPERUSER_PASSWORD=… BACKUP_DIR=/backup GPG_EMPFAENGER=… \
+PB_URL=https://dart.mein-verein.de \
+  PB_SUPERUSER_EMAIL=… PB_SUPERUSER_PASSWORD=… \
+  BACKUP_DIR=/backup GPG_EMPFAENGER=… \
   ./scripts/backup.sh
 ```
 
-Zwei Dinge dazu, die erfahrungsgemäß schiefgehen:
+> **`PB_URL` nicht vergessen.** Ohne die Angabe versucht das Skript `http://127.0.0.1:8090` —
+> also den Rechner, auf dem es gerade läuft — und bricht mit „Could not connect to server" ab.
+> Ein Tunnel ist dafür nicht nötig: Die API liegt hinter deinem normalen `https`, nur das
+> PocketBase-Dashboard ist dicht.
 
-- **Die Sicherung gehört auf eine andere Maschine als den Server.** Eine Sicherung, die neben dem
-  Original liegt, ist im Ernstfall genauso weg wie das Original. Am besten als nächtlicher
-  Cronjob auf einem Rechner bei dir zu Hause.
-- **Ohne `GPG_EMPFAENGER` liegt die Datei unverschlüsselt herum.** Darin stehen die Namen deiner
-  Mannschaft. Das Skript sagt es dir, aber es hindert dich nicht daran.
+Und **ohne `GPG_EMPFAENGER` liegt die Datei unverschlüsselt herum.** Das Skript sagt es dir, aber
+es hindert dich nicht daran.
 
-Und: **eine Rücksicherung einmal ausprobieren**, bevor du sie brauchst. Eine ungetestete Sicherung
-ist keine.
+**Zurückspielen.** In der Kapitänsansicht: Datei über „Zurückgeben" hochladen, dann bei ihr auf
+„Zurückspielen". Zur Bestätigung musst du den Dateinamen abtippen, und die App legt vorher
+automatisch eine Kopie des jetzigen Standes an — ein Fehlgriff ist damit zurücknehmbar. Danach
+startet die App neu und ist ein paar Sekunden nicht erreichbar.
+
+> **Probier das einmal aus, bevor du es brauchst.** Eine ungetestete Sicherung ist keine. Leg dir
+> dafür ein Wegwerf-Mitglied an, spiel eine ältere Sicherung ein und sieh nach, ob es verschwindet
+> — sonst weißt du hinterher nicht, ob überhaupt etwas passiert ist.
 
 ### Wenn schon ein Reverse Proxy läuft
 

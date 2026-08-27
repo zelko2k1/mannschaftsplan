@@ -513,3 +513,185 @@ routerAdd('GET', '/admin/api/audit', (e) => {
     })),
   })
 })
+
+// ── Sicherungen (Abschnitt 7.4) ─────────────────────────────────────────────────────────────
+// Warum das hier liegt und nicht nur im Skript: `scripts/backup.sh` ist für einen Cronjob auf
+// einer ANDEREN Maschine gedacht und bleibt der Rückhalt — eine Sicherung, die jemand von Hand
+// anstößt, entsteht nur, wenn er daran denkt. Aber ein Vereinsadmin, der einmal im Monat eine
+// Kopie in die Hand nehmen will, soll dafür weder SSH noch SFTP noch einen Pfad kennen müssen.
+//
+// Alles läuft über `newBackupsFilesystem()` statt über direkte Dateizugriffe: Damit funktioniert
+// es unverändert weiter, wenn jemand PocketBases S3-Ablage einschaltet.
+//
+// Der Kontext kommt aus `$app.rootCmd.context()`, NICHT aus dem Request. Ein Request-Kontext
+// wird abgebrochen, sobald die Antwort draußen ist — beim Wiederherstellen liefe die Operation
+// dann mitten hinein.
+
+// ── POST /admin/api/backup · Sicherung erzeugen ─────────────────────────────────────────────
+routerAdd('POST', '/admin/api/backup', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const raus = a.abweisen(e)
+  if (raus) return raus
+
+  const name = `pb_backup_manuell_${a.backupZeitstempel()}.zip`
+
+  try {
+    e.app.createBackup($app.rootCmd.context(), name)
+  } catch (fehler) {
+    console.log('Sicherung erzeugen:', fehler)
+    return e.json(500, { message: 'Die Sicherung konnte nicht erzeugt werden.' })
+  }
+
+  a.protokoll(e, 'backup.create', name, '', 'von Hand')
+  return e.json(200, { name: name })
+})
+
+// ── GET /admin/api/backups · Was liegt da ───────────────────────────────────────────────────
+routerAdd('GET', '/admin/api/backups', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const raus = a.abweisen(e)
+  if (raus) return raus
+
+  let eintraege = []
+  try {
+    eintraege = e.app.newBackupsFilesystem().list('')
+  } catch (fehler) {
+    console.log('Sicherungen auflisten:', fehler)
+    return e.json(500, { message: 'Die Sicherungen konnten nicht gelesen werden.' })
+  }
+
+  const items = eintraege
+    .filter((x) => x && a.backupNameOk(x.key))
+    .map((x) => ({ name: x.key, groesse: x.size, geaendert: String(x.modTime) }))
+    .sort((x, y) => (x.geaendert < y.geaendert ? 1 : -1))
+
+  return e.json(200, { items: items })
+})
+
+// ── GET /admin/api/backup/{name} · Herunterladen ────────────────────────────────────────────
+// Kein CSRF-Token nötig (GET) — der Knopf ist damit ein gewöhnlicher Link, und der Browser legt
+// die Datei in den Download-Ordner. Genau das ist der Punkt der Übung.
+routerAdd('GET', '/admin/api/backup/{name}', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const raus = a.abweisen(e)
+  if (raus) return raus
+
+  const name = e.request.pathValue('name')
+  if (!a.backupNameOk(name)) return e.json(404, { message: 'Nicht gefunden.' })
+
+  try {
+    e.app.newBackupsFilesystem().serve(e.response, e.request, name, name)
+  } catch (fehler) {
+    console.log('Sicherung ausliefern:', fehler)
+    return e.json(404, { message: 'Nicht gefunden.' })
+  }
+
+  a.protokoll(e, 'backup.download', name, '', '')
+  return null
+})
+
+// ── POST /admin/api/backup/upload · Zurückgeben ─────────────────────────────────────────────
+// Ohne diesen Weg kennt PocketBase eine heruntergeladene Datei nicht mehr, und das
+// Wiederherstellen läuft ins Leere — die Stelle, über die der erste Testlauf gestolpert ist.
+routerAdd('POST', '/admin/api/backup/upload', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const raus = a.abweisen(e)
+  if (raus) return raus
+
+  let datei
+  try {
+    datei = e.findUploadedFiles('datei')[0]
+  } catch {
+    datei = null
+  }
+  if (!datei) return e.json(400, { message: 'Keine Datei erhalten.' })
+
+  const name = String(datei.originalName || '')
+  if (!a.backupNameOk(name)) {
+    return e.json(400, { message: 'Nur Sicherungsdateien mit der Endung .zip.' })
+  }
+
+  try {
+    e.app.newBackupsFilesystem().uploadFile(datei, name)
+  } catch (fehler) {
+    console.log('Sicherung hochladen:', fehler)
+    return e.json(500, { message: 'Die Datei konnte nicht abgelegt werden.' })
+  }
+
+  a.protokoll(e, 'backup.upload', name, '', '')
+  return e.json(200, { name: name })
+})
+
+// ── DELETE /admin/api/backup/{name} · Wegräumen ─────────────────────────────────────────────
+// Ohne diesen Weg sammeln sich die Sicherungen in `pb_data` für immer an — jede so groß wie die
+// ganze Datenbank. Der Kapitän soll aufräumen können, ohne dafür auf den Server zu müssen.
+routerAdd('DELETE', '/admin/api/backup/{name}', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const raus = a.abweisen(e)
+  if (raus) return raus
+
+  const name = e.request.pathValue('name')
+  if (!a.backupNameOk(name)) return e.json(404, { message: 'Nicht gefunden.' })
+
+  try {
+    e.app.newBackupsFilesystem().delete(name)
+  } catch (fehler) {
+    console.log('Sicherung löschen:', fehler)
+    return e.json(404, { message: 'Nicht gefunden.' })
+  }
+
+  a.protokoll(e, 'backup.delete', name, '', '')
+  return e.json(200, { name: name })
+})
+
+// ── POST /admin/api/backup/{name}/restore · Zurückspielen ───────────────────────────────────
+// Der scharfe Knopf, deshalb zwei Sicherungen davor:
+//   1. Der Name muss im Rumpf noch einmal stehen. Ein Fehlklick allein reicht nicht.
+//   2. Vorher entsteht automatisch eine Kopie des AKTUELLEN Standes. Wer sich vergreift, kann
+//      zurück — sonst wäre der Fehlgriff endgültig.
+//
+// PocketBase nennt `restoreBackup` ausdrücklich experimentell und UNIX-only und will doppelt so
+// viel freien Plattenplatz wie die Sicherung. Der Prozess startet danach neu; die Antwort geht
+// deshalb VOR dem Aufruf raus.
+routerAdd('POST', '/admin/api/backup/{name}/restore', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const raus = a.abweisen(e)
+  if (raus) return raus
+
+  const name = e.request.pathValue('name')
+  if (!a.backupNameOk(name)) return e.json(404, { message: 'Nicht gefunden.' })
+
+  const koerper = e.requestInfo().body || {}
+  if (koerper.bestaetigung !== name) {
+    return e.json(400, { message: 'Zur Bestätigung den Dateinamen eintragen.' })
+  }
+
+  // Gibt es die Datei überhaupt? Sonst stünde am Ende ein Neustart ohne Grund.
+  let vorhanden = false
+  try {
+    vorhanden = e.app.newBackupsFilesystem().list('').some((x) => x && x.key === name)
+  } catch {
+    vorhanden = false
+  }
+  if (!vorhanden) return e.json(404, { message: 'Nicht gefunden.' })
+
+  const rettung = `pb_backup_vor_wiederherstellung_${a.backupZeitstempel()}.zip`
+  try {
+    e.app.createBackup($app.rootCmd.context(), rettung)
+  } catch (fehler) {
+    // Ohne Netz wird nicht gesprungen.
+    console.log('Sicherheitskopie vor Wiederherstellung:', fehler)
+    return e.json(500, { message: 'Die Sicherheitskopie schlug fehl — es wurde nichts verändert.' })
+  }
+
+  a.protokoll(e, 'backup.restore', name, rettung, 'Neustart folgt')
+
+  try {
+    e.app.restoreBackup($app.rootCmd.context(), name)
+  } catch (fehler) {
+    console.log('Wiederherstellen:', fehler)
+    return e.json(500, { message: 'Das Zurückspielen schlug fehl. Der bisherige Stand ist unverändert.' })
+  }
+
+  return e.json(200, { name: name, sicherheitskopie: rettung })
+})

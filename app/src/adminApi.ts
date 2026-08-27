@@ -51,6 +51,12 @@ export type Protokollzeile = {
   new_value: string
 }
 
+export type Sicherung = {
+  name: string
+  groesse: number
+  geaendert: string
+}
+
 /** Wird geworfen, wenn keine Kapitänssitzung (mehr) besteht — der Server antwortet mit 404. */
 export class NichtAngemeldet extends Error {
   constructor() {
@@ -131,4 +137,40 @@ export const adminApi = {
     ruf<Einstellungen>('/settings', { method: 'PATCH', body: JSON.stringify(daten) }),
 
   protokoll: () => ruf<{ items: Protokollzeile[] }>('/audit?limit=100'),
+
+  sicherungen: () => ruf<{ items: Sicherung[] }>('/backups'),
+  sicherungErstellen: () => ruf<{ name: string }>('/backup', { method: 'POST' }),
+
+  /**
+   * Nicht über ruf(): Der Rumpf ist multipart, und ein gesetztes `Content-Type:
+   * application/json` würde die Formulargrenze überschreiben — der Server fände dann keine
+   * Datei. Den CSRF-Kopf braucht es trotzdem.
+   */
+  sicherungHochladen: async (datei: File) => {
+    const formular = new FormData()
+    formular.append('datei', datei)
+    const antwort = await fetch('/admin/api/backup/upload', {
+      method: 'POST',
+      headers: { 'X-CSRF-Token': csrfToken() },
+      body: formular,
+    })
+    if (antwort.status === 404) throw new NichtAngemeldet()
+    if (!antwort.ok) {
+      const koerper = await antwort.json().catch(() => null)
+      throw new Error(koerper?.message || 'Das Hochladen hat nicht geklappt.')
+    }
+    return antwort.json() as Promise<{ name: string }>
+  },
+
+  sicherungLoeschen: (name: string) =>
+    ruf<unknown>(`/backup/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+
+  sicherungZurueckspielen: (name: string) =>
+    ruf<{ name: string; sicherheitskopie: string }>(`/backup/${encodeURIComponent(name)}/restore`, {
+      method: 'POST',
+      body: JSON.stringify({ bestaetigung: name }),
+    }),
+
+  /** Gewöhnlicher Link — der Browser legt die Datei in den Download-Ordner. */
+  sicherungUrl: (name: string) => `/admin/api/backup/${encodeURIComponent(name)}`,
 }

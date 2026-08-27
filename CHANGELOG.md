@@ -15,6 +15,16 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   API-Tests war der Seed ohnehin nie nötig — sie legen ihre eigenen Datensätze an.
 
 ### Hinzugefügt
+- **Sicherungen gehen jetzt ohne SSH.** Unter Einstellungen steht ein Abschnitt „Sicherungen":
+  erstellen, herunterladen, zurückgeben, löschen — und im Ernstfall zurückspielen. Bisher führte
+  der einzige Weg über `scripts/backup.sh`, einen SSH-Zugang und die Kenntnis mehrerer Pfade;
+  ein Vereinsadmin, der einmal im Monat eine Kopie in die Hand nehmen will, scheiterte daran.
+  Das Skript bleibt der Rückhalt für den nächtlichen Lauf auf einer anderen Maschine: Was von
+  Hand entsteht, entsteht nur, wenn jemand daran denkt. Der Rückspiel-Knopf ist bewusst schwer
+  zu bedienen — der Dateiname muss zur Bestätigung abgetippt werden, und **vorher legt die App
+  automatisch eine Sicherung des aktuellen Standes an**, damit ein Fehlgriff zurücknehmbar
+  bleibt. Die heruntergeladene Datei ist unverschlüsselt und enthält den gesamten Datenbestand;
+  das steht auch in der Oberfläche.
 - **Impressum und Datenschutzhinweis lassen sich hinterlegen.** Zwei Textfelder unter
   Einstellungen, aus denen je eine eigene Seite wird — verlinkt im Fuß des Aushangs und auf der
   Einladungsseite, und **ohne Anmeldung erreichbar**: Ein Impressum, das man erst nach dem

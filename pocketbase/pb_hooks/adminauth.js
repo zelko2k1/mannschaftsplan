@@ -117,6 +117,19 @@ module.exports = {
     u.protokollieren(e.app, wer, action, target, alt, neu)
   },
 
+  /**
+   * Dateiname einer Sicherung: kein Pfad, kein `..`, nur ZIP. Streng, weil der Name in den
+   * Ablagezugriff wandert — eine lockere Prüfung wäre hier ein Pfad-Ausbruch.
+   */
+  backupNameOk(name) {
+    return typeof name === 'string' && /^[A-Za-z0-9._-]+\.zip$/.test(name) && name.indexOf('..') === -1
+  },
+
+  /** `2026-08-27 07:54:29.123Z` → `20260827_075429`, für Dateinamen. */
+  backupZeitstempel() {
+    return new DateTime().string().replace(/[-:]/g, '').replace(' ', '_').slice(0, 15)
+  },
+
   /** R4 · Whitelist. Was nicht in SPIELTAG_FELDER steht, wird ignoriert — nicht abgelehnt. */
   spieltagUebernehmen(satz, koerper) {
     for (const feld of SPIELTAG_FELDER) {

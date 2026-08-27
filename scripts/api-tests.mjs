@@ -585,6 +585,7 @@ const ADMIN_ROUTEN = [
   '/admin/api/members',
   '/admin/api/settings',
   '/admin/api/audit',
+  '/admin/api/backups',
 ]
 
 async function adminAnmelden(passwort = PASSWORT) {
@@ -955,6 +956,114 @@ await pruefe('A11', 'Impressum und Datenschutz: eigene Seiten, ohne Anmeldung, o
 // ── T9 · MUSS ALS LETZTES LAUFEN ───────────────────────────────────────────────────────────
 // Die Sperre gilt 15 Minuten für diese IP und würde jede weitere Anmeldung blockieren. Der
 // Zähler liegt im Arbeitsspeicher: ein Neustart von PocketBase räumt ihn weg.
+// ── Sicherungen (Abschnitt 7.4) ────────────────────────────────────────────────────────────
+// Der Weg, den ein Kapitän ohne SSH geht: erstellen, herunterladen, zurückgeben, wegräumen.
+// Das Zurückspielen selbst steht NICHT hier — es ersetzt die Datenbank und startet den Prozess
+// neu. Geprüft wird stattdessen, dass die Absicherungen davor halten.
+
+await pruefe('T14', 'Sicherung erstellen, auflisten, herunterladen', async () => {
+  const { jar } = await adminAnmelden()
+  const ruf = alsKapitaen(jar)
+
+  const erzeugt = await ruf('/admin/api/backup', { method: 'POST' })
+  gleich(erzeugt.status, 200, 'POST /admin/api/backup')
+  const name = (await erzeugt.json()).name
+  stimmt(/^pb_backup_manuell_\d{8}_\d{6}\.zip$/.test(name), `Dateiname unerwartet: ${name}`)
+
+  const liste = await (await ruf('/admin/api/backups')).json()
+  stimmt(liste.items.some((x) => x.name === name), 'Die neue Sicherung fehlt in der Liste')
+  stimmt(
+    liste.items.every((x) => x.name.endsWith('.zip')),
+    'In der Liste stehen Dateien, die keine Sicherung sind',
+  )
+
+  const datei = await ruf(`/admin/api/backup/${name}`)
+  gleich(datei.status, 200, 'GET Download')
+  const bytes = new Uint8Array(await datei.arrayBuffer())
+  stimmt(bytes.length > 1000, `Datei ist nur ${bytes.length} Bytes groß`)
+  stimmt(bytes[0] === 0x50 && bytes[1] === 0x4b, 'Die Datei beginnt nicht mit der ZIP-Signatur')
+
+  gleich((await ruf(`/admin/api/backup/${name}`, { method: 'DELETE' })).status, 200, 'DELETE')
+  const danach = await (await ruf('/admin/api/backups')).json()
+  stimmt(!danach.items.some((x) => x.name === name), 'Die Sicherung ist nach dem Löschen noch da')
+})
+
+await pruefe('T14b', 'Zurückgegebene Datei landet wieder im Bestand', async () => {
+  const { jar } = await adminAnmelden()
+  const ruf = alsKapitaen(jar)
+
+  const name = (await (await ruf('/admin/api/backup', { method: 'POST' })).json()).name
+  const bytes = new Uint8Array(await (await ruf(`/admin/api/backup/${name}`)).arrayBuffer())
+  await ruf(`/admin/api/backup/${name}`, { method: 'DELETE' })
+
+  // Multipart: KEIN Content-Type von Hand setzen, sonst fehlt die Formulargrenze.
+  const formular = new FormData()
+  formular.append('datei', new Blob([bytes]), name)
+  const hoch = await roh('/admin/api/backup/upload', {
+    method: 'POST',
+    headers: { Cookie: alsHeader(jar), 'X-CSRF-Token': jar.dz_admin_csrf },
+    body: formular,
+  })
+  gleich(hoch.status, 200, 'POST /admin/api/backup/upload')
+
+  const liste = await (await ruf('/admin/api/backups')).json()
+  stimmt(liste.items.some((x) => x.name === name), 'Die zurückgegebene Datei fehlt im Bestand')
+
+  await ruf(`/admin/api/backup/${name}`, { method: 'DELETE' })
+})
+
+await pruefe('T14c', 'Nur Sicherungsdateien werden angenommen', async () => {
+  const { jar } = await adminAnmelden()
+
+  const formular = new FormData()
+  formular.append('datei', new Blob([new Uint8Array([1, 2, 3])]), 'schad.sh')
+  const antwort = await roh('/admin/api/backup/upload', {
+    method: 'POST',
+    headers: { Cookie: alsHeader(jar), 'X-CSRF-Token': jar.dz_admin_csrf },
+    body: formular,
+  })
+  gleich(antwort.status, 400, 'Status für eine Datei ohne .zip')
+
+  const liste = await (await alsKapitaen(jar)('/admin/api/backups')).json()
+  stimmt(!liste.items.some((x) => x.name.includes('schad')), 'Die abgelehnte Datei liegt trotzdem da')
+})
+
+await pruefe('T14d', 'Zurückspielen ohne abgetippten Namen passiert nicht', async () => {
+  const { jar } = await adminAnmelden()
+  const ruf = alsKapitaen(jar)
+
+  const name = (await (await ruf('/admin/api/backup', { method: 'POST' })).json()).name
+  try {
+    gleich(
+      (await ruf(`/admin/api/backup/${name}/restore`, { method: 'POST', body: '{}' })).status,
+      400,
+      'ohne Bestätigung',
+    )
+    gleich(
+      (
+        await ruf(`/admin/api/backup/${name}/restore`, {
+          method: 'POST',
+          body: JSON.stringify({ bestaetigung: 'etwas-anderes.zip' }),
+        })
+      ).status,
+      400,
+      'mit falscher Bestätigung',
+    )
+    gleich(
+      (
+        await ruf('/admin/api/backup/gibtsnicht.zip/restore', {
+          method: 'POST',
+          body: JSON.stringify({ bestaetigung: 'gibtsnicht.zip' }),
+        })
+      ).status,
+      404,
+      'auf eine Datei, die es nicht gibt',
+    )
+  } finally {
+    await ruf(`/admin/api/backup/${name}`, { method: 'DELETE' })
+  }
+})
+
 await pruefe('T9', '6× falsches Passwort → gesperrt, auch für das richtige', async () => {
   let letzter = null
   for (let i = 0; i < 6; i++) letzter = (await adminAnmelden('immer-falsch')).antwort

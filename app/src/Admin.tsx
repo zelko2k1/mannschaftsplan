@@ -6,6 +6,7 @@ import {
   type AdminSpieltag,
   type Einstellungen as EinstellungenDaten,
   type Protokollzeile,
+  type Sicherung,
 } from './adminApi'
 import { ausEingabe, fuerEingabe, systemDatum, systemDatumZeit } from './format'
 import './admin.css'
@@ -592,6 +593,7 @@ function Einstellungen({ abgemeldet }: { abgemeldet: () => void }) {
   }
 
   return (
+    <>
     <form onSubmit={speichern}>
       {fehler && (
         <p className="fehler" role="status">
@@ -762,6 +764,202 @@ function Einstellungen({ abgemeldet }: { abgemeldet: () => void }) {
         </div>
       </div>
     </form>
+    <Sicherungen abgemeldet={abgemeldet} />
+    </>
+  )
+}
+
+/**
+ * Sicherungen von Hand — Abschnitt 7.4.
+ *
+ * Der Rückhalt bleibt `scripts/backup.sh` als nächtlicher Cronjob auf einer anderen Maschine:
+ * Was hier entsteht, entsteht nur, wenn jemand daran denkt. Der Zweck dieses Abschnitts ist ein
+ * anderer — dass ein Kapitän ohne SSH, ohne SFTP und ohne Kenntnis irgendeines Pfades eine Kopie
+ * in die Hand bekommt und sie im Ernstfall auch wieder einspielen kann.
+ */
+function Sicherungen({ abgemeldet }: { abgemeldet: () => void }) {
+  // Derselbe Ladezustand wie bei Spieltagen, Mitgliedern und Protokoll.
+  const { items: liste, fehler, setFehler, laden } = useListe<Sicherung>(adminApi.sicherungen, abgemeldet)
+  const [laeuft, setLaeuft] = useState('')
+  const [zurueck, setZurueck] = useState('')
+  const [getippt, setGetippt] = useState('')
+  const [neustart, setNeustart] = useState(false)
+
+  async function fuehreAus(was: string, tun: () => Promise<unknown>) {
+    setFehler('')
+    setLaeuft(was)
+    try {
+      await tun()
+      await laden()
+    } catch (x) {
+      if (x instanceof NichtAngemeldet) return abgemeldet()
+      setFehler(x instanceof Error ? x.message : 'Das hat nicht geklappt.')
+    } finally {
+      setLaeuft('')
+    }
+  }
+
+  async function zurueckspielen() {
+    setFehler('')
+    setLaeuft('restore')
+    try {
+      await adminApi.sicherungZurueckspielen(zurueck)
+      // PocketBase startet sich danach selbst neu — bis dahin antwortet nichts.
+      setNeustart(true)
+      setZurueck('')
+      setGetippt('')
+      setTimeout(() => window.location.reload(), 8000)
+    } catch (x) {
+      if (x instanceof NichtAngemeldet) return abgemeldet()
+      setFehler(x instanceof Error ? x.message : 'Das hat nicht geklappt.')
+      setLaeuft('')
+    }
+  }
+
+  if (neustart) {
+    return (
+      <div className="satz">
+        <div className="satz__kopf">
+          <span className="satz__name">Wird zurückgespielt …</span>
+          <span className="satz__zusatz">
+            Die App startet gerade neu und ist ein paar Sekunden lang nicht erreichbar. Diese Seite
+            lädt sich gleich von selbst neu.
+          </span>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="satz">
+      <div className="satz__kopf">
+        <span className="satz__name">Sicherungen</span>
+        <span className="satz__zusatz">
+          Eine Sicherung enthält <strong>alles</strong> — Mitglieder, Spieltage, Rückmeldungen. Die
+          heruntergeladene Datei ist unverschlüsselt: Sie gehört auf deinen eigenen Rechner, nicht
+          in eine Cloud und nicht in einen Gruppenchat. Und sie gehört{' '}
+          <strong>weg vom Server</strong>, denn eine Kopie neben dem Original ist im Ernstfall
+          genauso verloren wie das Original.
+        </span>
+      </div>
+
+      {fehler && (
+        <p className="fehler" role="status">
+          {fehler}
+        </p>
+      )}
+
+      <div className="satz__aktionen">
+        <button
+          type="button"
+          className="knopf"
+          disabled={laeuft !== ''}
+          onClick={() => fuehreAus('create', adminApi.sicherungErstellen)}
+        >
+          {laeuft === 'create' ? 'Erstellt …' : 'Sicherung erstellen'}
+        </button>
+        <label className="feld" style={{ flex: '1 1 14rem' }}>
+          <span>Datei zurückgeben</span>
+          <input
+            type="file"
+            accept=".zip"
+            disabled={laeuft !== ''}
+            onChange={(x) => {
+              const datei = x.target.files?.[0]
+              x.target.value = ''
+              if (datei) fuehreAus('upload', () => adminApi.sicherungHochladen(datei))
+            }}
+          />
+        </label>
+      </div>
+
+      {liste === null ? (
+        <p className="namen">Einen Moment …</p>
+      ) : liste.length === 0 ? (
+        <p className="namen">Noch keine Sicherung vorhanden.</p>
+      ) : (
+        <ul className="namen" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+          {liste.map((x) => (
+            <li key={x.name} style={{ padding: '0.35rem 0', borderTop: 'var(--linie)' }}>
+              <div
+                style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'baseline' }}
+              >
+                <a href={adminApi.sicherungUrl(x.name)} style={{ flex: '1 1 16rem' }}>
+                  {x.name}
+                </a>
+                <span className="satz__zusatz">
+                  {Math.max(1, Math.round(x.groesse / 1024))} KB
+                </span>
+                <button
+                  type="button"
+                  className="knopf"
+                  disabled={laeuft !== ''}
+                  onClick={() => {
+                    if (!window.confirm(`„${x.name}" vom Server löschen?`)) return
+                    fuehreAus('delete', () => adminApi.sicherungLoeschen(x.name))
+                  }}
+                >
+                  Löschen
+                </button>
+                <button
+                  type="button"
+                  className="knopf knopf--gefahr"
+                  disabled={laeuft !== ''}
+                  onClick={() => {
+                    setZurueck(x.name)
+                    setGetippt('')
+                    setFehler('')
+                  }}
+                >
+                  Zurückspielen
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {zurueck && (
+        <div className="token">
+          <p className="token__hinweis">Das ersetzt den gesamten heutigen Stand</p>
+          <p style={{ margin: '0 0 0.5rem', fontSize: '0.85rem' }}>
+            Alles, was seit <strong>{zurueck}</strong> passiert ist, ist danach weg. Vom jetzigen
+            Stand wird vorher automatisch eine Kopie angelegt — ein Fehlgriff lässt sich also
+            zurücknehmen. Tipp zur Bestätigung den Dateinamen ab:
+          </p>
+          <label className="feld">
+            <span>Dateiname</span>
+            <input
+              value={getippt}
+              onChange={(x) => setGetippt(x.target.value)}
+              placeholder={zurueck}
+              autoComplete="off"
+            />
+          </label>
+          <div className="satz__aktionen">
+            <button
+              type="button"
+              className="knopf knopf--gefahr"
+              disabled={getippt !== zurueck || laeuft !== ''}
+              onClick={zurueckspielen}
+            >
+              {laeuft === 'restore' ? 'Spielt zurück …' : 'Jetzt zurückspielen'}
+            </button>
+            <button
+              type="button"
+              className="knopf"
+              disabled={laeuft !== ''}
+              onClick={() => {
+                setZurueck('')
+                setGetippt('')
+              }}
+            >
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -780,6 +978,11 @@ const WAS: Record<string, string> = {
   'fixture.delete': 'Spieltag gelöscht',
   'settings.update': 'Einstellung geändert',
   'fixture.lock': 'Spieltag gesperrt',
+  'backup.create': 'Sicherung erstellt',
+  'backup.download': 'Sicherung heruntergeladen',
+  'backup.upload': 'Sicherung hochgeladen',
+  'backup.delete': 'Sicherung gelöscht',
+  'backup.restore': 'Sicherung zurückgespielt',
 }
 
 function Protokoll({ abgemeldet }: { abgemeldet: () => void }) {
