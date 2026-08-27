@@ -13,6 +13,11 @@ import { describe, expect, it } from 'vitest'
  * ist die zweitbeste Lösung: Nicht verhindern, dass die beiden auseinanderlaufen, sondern es
  * merken. Wer `--papier` ändert und die Einladungsseite vergisst, fällt hier auf — und nicht
  * erst dem Menschen auf, der den Link antippt und eine Seite in einem anderen Weiß bekommt.
+ *
+ * Warum die Datei neben `vite.config.ts` liegt und nicht bei den anderen Prüfungen in `src/`:
+ * Sie liest Dateien, braucht also `node:fs`. `tsconfig.app.json` kennt bewusst keine
+ * Node-Typen — Browser-Code soll nicht versehentlich `process` benutzen können. Diese Prüfung
+ * gehört deshalb zum Node-Projekt. Sie prüft ohnehin nicht die Anwendung, sondern das Repo.
  */
 
 const lies = (pfad: string) => readFileSync(new URL(pfad, import.meta.url), 'utf8')
@@ -34,8 +39,8 @@ const lang = (hex: string) =>
     : hex.toLowerCase()
 
 describe('Die Palette der servergerenderten Seiten', () => {
-  const token = palette(lies('./index.css'))
-  const seiten = lies('../../pocketbase/pb_hooks/seiten.js')
+  const token = palette(lies('./src/index.css'))
+  const seiten = lies('../pocketbase/pb_hooks/seiten.js')
   const benutzt = [...seiten.matchAll(/#[0-9a-fA-F]{3,8}\b/g)].map((t) => lang(t[0]))
 
   it('die Token sind überhaupt gefunden worden', () => {
