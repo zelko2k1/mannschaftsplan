@@ -7,6 +7,16 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+### Geändert
+- **Die erste Mannschaft einer frisch aufgesetzten Anwendung heißt „Erste Mannschaft"** statt
+  „Mannschaftsplan". Sie wurde nach dem Vereinsnamen benannt, und der stand ab Werk auf dem Namen
+  der Anwendung — im Kopf der Kapitänsansicht, in der Gruppierung unter „Konten" und auf der
+  Einladungsseite, die der Messenger als Vorschau abruft, stand damit die Software statt einer
+  Mannschaft. Ein Platzhalter, der aussieht wie eine Entscheidung, wird nicht umbenannt.
+  **Für bestehende Installationen ändert sich nichts**: Wer seinen Vereinsnamen gesetzt hatte,
+  behält ihn wie bisher, und wo die Migration schon gelaufen ist, wird nichts angefasst — es soll
+  niemandem seine Mannschaft umbenannt werden.
+
 ### Behoben
 - **Ohne Mannschaft führt kein Weg mehr ins Leere.** Wer die letzte Mannschaft auflöst, stand
   bisher vor drei Sackgassen: Der Reiter „Mannschaft" hing unbegrenzt in „Einen Moment …", weil

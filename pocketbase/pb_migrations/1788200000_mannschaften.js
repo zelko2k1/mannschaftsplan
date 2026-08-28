@@ -1,6 +1,13 @@
 /// <reference path="../pb_data/types.d.ts" />
 // Mehrere Mannschaften unter einem Dach — Abschnitt 12.
 //
+// **Nachträglich geändert am 28.08.2026** — der Name der ersten Mannschaft, siehe Abschnitt 4
+// weiter unten. Eine bereits angewandte Migration anzufassen ist normalerweise falsch; hier ist
+// es die einzig richtige Wahl. PocketBase merkt sich Migrationen am Dateinamen: Wo sie gelaufen
+// ist, ändert sich nichts, und das ist gewollt — niemandem soll seine Mannschaft umbenannt
+// werden. Eine neue Migration könnte genau das nicht unterscheiden. Die Änderung wirkt also nur
+// dort, wo noch nichts steht: bei der nächsten frisch aufgesetzten Instanz.
+//
 // Bis hierher war die App für GENAU eine Mannschaft gebaut: ein Satz Einstellungen, ein
 // Kapitän, und der war ein PocketBase-Superuser. Ein Verein mit sieben Mannschaften bräuchte
 // nach diesem Muster sieben Instanzen — siebenmal sichern, siebenmal aktualisieren, siebenmal
@@ -122,12 +129,23 @@ migrate(
     // ── 4 · Die vorhandenen Daten übernehmen ────────────────────────────────────────────────
     // Aus dem bisherigen einen Satz Einstellungen wird die erste Mannschaft. Für den Betreiber
     // sieht danach alles aus wie vorher, nur steht oben eine Auswahl mit einem Eintrag.
-    let name = 'Mannschaft'
+    // Der Anzeigename wird übernommen, WENN der Betreiber ihn gesetzt hat — dann trägt seine
+    // bisherige Mannschaft den Namen, den er ihr gegeben hat, und nach der Migration sieht alles
+    // aus wie vorher.
+    //
+    // Steht dort noch die ausgelieferte Vorgabe, ist das kein Name, sondern der Name der
+    // Anwendung. Eine frisch aufgesetzte Instanz hieß damit „Mannschaftsplan": im Kopf der
+    // Kapitänsansicht, in der Gruppierung unter „Konten" und auf der Einladungsseite, die der
+    // Messenger als Vorschau abruft. Ein Platzhalter, der aussieht wie eine Entscheidung, wird
+    // nicht umbenannt — deshalb einer, der offensichtlich einer ist.
+    const VORGABE_DER_ANWENDUNG = 'Mannschaftsplan'
+    let name = 'Erste Mannschaft'
     let puffer = 25
     try {
       const einst = app.findAllRecords('settings')[0]
       if (einst) {
-        name = einst.getString('anzeigename') || name
+        const gesetzt = einst.getString('anzeigename')
+        if (gesetzt && gesetzt !== VORGABE_DER_ANWENDUNG) name = gesetzt
         const p = einst.getInt('puffer_minuten')
         if (p >= 0) puffer = p
       }
