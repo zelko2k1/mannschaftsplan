@@ -1,19 +1,15 @@
 import { useId } from 'react'
 import type { Board, Fahrt, Spieltag, Status } from './api'
-import { plaetze as plaetzeText, tag, uhrzeit, wannUngefaehr } from './format'
+import { ANTWORTEN, plaetze as plaetzeText, tag, uhrzeit, wannUngefaehr } from './format'
 import { Fehler } from './Meldung'
-
-const ANTWORTEN: { wert: Status; text: string }[] = [
-  { wert: 'yes', text: 'Dabei' },
-  { wert: 'maybe', text: 'Unsicher' },
-  { wert: 'no', text: 'Kann nicht' },
-]
 
 type Props = {
   spieltag: Spieltag
   board: Board
   offen: boolean
   fehler?: string
+  /** Was zuletzt gespeichert wurde. Steht neben den Knöpfen und wird angesagt. */
+  gemeldet?: string
   laeuft: boolean
   aufklappen: () => void
   setzeAntwort: (status: Status | null) => void
@@ -38,6 +34,7 @@ export default function Zeile({
   board,
   offen,
   fehler,
+  gemeldet,
   laeuft,
   aufklappen,
   setzeAntwort,
@@ -309,6 +306,9 @@ export default function Zeile({
               ) : null
             })()}
 
+            {/* Der Erfolg bekommt eine Zeile wie der Fehler. Sie steht am Ende des
+                aufgeklappten Bereichs, wo auch die Fehlerzeile steht, und wird angesagt. */}
+            <div role="status">{gemeldet ? <p className="gemeldet">{gemeldet}</p> : null}</div>
             <Fehler text={fehler} />
           </div>
         )}

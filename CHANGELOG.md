@@ -7,7 +7,44 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+- **Der Kapitän sieht endlich, ob seine Mannschaft vollzählig ist.** In seiner Spieltagsliste
+  steht jetzt derselbe Satz wie im Aushang — `4/4 zugesagt · 2 Plätze frei · kein Fahrer` —, und
+  ein aufklappbarer Bereich je Spieltag lässt ihn **Rückmeldungen korrigieren**: wer telefonisch
+  zusagt, wird dort eingetragen. Auch an abgeschlossenen Spieltagen; genau dafür war die Route
+  gebaut. Sie existierte seit dem Bau der Kapitänsansicht samt Protokolleintrag und Prüfung auf
+  die eigene Mannschaft — nur hatte sie nie eine Oberfläche bekommen, und die Spieltagsroute
+  lieferte die Rückmeldungen gar nicht erst mit. Damit wird die Aussage aus PRODUCT.md erstmals
+  eingelöst: „ohne selbst nachzuzählen und ohne jemanden einzeln anzuschreiben."
+- **Der Einladungslink lässt sich kopieren und weitergeben.** Vorher stand er als markierbarer
+  Text da — am Handy hieß das langes Antippen und hoffen — und ein Reiterwechsel vernichtete ihn
+  endgültig; wiederherstellen ging nur, indem man den gerade verschickten ungültig machte. Jetzt:
+  „Link kopieren" mit Rückmeldung, „Weitergeben" über die Teilen-Funktion des Geräts, und der
+  Kasten bleibt stehen, bis man „Verschickt" antippt. Er sagt außerdem, was der Kapitän beim
+  Verschicken dazusagen muss: **dass der Link persönlich ist und ein Passwort ersetzt** (R14).
+
+### Geändert
+- **Der Aushang beginnt bei dem, was kommt.** Der Spielplan kommt nach Datum sortiert, also
+  standen mitten in der Saison zuerst zwölf vergangene Spieltage und der nächste Termin unterhalb
+  des Bildschirms. Vergangenes liegt jetzt zusammengefaltet obenauf hinter „Vorbei (12)".
+- **Nachfragen vor Unwiderruflichem sprechen die Sprache der Anwendung.** Die sieben
+  `window.confirm` sind weg — ein Dialog des Betriebssystems mit runden Ecken in einer App, die
+  „0 px Ecken, keine Schatten" zur Markenfestlegung erklärt hat, und in jedem Browser für die
+  Sitzung abschaltbar. An ihrer Stelle steht der Kasten, den das Zurückspielen einer Sicherung
+  schon benutzt, an der Zeile, aus der er aufgerufen wurde. **„Neues Passwort" fragt überhaupt
+  zum ersten Mal**: Es sperrt eine Person aus und stand bisher ohne jede Rückfrage zwischen zwei
+  bestätigten Handlungen.
+
 ### Behoben
+- **Der Erfolg ist nicht mehr stumm.** Wer „Dabei" antippte, sah nur einen sich füllenden Knopf.
+  Auf einer trägen Verbindung tippte man deshalb nochmal — und nahm damit die eigene Zusage
+  zurück, ohne es zu erfahren. Jetzt steht dort eine Zeile Klartext, die auch angesagt wird:
+  „Gespeichert: Dabei." Der Grundsatz „Ehrlich statt hübsch" verlangt beim Fehler eine Zeile
+  Klartext; er verlangt beim Erfolg nicht Schweigen.
+- **Die Anmeldung mit zweitem Faktor meldet den Erfolg nicht mehr als Fehler.** Sobald der Server
+  den Code verlangte, erschien das Codefeld zusammen mit einem rot umrandeten Fehlerkasten,
+  obwohl das Passwort gestimmt hatte. Jetzt steht dort: „Passwort stimmt. Jetzt der Code aus
+  deiner Authenticator-App."
 - **Der Fokusrahmen auf der Reiterleiste war unsichtbar.** Er liegt zwei Pixel außerhalb des
   Knopfes — also auf der Tafel, und die ist seit dem Umbau der Reiter in Tinte. Tinte auf Tinte,
   gemessene 1,0:1: Wer mit der Tastatur durch die Kapitänsansicht ging, sah nicht mehr, wo er

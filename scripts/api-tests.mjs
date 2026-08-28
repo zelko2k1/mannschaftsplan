@@ -1514,6 +1514,58 @@ await pruefe('T16b', 'Eine Mannschaft mit Inhalt lässt sich nicht auflösen', a
   )
 })
 
+await pruefe('T20', 'Die Spieltagsliste des Kapitäns trägt den Stand der Mannschaft', async () => {
+  // Bis hierher lieferte die Route nur Gegner, Datum und Entfernung. Der Kapitän konnte damit
+  // nicht sehen, ob seine Mannschaft vollzählig ist — genau das, wofür es das Produkt gibt.
+  const { satz: mitglied, klartext } = await testMitglied('t17')
+  const spieltag = await testSpieltag({ opponent_town: 'test-t17', is_home: false, km: 30 })
+  const { jar } = await anmelden(klartext)
+  const alsIch = alsMitglied(jar)
+
+  await alsIch(`/api/response/${spieltag.id}`, { method: 'PUT', body: JSON.stringify({ status: 'yes' }) })
+  await alsIch(`/api/ride/${spieltag.id}`, { method: 'PUT', body: JSON.stringify({ driving: true, seats: 4 }) })
+
+  const { jar: chef } = await adminAnmelden()
+  const liste = await (await alsKapitaen(chef)('/admin/api/fixtures')).json()
+  const meiner = liste.items.find((s) => s.id === spieltag.id)
+  gleich(meiner.responses[mitglied.id], 'yes', 'die Zusage steht in der Antwort')
+  gleich(meiner.rides.length, 1, 'die Fahrt steht in der Antwort')
+  gleich(meiner.rides[0].seats, 4, 'die Plätze stehen in der Antwort')
+  gleich(meiner.rides[0].taken, 0, 'belegte Plätze werden mitgezählt')
+})
+
+await pruefe('T20b', 'Der Kapitän korrigiert eine Rückmeldung, auch an einem gesperrten Spieltag', async () => {
+  const { satz: mitglied } = await testMitglied('t17b')
+  const spieltag = await testSpieltag({ opponent_town: 'test-t17b' })
+  const { jar: chef } = await adminAnmelden()
+  const alsChef = alsKapitaen(chef)
+
+  const stand = async () => {
+    const liste = await (await alsChef('/admin/api/fixtures')).json()
+    return liste.items.find((s) => s.id === spieltag.id).responses[mitglied.id]
+  }
+  const setzen = (status) =>
+    alsChef(`/admin/api/response/${spieltag.id}/${mitglied.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    })
+
+  gleich((await setzen('yes')).status, 200, 'setzen')
+  gleich(await stand(), 'yes', 'die Korrektur steht in der Liste')
+
+  // Genau dafür ist die Route da: Wer telefonisch absagt, wird auch nach dem Abschließen noch
+  // eingetragen. Die Route des Mitglieds lehnt das ab, diese nicht.
+  await alsChef(`/admin/api/fixtures/${spieltag.id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ locked: true }),
+  })
+  gleich((await setzen('no')).status, 200, 'auch gesperrt')
+  gleich(await stand(), 'no', 'die Korrektur greift trotz Sperre')
+
+  gleich((await setzen(null)).status, 200, 'zurücknehmen')
+  gleich(await stand(), undefined, 'zurückgenommen')
+})
+
 await pruefe('A10b', 'Tempo und Puffer stehen am Spieltag, sonst gilt der Standard', async () => {
   const { jar: kapitaen } = await adminAnmelden()
   const ruf = alsKapitaen(kapitaen)

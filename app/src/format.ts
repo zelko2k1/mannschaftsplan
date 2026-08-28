@@ -56,6 +56,19 @@ export function plaetze(frei: number): string {
   return frei === 1 ? '1 Platz frei' : `${frei} Plätze frei`
 }
 
+/**
+ * Die drei Wörter für eine Rückmeldung. Sie stehen hier und nicht im Aushang, weil die
+ * Kapitänsansicht dieselben braucht: Wer eine Rückmeldung korrigiert, soll dieselben drei
+ * Wörter sehen wie der, dessen Rückmeldung er korrigiert. Zweimal hingeschrieben wären es
+ * zwei Wahrheiten, und die Kapitänsansicht liegt in einem eigenen Bündelteil — ein Import
+ * aus `Zeile.tsx` zöge den ganzen Aushang mit hinüber.
+ */
+export const ANTWORTEN: { wert: 'yes' | 'maybe' | 'no'; text: string }[] = [
+  { wert: 'yes', text: 'Dabei' },
+  { wert: 'maybe', text: 'Unsicher' },
+  { wert: 'no', text: 'Kann nicht' },
+]
+
 // ── Kapitänsansicht ─────────────────────────────────────────────────────────────────────────
 // Dort gilt das Gegenteil der Regel oben: der Aushang soll überall gleich aussehen, die
 // Verwaltung dagegen so, wie der Rechner des Kapitäns Datum und Uhrzeit schreibt. Reihenfolge,

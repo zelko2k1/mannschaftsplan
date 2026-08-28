@@ -222,6 +222,30 @@ routerAdd('GET', '/admin/api/fixtures', (e) => {
   const alle = team
     ? e.app.findRecordsByFilter('fixtures', 'team = {:t}', 'date', 500, 0, { t: team })
     : e.app.findRecordsByFilter('fixtures', "id != ''", 'date', 500, 0)
+
+  // Der Kapitän soll sehen, was seine Mannschaft sieht: „4/4 zugesagt · 2 Plätze frei". Ohne
+  // diese drei Felder stand in seiner Liste nur, gegen wen und wann gespielt wird — und der
+  // Zweck des Produkts laut PRODUCT.md ist gerade, dass er NICHT nachzählen muss.
+  //
+  // Wie im Aushang alles auf einmal holen und im Speicher zuordnen, statt pro Spieltag drei
+  // Abfragen zu fahren. Die Eingrenzung geht über die Beziehung zum Spieltag, weil an
+  // Rückmeldung, Fahrt und Platz selbst kein Mannschaftsfeld hängt — beim Gesamt-Admin ohne
+  // gewählte Mannschaft fällt sie weg, er darf ohnehin alles sehen.
+  const eingrenzung = team ? 'fixture.team = {:t}' : "id != ''"
+  const parameter = team ? { t: team } : {}
+  const proSpieltag = (satzListe) => {
+    const map = {}
+    for (const satz of satzListe) {
+      const schluessel = satz.getString('fixture')
+      if (!map[schluessel]) map[schluessel] = []
+      map[schluessel].push(satz)
+    }
+    return map
+  }
+  const rMap = proSpieltag(e.app.findRecordsByFilter('responses', eingrenzung, '', 5000, 0, parameter))
+  const fMap = proSpieltag(e.app.findRecordsByFilter('rides', eingrenzung, '', 5000, 0, parameter))
+  const pMap = proSpieltag(e.app.findRecordsByFilter('seat_claims', eingrenzung, '', 5000, 0, parameter))
+
   return e.json(200, {
     items: alle.map((s) => ({
       id: s.id,
@@ -246,6 +270,26 @@ routerAdd('GET', '/admin/api/fixtures', (e) => {
       })(),
       needed_players: s.getInt('needed_players'),
       locked: s.getBool('locked'),
+      // Dieselbe Gestalt wie im Aushang (board.pb.js), damit die Kapitänsansicht denselben
+      // Satz rechnen kann und nicht eine zweite, abweichende Wahrheit entsteht.
+      responses: (() => {
+        const r = {}
+        for (const satz of rMap[s.id] || []) r[satz.getString('member')] = satz.getString('status')
+        return r
+      })(),
+      rides: (() => {
+        const belegung = {}
+        for (const p of pMap[s.id] || []) {
+          const fahrt = p.getString('ride')
+          belegung[fahrt] = (belegung[fahrt] || 0) + 1
+        }
+        return (fMap[s.id] || []).map((f) => ({
+          id: f.id,
+          member: f.getString('member'),
+          seats: f.getInt('seats'),
+          taken: belegung[f.id] || 0,
+        }))
+      })(),
     })),
   })
 })

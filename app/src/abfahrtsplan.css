@@ -418,3 +418,34 @@
   font-size: 0.88rem;
   color: var(--grau);
 }
+
+/* Die Bestätigung nach dem Antippen. Sie steht dort, wo auch die Fehlerzeile steht, und sieht
+   aus wie ihr ruhiges Gegenstück: dieselbe Stelle, dieselbe Größe, aber Tinte statt Rot und
+   eine Kante statt eines Rahmens — es ist keine Warnung, es ist eine Quittung. */
+.gemeldet {
+  margin: 0.6rem 0 0;
+  padding: 0.3rem 0 0.3rem 0.6rem;
+  border-left: 4px solid var(--tinte); /* impeccable-disable-line side-tab -- Tinte auf Papier, Gegenstück zum Fehlerrahmen */
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+/* Der Aushang beginnt bei dem, was kommt. Was vorbei ist, liegt darunter zusammengefaltet —
+   erreichbar, aber nicht im Weg. Der Schalter sieht aus wie eine Zeile ohne Inhalt: Er gehört
+   in den Plan und ist kein Bedienelement aus einer anderen Welt. */
+.rueckschau {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.6rem 0.9rem;
+  background: none;
+  border: 0;
+  color: var(--tinte-still);
+  font-family: var(--schrift-eng);
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+  cursor: pointer;
+}

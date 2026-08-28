@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { api, KeineSitzung, type Board, type Spieltag, type Status } from './api'
 import Zeile from './Zeile'
+import { ANTWORTEN, wannUngefaehr } from './format'
 import './abfahrtsplan.css'
 
 /**
@@ -60,6 +61,9 @@ function Abfahrtsplan() {
   const [offen, setOffen] = useState<string | null>(null)
   const [fehler, setFehler] = useState<Record<string, string>>({})
   const [laeuft, setLaeuft] = useState<Set<string>>(new Set())
+  const [zeigeVorbei, setZeigeVorbei] = useState(false)
+  /** Was zuletzt gespeichert wurde — der Aushang sagte den Erfolg bisher nie an. */
+  const [gemeldet, setGemeldet] = useState('')
 
   const laden = useCallback(async () => {
     try {
@@ -83,9 +87,21 @@ function Abfahrtsplan() {
    * eine Zeile Klartext an der betroffenen Zeile, die stehen bleibt.
    */
   const aendern = useCallback(
-    async (spieltagId: string, sofort: (s: Spieltag) => Spieltag, senden: () => Promise<unknown>) => {
+    async (
+      spieltagId: string,
+      sofort: (s: Spieltag) => Spieltag,
+      senden: () => Promise<unknown>,
+      /**
+       * Was danach dasteht. Der Grundsatz „Ehrlich statt hübsch" (6.5) verlangt beim Fehler eine
+       * Zeile Klartext — er verlangt beim Erfolg nicht Schweigen. Bisher füllte sich nur der
+       * Knopf: Wer auf einer trägen Verbindung nicht sicher war, ob es angekommen ist, tippte
+       * nochmal — und nahm damit seine Zusage zurück, ohne es zu erfahren.
+       */
+      meldung: string,
+    ) => {
       if (!board) return
       const vorher = board
+      setGemeldet('')
 
       setBoard({
         ...board,
@@ -103,6 +119,7 @@ function Abfahrtsplan() {
         // Nachladen, weil der Server Dinge weiß, die der Client nicht raten kann: wen ein
         // zurückgezogenes Auto mitgerissen hat, wer in der Zwischenzeit eingestiegen ist.
         setBoard(await api.board())
+        setGemeldet(meldung)
       } catch (problem) {
         if (problem instanceof KeineSitzung) {
           setLage('ohne-sitzung')
@@ -165,6 +182,8 @@ function Abfahrtsplan() {
   }
 
   const ich = board.members.find((m) => m.id === board.me)
+  const vorbei = board.fixtures.filter((s) => wannUngefaehr(s.date) === 'vorbei')
+  const kommend = board.fixtures.filter((s) => wannUngefaehr(s.date) !== 'vorbei')
 
   const setzeAntwort = (spieltag: Spieltag, status: Status | null) =>
     aendern(
@@ -176,6 +195,9 @@ function Abfahrtsplan() {
         return { ...s, responses }
       },
       () => api.antwort(spieltag.id, status),
+      status === null
+        ? 'Antwort zurückgenommen.'
+        : `Gespeichert: ${ANTWORTEN.find((a) => a.wert === status)?.text ?? ''}.`,
     )
 
   const setzeFahrt = (spieltag: Spieltag, faehrt: boolean, plaetze?: number) =>
@@ -195,6 +217,7 @@ function Abfahrtsplan() {
         return { ...s, rides }
       },
       () => api.fahren(spieltag.id, faehrt, plaetze),
+      faehrt ? `Gespeichert: du fährst, ${plaetze ?? 3} Plätze.` : 'Gespeichert: du fährst nicht.',
     )
 
   const setzeMitfahrt = (spieltag: Spieltag, fahrt: string | null) =>
@@ -215,6 +238,7 @@ function Abfahrtsplan() {
         }
       },
       () => api.mitfahren(spieltag.id, fahrt),
+      fahrt ? 'Gespeichert: du fährst mit.' : 'Gespeichert: du bist ausgestiegen.',
     )
 
   return (
@@ -254,7 +278,43 @@ function Abfahrtsplan() {
         </div>
       ) : (
         <ul className="liste">
-          {board.fixtures.map((spieltag) => (
+          {/* Vergangenes liegt zusammengefaltet obenauf, statt den Blick zu verstellen. Der
+              Spielplan kommt vom Server nach Datum sortiert, also standen mitten in der Saison
+              zuerst zwölf graue Zeilen und der nächste Termin unterhalb des Bildschirms — bei
+              einer App, deren Einsatzsituation „kurzer Blick, ein bis zwei Antippen" ist.
+              Weggeworfen wird nichts: Wer nachsehen will, wer beim letzten Mal gefahren ist,
+              klappt die Zeile auf. */}
+          {vorbei.length > 0 && (
+            <li className="zeile zeile--vorbei">
+              <button
+                type="button"
+                className="rueckschau"
+                aria-expanded={zeigeVorbei}
+                onClick={() => setZeigeVorbei(!zeigeVorbei)}
+              >
+                {zeigeVorbei ? 'Vergangene ausblenden' : `Vorbei (${vorbei.length})`}
+              </button>
+            </li>
+          )}
+          {(zeigeVorbei ? vorbei : []).map((spieltag) => (
+            <Zeile
+              key={spieltag.id}
+              spieltag={spieltag}
+              board={board}
+              offen={offen === spieltag.id}
+              fehler={fehler[spieltag.id]}
+              laeuft={laeuft.has(spieltag.id)}
+              gemeldet={offen === spieltag.id ? gemeldet : ''}
+              aufklappen={() => {
+                setGemeldet('')
+                setOffen(offen === spieltag.id ? null : spieltag.id)
+              }}
+              setzeAntwort={(status) => void setzeAntwort(spieltag, status)}
+              setzeFahrt={(faehrt, plaetze) => void setzeFahrt(spieltag, faehrt, plaetze)}
+              setzeMitfahrt={(fahrt) => void setzeMitfahrt(spieltag, fahrt)}
+            />
+          ))}
+          {kommend.map((spieltag) => (
             <Zeile
               key={spieltag.id}
               spieltag={spieltag}
@@ -263,7 +323,11 @@ function Abfahrtsplan() {
               offen={offen === spieltag.id}
               fehler={fehler[spieltag.id]}
               laeuft={laeuft.has(spieltag.id)}
-              aufklappen={() => setOffen(offen === spieltag.id ? null : spieltag.id)}
+              gemeldet={offen === spieltag.id ? gemeldet : ''}
+              aufklappen={() => {
+                setGemeldet('')
+                setOffen(offen === spieltag.id ? null : spieltag.id)
+              }}
               setzeAntwort={(status) => void setzeAntwort(spieltag, status)}
               setzeFahrt={(faehrt, plaetze) => void setzeFahrt(spieltag, faehrt, plaetze)}
               setzeMitfahrt={(fahrt) => void setzeMitfahrt(spieltag, fahrt)}

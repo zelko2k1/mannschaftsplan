@@ -159,6 +159,62 @@
   font-size: 0.78rem;
   color: var(--grau);
 }
+
+/* Der Satz, um dessentwillen es das Produkt gibt — derselbe wie im Aushang, nur in der ruhigeren
+   Kleidung der Verwaltung. Etwas größer als der Zusatz darüber: Er ist die Antwort auf die Frage,
+   mit der der Kapitän hierherkommt, und nicht Beiwerk zum Datum. */
+.satz__stand {
+  margin: 0.35rem 0 0;
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+/* Rot ruft zum Handeln (6.2) — „kein Fahrer" ist genau das, und zwar für den, der es ändern kann. */
+.satz__warnung {
+  color: var(--rot);
+  font-weight: 600;
+  white-space: nowrap;
+}
+/* Kein gedrehter Stempel wie im Aushang: Der Kapitän überfliegt zwanzig Zeilen, da wäre jede
+   Inszenierung im Weg. Dieselbe Farbe, dieselbe Aussage, ein Wort. */
+.satz__voll {
+  margin-left: 0.6rem;
+  color: var(--stempel);
+  font-family: var(--schrift-eng);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Rückmeldungen korrigieren — wer telefonisch zusagt, wird hier eingetragen. */
+.rueckmeldungen {
+  margin-top: 0.6rem;
+  padding-top: 0.4rem;
+  border-top: var(--linie-innen);
+}
+/* Name links, die drei Knöpfe rechts. Bricht auf schmalen Geräten um, statt die Knöpfe zu
+   quetschen — sie sind Tap-Ziele und behalten ihre 44 px. */
+.rueckmeldung {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.75rem;
+  padding: 0.3rem 0;
+}
+.rueckmeldung + .rueckmeldung { border-top: 1px solid color-mix(in srgb, var(--tinte) 15%, transparent); }
+.rueckmeldung__wer {
+  flex: 1 1 8rem;
+  font-weight: 600;
+}
+/* Die drei Knöpfe schmaler als im Aushang: Dort füllen sie die Breite, hier stehen zwölf
+   Zeilen untereinander und sollen sich nicht zu einer Wand aufbauen. */
+.rueckmeldung .knopf {
+  flex: 0 1 auto;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.85rem;
+}
+
+/* Der Nachfragekasten in einer Aufzählungszeile: eigene Zeile, nicht neben den Knöpfen. */
+.eintrag .token { flex: 1 1 100%; }
 .satz__aktionen {
   display: flex;
   flex-wrap: wrap;

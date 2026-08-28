@@ -24,6 +24,12 @@ export type AdminSpieltag = {
   departure_berechnet: string | null
   needed_players: number
   locked: boolean
+  /**
+   * Der Stand der Mannschaft — dieselbe Gestalt wie im Aushang, damit die Kapitänsansicht
+   * denselben Satz rechnet und nicht eine zweite Wahrheit entsteht. Mitglieds-ID → Antwort.
+   */
+  responses: Record<string, 'yes' | 'maybe' | 'no'>
+  rides: { id: string; member: string; seats: number; taken: number }[]
 }
 
 export type AdminMitglied = {
@@ -197,6 +203,20 @@ export const adminApi = {
   spieltagAendern: (id: string, daten: Partial<AdminSpieltag>) =>
     ruf<unknown>(`/fixtures/${id}`, { method: 'PATCH', body: JSON.stringify(daten) }),
   spieltagLoeschen: (id: string) => ruf<unknown>(`/fixtures/${id}`, { method: 'DELETE' }),
+
+  /**
+   * Eine Rückmeldung für ein Mitglied setzen oder zurücknehmen (`null`).
+   *
+   * Die Route gibt es im Backend seit dem Bau der Kapitänsansicht — sie prüft, dass Spieltag
+   * und Mitglied zur selben Mannschaft gehören, protokolliert `response.correct` und lässt
+   * ausdrücklich auch abgeschlossene Spieltage zu. Nur angebunden war sie nie: Wer jemandem
+   * telefonisch zusagt, konnte bisher nirgends eingetragen werden.
+   */
+  rueckmeldungSetzen: (spieltag: string, mitglied: string, status: 'yes' | 'maybe' | 'no' | null) =>
+    ruf<unknown>(`/response/${spieltag}/${mitglied}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    }),
 
   mitglieder: (team: string) => ruf<{ items: AdminMitglied[] }>(`/members?team=${encodeURIComponent(team)}`),
   mitgliedAnlegen: (name: string, team: string) =>

@@ -12,8 +12,16 @@ import {
   type Wer,
   ZweiterFaktorNoetig,
 } from './adminApi'
-import { ausEingabe, fuerEingabe, systemDatum, systemDatumZeit } from './format'
+import {
+  ANTWORTEN,
+  ausEingabe,
+  fuerEingabe,
+  plaetze,
+  systemDatum,
+  systemDatumZeit,
+} from './format'
 import { Fehler, Hinweis } from './Meldung'
+import { Nachfragekasten, type Nachfrage } from './Nachfrage'
 import './admin.css'
 
 type Reiter = 'spieltage' | 'mannschaften' | 'konten' | 'verein' | 'protokoll' | 'konto'
@@ -186,6 +194,7 @@ function Anmeldung({ fertig }: { fertig: (email: string) => void }) {
   // dieses Konto einen zweiten Faktor gibt — und soll es auch nicht (R6).
   const [brauchtCode, setBrauchtCode] = useState(false)
   const [fehler, setFehler] = useState('')
+  const [hinweis, setHinweis] = useState('')
   const [laeuft, setLaeuft] = useState(false)
 
   return (
@@ -205,13 +214,20 @@ function Anmeldung({ fertig }: { fertig: (email: string) => void }) {
           ereignis.preventDefault()
           setLaeuft(true)
           setFehler('')
+          setHinweis('')
           try {
             const d = await adminApi.anmelden(email, passwort, code)
             fertig(d.email)
           } catch (problem) {
             if (problem instanceof ZweiterFaktorNoetig) {
+              // Kein Fehler: Das Passwort hat gestimmt, es fehlt nur noch der zweite Schritt.
+              // Vorher lief das in denselben roten Kasten wie ein falsches Passwort — wer den
+              // zweiten Faktor gerade eingerichtet hatte, las „hat nicht geklappt".
               setBrauchtCode(true)
               setCode('')
+              setFehler('')
+              setHinweis('Passwort stimmt. Jetzt der Code aus deiner Authenticator-App.')
+              return
             }
             setFehler(problem instanceof Error ? problem.message : 'Anmeldung fehlgeschlagen.')
           } finally {
@@ -261,6 +277,7 @@ function Anmeldung({ fertig }: { fertig: (email: string) => void }) {
         </button>
         {/* R6 · Der Server sagt nicht, was falsch war. Diese Seite erfindet nichts dazu. */}
         <Fehler text={fehler} />
+        <Hinweis text={hinweis} />
       </form>
       </main>
     </div>
@@ -310,18 +327,55 @@ const LEER: Partial<AdminSpieltag> = {
   needed_players: 4,
 }
 
+// Dieselbe Rechnung wie im Aushang (`Zeile.tsx`). Sie steht hier ein zweites Mal, weil die
+// Kapitänsansicht in einem eigenen Bündelteil liegt und ein Import den ganzen Aushang mit
+// hinüberzöge. Was zusammenbleiben MUSS, ist die Gestalt der Daten — die liefert der Server
+// für beide Ansichten aus derselben Quelle.
+const zugesagt = (s: AdminSpieltag) =>
+  Object.values(s.responses ?? {}).filter((x) => x === 'yes').length
+const freiePlaetze = (s: AdminSpieltag) =>
+  (s.rides ?? []).reduce((summe, f) => summe + (f.seats - f.taken), 0)
+const ohneFahrer = (s: AdminSpieltag) => !s.is_home && (s.rides ?? []).length === 0
+
 function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string }) {
   const { items, fehler, setFehler, laden } = useListe(
     () => adminApi.spieltage(team),
     abgemeldet,
     team,
   )
+  // Die Namen für die Rückmeldungen. Über dieselbe Route wie der Reiter „Mannschaft" — der
+  // Spieltag kennt nur Mitglieds-IDs, und ein zweites Feld in der Antwort wäre eine zweite
+  // Stelle, an der dieselbe Liste gepflegt werden müsste.
+  const { items: spieler } = useListe<AdminMitglied>(() => adminApi.mitglieder(team), abgemeldet, team)
   const [entwurf, setEntwurf] = useState<Partial<AdminSpieltag> | null>(null)
+  /** Welcher Spieltag aufgeklappt ist. Immer höchstens einer, wie im Aushang. */
+  const [offen, setOffen] = useState('')
+  const [frage, setFrage] = useState<Nachfrage | null>(null)
   // Welcher Spieltag gerade bearbeitet wird. „Abschließen" ist ein Umschalter: Zweimal geklickt
   // — und auf einer trägen Verbindung klickt man zweimal — sperrt der erste Ruf und entsperrt
   // der zweite. Es sieht dann aus, als sei nichts passiert, dabei sind zwei Zeilen im Protokoll
   // gelandet. Gesperrt wird nur die Zeile, an der gearbeitet wird, nicht die ganze Liste.
   const [laeuft, setLaeuft] = useState('')
+
+  /** Eine Rückmeldung für ein Mitglied setzen oder zurücknehmen. */
+  const korrigieren = async (
+    spieltagId: string,
+    mitgliedId: string,
+    status: 'yes' | 'maybe' | 'no' | null,
+  ) => {
+    if (laeuft) return
+    setLaeuft(spieltagId)
+    setFehler('')
+    try {
+      await adminApi.rueckmeldungSetzen(spieltagId, mitgliedId, status)
+      await laden()
+    } catch (problem) {
+      if (problem instanceof NichtAngemeldet) return abgemeldet()
+      setFehler(problem instanceof Error ? problem.message : 'Nicht gespeichert.')
+    } finally {
+      setLaeuft('')
+    }
+  }
 
   const speichern = async () => {
     if (!entwurf) return
@@ -375,7 +429,33 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
               {s.locked ? ' · abgeschlossen' : ''}
             </span>
           </div>
+
+          {/* Der Satz, um dessentwillen es das Produkt gibt: „Der Kapitän sieht auf einen Blick,
+              ob seine Mannschaft vollzählig ist und ob genug Autos da sind" (PRODUCT.md). Wörtlich
+              derselbe wie im Aushang — eine zweite, abweichende Zählweise wäre schlimmer als gar
+              keine. Ohne Aufklappen, weil das Grundsatz 2 verlangt. */}
+          <p className="satz__stand">
+            {zugesagt(s)}/{s.needed_players} zugesagt
+            {!s.is_home && (
+              <>
+                {' · '}
+                <span className={ohneFahrer(s) ? 'satz__warnung' : undefined}>
+                  {ohneFahrer(s) ? 'kein Fahrer' : plaetze(freiePlaetze(s))}
+                </span>
+              </>
+            )}
+            {zugesagt(s) >= s.needed_players && <span className="satz__voll">vollzählig</span>}
+          </p>
+
           <div className="satz__aktionen">
+            <button
+              type="button"
+              className="knopf"
+              aria-expanded={offen === s.id}
+              onClick={() => setOffen(offen === s.id ? '' : s.id)}
+            >
+              {offen === s.id ? 'Rückmeldungen zu' : 'Rückmeldungen'}
+            </button>
             <button
               type="button"
               className="knopf"
@@ -413,31 +493,74 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
               type="button"
               className="knopf knopf--gefahr"
               disabled={laeuft === s.id}
-              onClick={async () => {
-                if (laeuft) return
+              onClick={() =>
                 // Löschen nimmt Rückmeldungen und Fahrdienst mit — das muss dastehen.
-                if (
-                  !window.confirm(
-                    `„${s.opponent_club || s.opponent_town}" löschen? ` +
-                      'Rückmeldungen und Fahrdienst verschwinden mit.',
-                  )
-                ) {
-                  return
-                }
-                setLaeuft(s.id)
-                try {
-                  await adminApi.spieltagLoeschen(s.id)
-                  await laden()
-                } catch (problem) {
-                  setFehler(problem instanceof Error ? problem.message : 'Nicht gelöscht.')
-                } finally {
-                  setLaeuft('')
-                }
-              }}
+                setFrage({
+                  id: s.id,
+                  titel: `„${s.opponent_club || s.opponent_town}" löschen`,
+                  text: 'Die Rückmeldungen und der Fahrdienst zu diesem Spieltag verschwinden mit. Das lässt sich nicht zurücknehmen.',
+                  knopf: 'Spieltag löschen',
+                  tun: async () => {
+                    setFrage(null)
+                    setLaeuft(s.id)
+                    try {
+                      await adminApi.spieltagLoeschen(s.id)
+                      await laden()
+                    } catch (problem) {
+                      setFehler(problem instanceof Error ? problem.message : 'Nicht gelöscht.')
+                    } finally {
+                      setLaeuft('')
+                    }
+                  },
+                })
+              }
             >
               Löschen
             </button>
           </div>
+
+          <Nachfragekasten
+            frage={frage?.id === s.id ? frage : null}
+            abbrechen={() => setFrage(null)}
+            laeuft={laeuft === s.id}
+          />
+
+          {offen === s.id && (
+            <div className="rueckmeldungen">
+              {/* Korrigieren sieht aus wie Antworten: dieselben drei Wörter, dieselbe Bauform,
+                  dieselbe Rücknahme durch nochmaliges Antippen. Wer telefonisch zusagt, wird
+                  hier eingetragen — dafür ist die Route gebaut, und sie lässt das ausdrücklich
+                  auch an abgeschlossenen Spieltagen zu. */}
+              {(spieler ?? []).length === 0 ? (
+                <p className="namen">
+                  Noch keine Spieler in dieser Mannschaft — anzulegen im Reiter „Mannschaft".
+                </p>
+              ) : (
+                (spieler ?? []).map((m) => (
+                  <div key={m.id} className="rueckmeldung">
+                    <span className="rueckmeldung__wer">{m.name}</span>
+                    <div className="knopfreihe">
+                      {ANTWORTEN.map(({ wert, text }) => (
+                        <button
+                          key={wert}
+                          type="button"
+                          className="knopf"
+                          aria-pressed={s.responses?.[m.id] === wert}
+                          aria-label={`${m.name}: ${text}`}
+                          disabled={laeuft === s.id}
+                          onClick={() =>
+                            void korrigieren(s.id, m.id, s.responses?.[m.id] === wert ? null : wert)
+                          }
+                        >
+                          {text}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
       ))}
     </>
@@ -610,6 +733,9 @@ function Mitglieder({ abgemeldet, team }: { abgemeldet: () => void; team: string
   // angezeigt wird, entscheidet die Reihenfolge der Antworten. Der Kapitän verschickte dann
   // womöglich einen Link, der schon wieder ungültig ist.
   const [laeuft, setLaeuft] = useState('')
+  const [frage, setFrage] = useState<Nachfrage | null>(null)
+  /** Welcher Link gerade in die Zwischenablage gegangen ist — für die Rückmeldung am Knopf. */
+  const [kopiert, setKopiert] = useState('')
 
   if (!items) return <p>Einen Moment …</p>
 
@@ -687,36 +813,111 @@ function Mitglieder({ abgemeldet, team }: { abgemeldet: () => void; team: string
               className="knopf"
               disabled={laeuft === m.id}
               onClick={() => {
-                if (
-                  m.hat_token &&
-                  !window.confirm(
-                    `Neues Token für ${m.name}? Der alte Link wird ungültig und alle Geräte werden abgemeldet.`,
+                const ausstellen = () =>
+                  void fangen(
+                    m.id,
+                    async () => {
+                      const d = await adminApi.tokenNeu(m.id)
+                      setTokens((alt) => ({ ...alt, [m.id]: d.token }))
+                    },
+                    'Nicht ausgestellt.',
                   )
-                ) {
-                  return
-                }
-                void fangen(
-                  m.id,
-                  async () => {
-                    const d = await adminApi.tokenNeu(m.id)
-                    setTokens((alt) => ({ ...alt, [m.id]: d.token }))
+                // Beim ersten Link gibt es nichts zu verlieren — da wäre eine Rückfrage nur im
+                // Weg. Beim zweiten schon: Der verschickte wird damit ungültig.
+                if (!m.hat_token) return ausstellen()
+                setFrage({
+                  id: m.id,
+                  titel: `Neues Token für ${m.name}`,
+                  text: 'Der Link, den du ihm geschickt hast, funktioniert danach nicht mehr, und alle seine Geräte werden abgemeldet. Du musst ihm den neuen Link schicken.',
+                  knopf: 'Neues Token ausstellen',
+                  tun: () => {
+                    setFrage(null)
+                    ausstellen()
                   },
-                  'Nicht ausgestellt.',
-                )
+                })
               }}
             >
               {m.hat_token ? 'Neues Token' : 'Link erstellen'}
             </button>
           </div>
 
+          <Nachfragekasten
+            frage={frage?.id === m.id ? frage : null}
+            abbrechen={() => setFrage(null)}
+            laeuft={laeuft === m.id}
+          />
+
           {tokens[m.id] && (
             <div className="token">
               <p className="token__hinweis">
                 Diesen Link an {m.name} schicken — er wird nur jetzt angezeigt.
               </p>
+              {/* Was der Kapitän beim Verschicken dazusagen muss. PRODUCT.md nennt diesen Tausch
+                  offen (R14: „Wer den Link eines Spielers weitergibt, ist dieser Spieler") — bis
+                  hierher stand es nur im Plan und nirgends dort, wo jemand danach handelt. */}
+              <p className="token__text">
+                Der Link ist persönlich und ersetzt ein Passwort: Wer ihn hat, ist{' '}
+                {m.name}. Schick ihn im Einzelchat, nicht in die Gruppe.
+              </p>
               <code className="token__wert">
                 {window.location.origin}/j/{tokens[m.id]}
               </code>
+              {/* Der Kasten blieb bisher nur bis zum nächsten Reiterwechsel stehen und ließ sich
+                  nur durch langes Antippen kopieren. Er ist die einzige Tür des Produkts. */}
+              <div className="satz__aktionen">
+                <button
+                  type="button"
+                  className="knopf"
+                  onClick={async () => {
+                    const url = `${window.location.origin}/j/${tokens[m.id]}`
+                    try {
+                      await navigator.clipboard.writeText(url)
+                      setKopiert(m.id)
+                    } catch {
+                      // Ohne Zwischenablage-Recht bleibt der Link darüber zum Markieren stehen.
+                      setKopiert('')
+                    }
+                  }}
+                >
+                  {kopiert === m.id ? 'Kopiert' : 'Link kopieren'}
+                </button>
+                {typeof navigator.share === 'function' && (
+                  <button
+                    type="button"
+                    className="knopf"
+                    onClick={() =>
+                      void navigator
+                        .share({
+                          text:
+                            `Hallo ${m.name}, hier sind unsere Termine: ` +
+                            `${window.location.origin}/j/${tokens[m.id]}\n` +
+                            'Der Link gehört dir allein — bitte nicht weitergeben.',
+                        })
+                        .catch(() => {
+                          /* abgebrochen ist kein Fehler */
+                        })
+                    }
+                  >
+                    Weitergeben
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="knopf"
+                  onClick={() =>
+                    setTokens((alt) => {
+                      const neu = { ...alt }
+                      delete neu[m.id]
+                      return neu
+                    })
+                  }
+                >
+                  Verschickt
+                </button>
+              </div>
+              <p className="token__text" role="status">
+                {kopiert === m.id ? 'Der Link liegt in der Zwischenablage.' : ''}
+              </p>
             </div>
           )}
         </div>
@@ -1405,6 +1606,7 @@ function Mannschaften({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLad
   const { items, fehler, setFehler, laden } = useListe<Mannschaft>(adminApi.mannschaften, abgemeldet)
   const [neu, setNeu] = useState('')
   const [laeuft, setLaeuft] = useState(false)
+  const [frage, setFrage] = useState<Nachfrage | null>(null)
 
   return (
     <div className="satz">
@@ -1461,22 +1663,30 @@ function Mannschaften({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLad
                 type="button"
                 className="knopf knopf--gefahr"
                 disabled={laeuft}
-                onClick={async () => {
-                  if (!window.confirm(`Mannschaft „${t.name}" auflösen?`)) return
-                  setLaeuft(true)
-                  setFehler('')
-                  try {
-                    await adminApi.mannschaftLoeschen(t.id)
-                    await laden()
-                    neuLaden()
-                  } catch (x) {
-                    if (x instanceof NichtAngemeldet) return abgemeldet()
-                    // Der Server lässt eine Mannschaft mit Inhalt nicht löschen und sagt warum.
-                    setFehler(x instanceof Error ? x.message : 'Nicht gelöscht.')
-                  } finally {
-                    setLaeuft(false)
-                  }
-                }}
+                onClick={() =>
+                  setFrage({
+                    id: t.id,
+                    titel: `Mannschaft „${t.name}" auflösen`,
+                    text: 'Das geht nur, solange sie leer ist — der Server lehnt es ab, wenn noch Spieler, Spieltage oder Konten an ihr hängen, und sagt dann, woran es lag.',
+                    knopf: 'Auflösen',
+                    tun: async () => {
+                      setFrage(null)
+                      setLaeuft(true)
+                      setFehler('')
+                      try {
+                        await adminApi.mannschaftLoeschen(t.id)
+                        await laden()
+                        neuLaden()
+                      } catch (x) {
+                        if (x instanceof NichtAngemeldet) return abgemeldet()
+                        // Der Server lässt eine Mannschaft mit Inhalt nicht löschen und sagt warum.
+                        setFehler(x instanceof Error ? x.message : 'Nicht gelöscht.')
+                      } finally {
+                        setLaeuft(false)
+                      }
+                    },
+                  })
+                }
               >
                 Auflösen
               </button>
@@ -1484,6 +1694,7 @@ function Mannschaften({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLad
           ))}
         </ul>
       )}
+      <Nachfragekasten frage={frage} abbrechen={() => setFrage(null)} laeuft={laeuft} />
     </div>
   )
 }
@@ -1512,6 +1723,7 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
   const [mitglied, setMitglied] = useState('')
   const [laeuft, setLaeuft] = useState(false)
   const [gezeigt, setGezeigt] = useState<{ email: string; passwort: string } | null>(null)
+  const [frage, setFrage] = useState<Nachfrage | null>(null)
 
   // Für die Verknüpfung zum Spielereintrag — nur die Spieler der gewählten Mannschaft.
   const { items: spieler } = useListe<AdminMitglied>(
@@ -1543,18 +1755,19 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
           type="button"
           className="knopf"
           disabled={laeuft}
-          onClick={() => {
+          onClick={() =>
             // Eine Schwächung — sie gehört bestätigt und steht im Protokoll.
-            if (
-              !window.confirm(
-                `Zweiten Faktor von „${v.email}" abschalten? ` +
-                  'Danach genügt sein Passwort. Er kann ihn selbst wieder einrichten.',
-              )
-            ) {
-              return
-            }
-            void fuehreAus(() => adminApi.verwalterZweiterFaktorAus(v.id))
-          }}
+            setFrage({
+              id: v.id,
+              titel: `Zweiten Faktor von „${v.email}" abschalten`,
+              text: 'Danach genügt sein Passwort, um in die Kapitänsansicht zu kommen. Er kann den zweiten Faktor selbst wieder einrichten.',
+              knopf: 'Faktor abschalten',
+              tun: () => {
+                setFrage(null)
+                void fuehreAus(() => adminApi.verwalterZweiterFaktorAus(v.id))
+              },
+            })
+          }
         >
           Faktor abschalten
         </button>
@@ -1564,9 +1777,20 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
         className="knopf"
         disabled={laeuft}
         onClick={() =>
-          fuehreAus(async () => {
-            const d = await adminApi.verwalterAendern(v.id, { neues_passwort: true })
-            if (d.passwort) setGezeigt({ email: v.email, passwort: d.passwort })
+          // Sperrt eine Person aus, ohne dass sie es kommen sieht — und stand bis hierher als
+          // einziger dieser Knöpfe ganz ohne Rückfrage zwischen zwei bestätigten Handlungen.
+          setFrage({
+            id: v.id,
+            titel: `Neues Passwort für „${v.email}"`,
+            text: 'Sein bisheriges gilt sofort nicht mehr. Das neue wird genau einmal angezeigt — du musst es ihm weitergeben, sonst kommt er nicht mehr herein.',
+            knopf: 'Neues Passwort erzeugen',
+            tun: () => {
+              setFrage(null)
+              void fuehreAus(async () => {
+                const d = await adminApi.verwalterAendern(v.id, { neues_passwort: true })
+                if (d.passwort) setGezeigt({ email: v.email, passwort: d.passwort })
+              })
+            },
           })
         }
       >
@@ -1576,13 +1800,26 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
         type="button"
         className="knopf knopf--gefahr"
         disabled={laeuft}
-        onClick={() => {
-          if (!window.confirm(`Konto „${v.email}" löschen? Offene Sitzungen enden sofort.`)) return
-          void fuehreAus(() => adminApi.verwalterLoeschen(v.id))
-        }}
+        onClick={() =>
+          setFrage({
+            id: v.id,
+            titel: `Konto „${v.email}" löschen`,
+            text: 'Seine offenen Sitzungen enden sofort. Der Spielereintrag bleibt — gelöscht wird der Zugang, nicht die Person.',
+            knopf: 'Konto löschen',
+            tun: () => {
+              setFrage(null)
+              void fuehreAus(() => adminApi.verwalterLoeschen(v.id))
+            },
+          })
+        }
       >
         Löschen
       </button>
+      <Nachfragekasten
+        frage={frage?.id === v.id ? frage : null}
+        abbrechen={() => setFrage(null)}
+        laeuft={laeuft}
+      />
     </li>
   )
 
@@ -1772,6 +2009,7 @@ function Sicherungen({ abgemeldet }: { abgemeldet: () => void }) {
   const { items: liste, fehler, setFehler, laden } = useListe<Sicherung>(adminApi.sicherungen, abgemeldet)
   const [laeuft, setLaeuft] = useState('')
   const [zurueck, setZurueck] = useState('')
+  const [frage, setFrage] = useState<Nachfrage | null>(null)
   const [getippt, setGetippt] = useState('')
   const [neustart, setNeustart] = useState(false)
 
@@ -1878,10 +2116,18 @@ function Sicherungen({ abgemeldet }: { abgemeldet: () => void }) {
                   type="button"
                   className="knopf"
                   disabled={laeuft !== ''}
-                  onClick={() => {
-                    if (!window.confirm(`„${x.name}" vom Server löschen?`)) return
-                    fuehreAus('delete', () => adminApi.sicherungLoeschen(x.name))
-                  }}
+                  onClick={() =>
+                    setFrage({
+                      id: x.name,
+                      titel: `„${x.name}" vom Server löschen`,
+                      text: 'Nur die Kopie auf dem Server verschwindet. Eine bereits heruntergeladene Datei bleibt, wo sie ist — und dorthin gehört sie ohnehin.',
+                      knopf: 'Sicherung löschen',
+                      tun: () => {
+                        setFrage(null)
+                        void fuehreAus('delete', () => adminApi.sicherungLoeschen(x.name))
+                      },
+                    })
+                  }
                 >
                   Löschen
                 </button>
@@ -1897,6 +2143,11 @@ function Sicherungen({ abgemeldet }: { abgemeldet: () => void }) {
                 >
                   Zurückspielen
                 </button>
+              <Nachfragekasten
+                frage={frage?.id === x.name ? frage : null}
+                abbrechen={() => setFrage(null)}
+                laeuft={laeuft !== ''}
+              />
             </li>
           ))}
         </ul>
