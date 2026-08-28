@@ -1594,6 +1594,26 @@ await pruefe('T21', 'Das Protokoll findet die Zeilen einer Mannschaft auch weite
   gleich(daten.items[0].action, 'member.update', 'und es ist die richtige')
 })
 
+await pruefe('T22', 'Der Einladungslink steht in keinem Protokoll — auch nicht in PocketBases eigenem', async () => {
+  // R8 deckt zwei Protokolle ab, nicht eines. Caddy überspringt /j/* per `log_skip` (T10 auf dem
+  // Server). PocketBase führt daneben die Tabelle `_logs` mit Methode, voller URL, Statuscode,
+  // Browserkennung und IP — dort stand das Token vollständig drin, fünf Tage lang und damit in
+  // jeder Sicherung. Die Migration 1788600000 schaltet dieses Protokoll ab.
+  const { klartext } = await testMitglied('t22')
+
+  const vorher = await pb('/api/logs?perPage=1')
+  await roh(`/j/${klartext}`)
+  // Das Protokoll wird gepuffert geschrieben; PocketBase leert den Puffer im Sekundentakt.
+  await new Promise((fertig) => setTimeout(fertig, 4000))
+
+  const nachher = await pb('/api/logs?perPage=200')
+  gleich(nachher.totalItems, 0, 'PocketBase schreibt gar kein Anfrageprotokoll mehr')
+  gleich(vorher.totalItems, 0, 'und zwar von Anfang an, nicht erst nach dem Aufräumen')
+
+  const treffer = (nachher.items || []).filter((z) => JSON.stringify(z).includes(klartext))
+  gleich(treffer.length, 0, 'kein Protokolleintrag enthält das Token')
+})
+
 await pruefe('A10b', 'Tempo und Puffer stehen am Spieltag, sonst gilt der Standard', async () => {
   const { jar: kapitaen } = await adminAnmelden()
   const ruf = alsKapitaen(kapitaen)

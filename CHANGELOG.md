@@ -7,6 +7,23 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+### Sicherheit
+- **Einladungslinks standen in PocketBases eigenem Anfrageprotokoll — mit vollständigem Token.**
+  R8 verlangt, dass ein Token in keinem Protokoll landet; dafür überspringt Caddy die Route
+  `/j/*`. Das deckt aber nur ein Protokoll ab. PocketBase führt daneben die Tabelle `_logs` mit
+  Methode, **vollständiger URL**, Statuscode, Browserkennung und IP-Adresse, aufbewahrt fünf
+  Tage — und ein Aufruf des Einladungslinks landete dort mitsamt Token. Weil `_logs` in `pb_data`
+  liegt, war es außerdem **in jeder Sicherung**: Die Sicherungen sind ausdrücklich
+  unverschlüsselt und sollen auf den eigenen Rechner wandern, eine Kopie der Datenbank war also
+  eine Kopie funktionierender Zugänge. Genau das, was R1 verhindern soll.
+  **Behoben** durch die Migration `1788600000_kein_anfrageprotokoll.js`: PocketBases
+  Anfrageprotokoll ist abgeschaltet (`logs.maxDays = 0`). Eine Ausnahme für einzelne Routen bietet
+  PocketBase nicht. Für den Betrieb geht nichts verloren — Caddy protokolliert weiter, und
+  Meldungen der Hooks stehen in der Containerausgabe. Testfall **T22** hält es fest.
+  **Für Betreiber:** Die Migration greift beim nächsten Start von selbst; es ist nichts von Hand
+  einzustellen. Wer eine ältere Sicherung zurückspielt, sollte danach prüfen, dass unter
+  Einstellungen → Logs die Aufbewahrung auf 0 steht.
+
 ### Behoben
 - **Der Rückfragekasten meldet sich jetzt auch der Tastatur und der Bildschirmleseanwendung.**
   Beim Ersetzen der `window.confirm` ging die eine Sache verloren, die der Systemdialog gut

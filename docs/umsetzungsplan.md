@@ -281,6 +281,24 @@ Tokens niemals — auch nicht bei Fehlern.
 Query-Parameter löscht (`request>uri query { delete * }`), lässt es unverändert im Log stehen.
 Für `/j/*` deshalb `log_skip` setzen und diese Route gar nicht protokollieren.
 
+**Nachtrag 2026-08-28: Es sind zwei Logs, nicht eines.** Der Satz „Die Anwendung loggt Tokens
+niemals" stimmte für den selbst geschriebenen Code, aber nicht für PocketBase. Dessen
+Request-Middleware füllt die Tabelle `_logs` mit Methode, **vollständiger URL**, Statuscode,
+Browserkennung und — bei der Vorgabe `logIP: true` — der IP-Adresse; aufbewahrt fünf Tage. Ein
+Aufruf von `/j/<token>` landete dort mitsamt Token. Der Caddy-Filter half nicht: Er betrifft
+Caddys Log, nicht PocketBases.
+
+Das wog schwerer als ein Logeintrag, weil `_logs` in `pb_data` liegt und damit **in jeder
+Sicherung** — die ausdrücklich unverschlüsselt ist und auf den Rechner des Kapitäns wandern
+soll. Eine Kopie der Datenbank war damit eine Kopie funktionierender Zugänge, also genau das,
+was R1 verhindern soll.
+
+Behoben durch die Migration `1788600000_kein_anfrageprotokoll.js`: `logs.maxDays = 0` schaltet
+PocketBases Anfrageprotokoll ab. Eine Ausnahme für einzelne Routen bietet PocketBase nicht — die
+Wahl steht zwischen allem und nichts. Für den Betrieb geht nichts verloren: Caddy protokolliert
+weiter (ohne `/j/`, ohne Anhängsel), und was die Hooks über `console.log` melden, steht in der
+Containerausgabe. **Testfall T22** hält es fest und wurde gegen den alten Zustand gegengeprüft.
+
 ### R9 · Header
 ```
 X-Robots-Tag: noindex, nofollow
