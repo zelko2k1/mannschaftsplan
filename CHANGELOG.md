@@ -8,6 +8,11 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 ## [Unveröffentlicht]
 
 ### Geändert
+- **Der Vereinsname steht ab Werk auf „Vereinsname"** statt auf „Mannschaftsplan". Er erscheint im
+  Seitentitel, in der Linkvorschau des Messengers, über Impressum und Datenschutzhinweis und als
+  Herausgeber in der Authenticator-App — dort stand also der Name der Software, wo der Verein
+  hingehört. **Bestehende Installationen behalten ihren Wert**, auch wenn er nie geändert wurde:
+  Ein vorhandener Eintrag wird nicht überschrieben.
 - **Die erste Mannschaft einer frisch aufgesetzten Anwendung heißt „Erste Mannschaft"** statt
   „Mannschaftsplan". Sie wurde nach dem Vereinsnamen benannt, und der stand ab Werk auf dem Namen
   der Anwendung — im Kopf der Kapitänsansicht, in der Gruppierung unter „Konten" und auf der

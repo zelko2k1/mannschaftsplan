@@ -9,7 +9,17 @@
 // Der eine Datensatz wird hier gleich mit angelegt. PocketBase kennt keine Defaultwerte; ohne
 // diesen Schritt stünde die App vor einer leeren Tabelle und müsste den Fall überall behandeln.
 
-const ANZEIGENAME_STANDARD = 'Mannschaftsplan'
+// **Nachträglich geändert am 28.08.2026** — vorher stand hier „Mannschaftsplan", der Name der
+// Anwendung. Der Wert ist der VEREINSNAME: Er steht im Seitentitel, in der Linkvorschau des
+// Messengers, über Impressum und Datenschutzhinweis und als Herausgeber in der
+// Authenticator-App. Dort die Software zu nennen, wo der Verein stehen soll, sieht aus wie eine
+// Entscheidung und wird deshalb nicht ersetzt. „Vereinsname" ist als Platzhalter erkennbar.
+//
+// Eine angewandte Migration nachträglich zu ändern ist normalerweise falsch; hier ist es richtig.
+// PocketBase merkt sich Migrationen am Dateinamen — wo sie gelaufen ist, bleibt der Wert stehen,
+// und das ist gewollt: Niemandem soll sein Vereinsname überschrieben werden. Die Änderung wirkt
+// nur bei der nächsten frisch aufgesetzten Instanz.
+const ANZEIGENAME_STANDARD = 'Vereinsname'
 
 migrate(
   (app) => {

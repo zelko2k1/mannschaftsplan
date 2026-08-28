@@ -138,14 +138,17 @@ migrate(
     // Kapitänsansicht, in der Gruppierung unter „Konten" und auf der Einladungsseite, die der
     // Messenger als Vorschau abruft. Ein Platzhalter, der aussieht wie eine Entscheidung, wird
     // nicht umbenannt — deshalb einer, der offensichtlich einer ist.
-    const VORGABE_DER_ANWENDUNG = 'Mannschaftsplan'
+    // Beide Werte, die die Anwendung je als Vorgabe ausgeliefert hat: „Mannschaftsplan" bis zum
+    // 28.08.2026, „Vereinsname" danach (siehe 1787700000). Wer eine ältere Fassung aufgesetzt und
+    // den Namen nie angefasst hat, soll hier genauso behandelt werden wie jemand mit der neuen.
+    const VORGABEN_DER_ANWENDUNG = ['Mannschaftsplan', 'Vereinsname']
     let name = 'Erste Mannschaft'
     let puffer = 25
     try {
       const einst = app.findAllRecords('settings')[0]
       if (einst) {
         const gesetzt = einst.getString('anzeigename')
-        if (gesetzt && gesetzt !== VORGABE_DER_ANWENDUNG) name = gesetzt
+        if (gesetzt && VORGABEN_DER_ANWENDUNG.indexOf(gesetzt) === -1) name = gesetzt
         const p = einst.getInt('puffer_minuten')
         if (p >= 0) puffer = p
       }
