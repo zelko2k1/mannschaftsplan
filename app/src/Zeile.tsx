@@ -1,7 +1,8 @@
-import { useId } from 'react'
+import { useId, useState } from 'react'
 import type { Board, Fahrt, Spieltag, Status } from './api'
 import { ANTWORTEN, plaetze as plaetzeText, tag, uhrzeit, wannUngefaehr } from './format'
 import { Fehler } from './Meldung'
+import { Nachfragekasten, type Nachfrage } from './Nachfrage'
 
 type Props = {
   spieltag: Spieltag
@@ -42,6 +43,7 @@ export default function Zeile({
   setzeMitfahrt,
 }: Props) {
   const bereichId = useId()
+  const [frage, setFrage] = useState<Nachfrage | null>(null)
   const name = (id: string) => board.members.find((m) => m.id === id)?.name ?? '—'
 
   /** Wer in einem bestimmten Auto sitzt — der Fahrer will das wissen, nicht nur die Anzahl. */
@@ -138,7 +140,7 @@ export default function Zeile({
                 </span>
               </>
             )}
-            {ohneAntwort && !vorbei && (
+            {ohneAntwort && !vorbei && !spieltag.locked && (
               <>
                 {' · '}
                 <span className="zeile__warnung">du fehlst noch</span>
@@ -201,7 +203,35 @@ export default function Zeile({
                           className="knopf"
                           aria-pressed={!!meineFahrt}
                           disabled={laeuft}
-                          onClick={() => setzeFahrt(!meineFahrt, 3)}
+                          onClick={() => {
+                            // Die einzige Handlung im Aushang, deren Folgen ANDERE tragen: Zieht
+                            // der Fahrer sein Auto zurück, löscht der Server die Mitfahrer mit
+                            // (mutations.pb.js). Bisher passierte das ohne Rückfrage, und die
+                            // Quittung erwähnte es nicht — zwei Leute standen ohne Mitfahrgelegen-
+                            // heit da, und der Verursacher erfuhr nicht, dass er es getan hatte.
+                            // Ein leeres Auto zurückzuziehen betrifft niemanden und fragt nichts.
+                            const drin = meineFahrt ? mitfahrer(meineFahrt.id) : []
+                            if (meineFahrt && drin.length > 0) {
+                              setFrage({
+                                id: spieltag.id,
+                                titel: 'Auto zurückziehen',
+                                text: `${drin.join(' und ')} ${
+                                  drin.length === 1 ? 'sitzt' : 'sitzen'
+                                } bei dir. ${
+                                  drin.length === 1 ? 'Er oder sie steht' : 'Sie stehen'
+                                } danach ohne Mitfahrgelegenheit da und ${
+                                  drin.length === 1 ? 'muss' : 'müssen'
+                                } sich neu einteilen.`,
+                                knopf: 'Auto zurückziehen',
+                                tun: () => {
+                                  setFrage(null)
+                                  setzeFahrt(false)
+                                },
+                              })
+                              return
+                            }
+                            setzeFahrt(!meineFahrt, 3)
+                          }}
                         >
                           Ich fahre
                         </button>
@@ -233,6 +263,12 @@ export default function Zeile({
                           </span>
                         )}
                       </div>
+
+                      <Nachfragekasten
+                        frage={frage}
+                        abbrechen={() => setFrage(null)}
+                        laeuft={laeuft}
+                      />
 
                       {/* Das eigene Auto: wer sitzt drin? Ohne das müsste der Fahrer die Liste
                           weiter unten von Hand mit den Mitfahrern abgleichen. */}

@@ -217,7 +217,19 @@ function Abfahrtsplan() {
         return { ...s, rides }
       },
       () => api.fahren(spieltag.id, faehrt, plaetze),
-      faehrt ? `Gespeichert: du fährst, ${plaetze ?? 3} Plätze.` : 'Gespeichert: du fährst nicht.',
+      faehrt
+        ? `Gespeichert: du fährst, ${plaetze ?? 3} Plätze.`
+        : (() => {
+            // Wer beim Zurückziehen Mitfahrer hatte, soll in der Quittung lesen, wen es trifft.
+            const drin = Object.entries(spieltag.seat_claims)
+              .filter(([, wo]) => spieltag.rides.some((f) => f.id === wo && f.member === board.me))
+              .map(([wer]) => board.members.find((m) => m.id === wer)?.name ?? '—')
+            return drin.length
+              ? `Gespeichert: du fährst nicht. ${drin.join(' und ')} ${
+                  drin.length === 1 ? 'muss' : 'müssen'
+                } sich neu einteilen.`
+              : 'Gespeichert: du fährst nicht.'
+          })(),
     )
 
   const setzeMitfahrt = (spieltag: Spieltag, fahrt: string | null) =>

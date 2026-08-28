@@ -723,14 +723,37 @@ routerAdd('GET', '/admin/api/audit', (e) => {
       .join(' · ')
   }
 
-  let alle = e.app.findRecordsByFilter('audit_log', "id != ''", '-at', grenze, 0)
+  const gehoertDazu = (x) => {
+    const ziel = x.getString('target')
+    if (ziel && eigene[ziel]) return true
+    const wer = x.getString('actor')
+    return wer.indexOf('member:') === 0 && eigene[wer.slice(7)]
+  }
+
+  // Die Zugehörigkeit zu einer Mannschaft steht nicht in der Zeile, sondern ergibt sich erst aus
+  // der Auflösung von `target` und `actor` — filtern lässt sie sich also nur im Speicher.
+  //
+  // Vorher wurden dafür die neuesten `grenze` Zeilen geholt und DANACH gefiltert. In einem
+  // Verein mit sieben Mannschaften heißt das: Wer die Damen betreut, sieht sein Protokoll nur,
+  // wenn seine Zeilen zufällig unter den letzten hundert des ganzen Vereins liegen. Sonst las er
+  // „Noch nichts passiert." — ein Protokoll, das genau in der Lage schweigt, für die es gebaut
+  // wurde. Jetzt wird stapelweise weitergelesen, bis `grenze` eigene Zeilen zusammen sind.
+  //
+  // Die Obergrenze ist ein Stoppschild, kein Erwartungswert: Die Aufbewahrung liegt bei 90 bis
+  // 365 Tagen (cron.pb.js), das Protokoll wächst also nicht unbegrenzt.
+  let alle = []
   if (team) {
-    alle = alle.filter((x) => {
-      const ziel = x.getString('target')
-      if (ziel && eigene[ziel]) return true
-      const wer = x.getString('actor')
-      return wer.indexOf('member:') === 0 && eigene[wer.slice(7)]
-    })
+    const stapelgroesse = 500
+    for (let versatz = 0; versatz < 10000 && alle.length < grenze; versatz += stapelgroesse) {
+      const stapel = e.app.findRecordsByFilter('audit_log', "id != ''", '-at', stapelgroesse, versatz)
+      for (const x of stapel) {
+        if (gehoertDazu(x)) alle.push(x)
+        if (alle.length >= grenze) break
+      }
+      if (stapel.length < stapelgroesse) break
+    }
+  } else {
+    alle = e.app.findRecordsByFilter('audit_log', "id != ''", '-at', grenze, 0)
   }
 
   return e.json(200, {

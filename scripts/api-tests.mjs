@@ -1566,6 +1566,34 @@ await pruefe('T20b', 'Der Kapitän korrigiert eine Rückmeldung, auch an einem g
   gleich(await stand(), undefined, 'zurückgenommen')
 })
 
+await pruefe('T21', 'Das Protokoll findet die Zeilen einer Mannschaft auch weiter hinten', async () => {
+  // Die Zugehörigkeit einer Protokollzeile zu einer Mannschaft steht nicht in der Zeile, sie
+  // ergibt sich erst aus der Auflösung von Ziel und Urheber. Gefiltert wurde deshalb im
+  // Speicher — aber ERST NACH dem Begrenzen. In einem Verein mit mehreren Mannschaften hieß
+  // das: Wer die Damen betreut, sah sein Protokoll nur, wenn seine Zeilen zufällig unter den
+  // letzten hundert des ganzen Vereins lagen. Sonst las er „Noch nichts passiert.".
+  //
+  // Der Testfall ahmt das mit `limit=1` nach: Die neueste Zeile gehört einer anderen
+  // Mannschaft, die gesuchte liegt dahinter.
+  const { jar: chef } = await adminAnmelden()
+  const alsChef = alsKapitaen(chef)
+
+  const meine = await testTeam()
+  const fremde = await zweiteMannschaft()
+  const { satz: meins } = await testMitglied('t21-eigen', true, meine)
+  const { satz: fremdes } = await testMitglied('t21-fremd', true, fremde.id)
+
+  // Erst eine Zeile für die eigene Mannschaft, dann eine neuere für die fremde.
+  await alsChef(`/admin/api/members/${meins.id}`, { method: 'PATCH', body: JSON.stringify({ active: false }) })
+  await alsChef(`/admin/api/members/${fremdes.id}`, { method: 'PATCH', body: JSON.stringify({ active: false }) })
+
+  const antwort = await alsChef(`/admin/api/audit?limit=1&team=${meine}`)
+  gleich(antwort.status, 200, 'Status')
+  const daten = await antwort.json()
+  gleich(daten.items.length, 1, 'die eigene Zeile wird gefunden, obwohl eine fremdere neuer ist')
+  gleich(daten.items[0].action, 'member.update', 'und es ist die richtige')
+})
+
 await pruefe('A10b', 'Tempo und Puffer stehen am Spieltag, sonst gilt der Standard', async () => {
   const { jar: kapitaen } = await adminAnmelden()
   const ruf = alsKapitaen(kapitaen)

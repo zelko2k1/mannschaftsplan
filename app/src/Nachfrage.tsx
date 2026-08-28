@@ -17,6 +17,8 @@
  * ein Dateiname abgetippt werden muss.
  */
 
+import { useEffect, useId, useRef } from 'react'
+
 export type Nachfrage = {
   /** Die Zeile, an der der Kasten erscheint. Bei einem Abschnitt ohne Liste beliebig. */
   id: string
@@ -39,12 +41,65 @@ export function Nachfragekasten({
   laeuft?: boolean
 }) {
   if (!frage) return null
+  // Eigenes Bauteil, damit die Haken beim Erscheinen und Verschwinden greifen — der Kasten wird
+  // ein- und ausgehängt, statt nur seinen Inhalt zu wechseln. `key` sorgt dafür, dass eine
+  // zweite Nachfrage an einer anderen Zeile wirklich neu beginnt.
+  return <Kasten key={frage.id} frage={frage} abbrechen={abbrechen} laeuft={laeuft} />
+}
+
+function Kasten({
+  frage,
+  abbrechen,
+  laeuft,
+}: {
+  frage: Nachfrage
+  abbrechen: () => void
+  laeuft: boolean
+}) {
+  const titelId = useId()
+  const textId = useId()
+  const knopf = useRef<HTMLButtonElement>(null)
+
+  /**
+   * Das eine, was `window.confirm` gut konnte und beim Ersetzen verlorenging: Es nahm den Fokus
+   * an sich und kündigte sich an. Ohne das blieb der Fokus auf „Löschen" stehen, während darunter
+   * ein Kasten erschien, von dem eine Bildschirmleseanwendung gar nichts sagte — und der
+   * naheliegende nächste Schritt eines Menschen, dem nichts gemeldet wird, ist: nochmal Enter.
+   *
+   * Beim Schließen geht der Fokus dorthin zurück, wo er herkam. Sonst landet er am Seitenanfang,
+   * und wer eine Nachfrage abbricht, muss sich neu durch die Liste tabben.
+   */
+  useEffect(() => {
+    const vorher = document.activeElement as HTMLElement | null
+    knopf.current?.focus()
+    const beiTaste = (ereignis: KeyboardEvent) => {
+      if (ereignis.key === 'Escape') abbrechen()
+    }
+    document.addEventListener('keydown', beiTaste)
+    return () => {
+      document.removeEventListener('keydown', beiTaste)
+      vorher?.focus?.()
+    }
+    // Absichtlich einmalig: Der Kasten wird je Nachfrage neu eingehängt (siehe `key`).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   return (
-    <div className="token">
-      <p className="token__hinweis">{frage.titel}</p>
-      <p className="token__text">{frage.text}</p>
+    <div className="token" role="alertdialog" aria-labelledby={titelId} aria-describedby={textId}>
+      <p className="token__hinweis" id={titelId}>
+        {frage.titel}
+      </p>
+      <p className="token__text" id={textId}>
+        {frage.text}
+      </p>
       <div className="satz__aktionen">
-        <button type="button" className="knopf knopf--gefahr" disabled={laeuft} onClick={frage.tun}>
+        <button
+          type="button"
+          ref={knopf}
+          className="knopf knopf--gefahr"
+          disabled={laeuft}
+          onClick={frage.tun}
+        >
           {frage.knopf}
         </button>
         <button type="button" className="knopf" disabled={laeuft} onClick={abbrechen}>

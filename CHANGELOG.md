@@ -7,6 +7,32 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+### Behoben
+- **Der Rückfragekasten meldet sich jetzt auch der Tastatur und der Bildschirmleseanwendung.**
+  Beim Ersetzen der `window.confirm` ging die eine Sache verloren, die der Systemdialog gut
+  konnte: Er nahm den Fokus an sich und kündigte sich an. Der Ersatz tat beides nicht — wer
+  „Löschen" mit der Tastatur auslöste, blieb mit dem Fokus auf „Löschen" stehen, während darunter
+  ein Kasten erschien, von dem eine Bildschirmleseanwendung gar nichts sagte. Jetzt
+  `role="alertdialog"` mit Titel und Text als Bezug, Fokus beim Erscheinen auf den ausführenden
+  Knopf, Escape bricht ab, und beim Schließen geht der Fokus dorthin zurück, wo er herkam.
+  Betroffen waren ausschließlich zerstörende Wege.
+- **Wer sein Auto zurückzieht, erfährt jetzt, wen es trifft.** „Ich fahre" ein zweites Mal
+  anzutippen löscht die Fahrt, und der Server räumt die Mitfahrer per Cascade mit weg — bisher
+  ohne jede Rückfrage, und die Quittung lautete lapidar „du fährst nicht". Zwei Menschen standen
+  ohne Mitfahrgelegenheit da, und der Verursacher erfuhr nicht, dass er es getan hatte. Jetzt
+  fragt derselbe Kasten nach, der in der Kapitänsansicht vor dem Löschen steht — er nennt die
+  Namen —, und die Quittung sagt, wer sich neu einteilen muss. Ein **leeres** Auto zurückzuziehen
+  betrifft niemanden und fragt weiterhin nichts.
+- **Das Protokoll findet die Zeilen einer Mannschaft auch weiter hinten.** Der Server holte die
+  neuesten hundert Zeilen und filterte **danach** auf die Mannschaft. In einem Verein mit mehreren
+  Mannschaften hieß das: Wer die Damen betreut, sah sein Protokoll nur, wenn seine Zeilen zufällig
+  unter den letzten hundert des ganzen Vereins lagen — sonst las er „Noch nichts passiert.", ein
+  Protokoll, das genau in der Lage schweigt, für die es gebaut wurde. Jetzt wird stapelweise
+  weitergelesen, bis genug eigene Zeilen zusammen sind.
+- **„du fehlst noch" steht nicht mehr an abgeschlossenen Spieltagen.** Die Bedingung schloss
+  gesperrte Spieltage nicht aus, also forderte die Zeile zu etwas auf, das im aufgeklappten
+  Bereich mit „Änderungen sind nicht mehr möglich." beantwortet wurde.
+
 ### Hinzugefügt
 - **Der Kapitän sieht endlich, ob seine Mannschaft vollzählig ist.** In seiner Spieltagsliste
   steht jetzt derselbe Satz wie im Aushang — `4/4 zugesagt · 2 Plätze frei · kein Fahrer` —, und
