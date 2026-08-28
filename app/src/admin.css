@@ -220,10 +220,27 @@
   flex-wrap: wrap;
   gap: 0.4rem;
   margin-top: 0.5rem;
+  /* Um diese Strecke beginnt ein Eingabefeld unter dem Zeilenanfang: die Beschriftung darüber
+     (0,75 rem bei Zeilenhöhe 1,4) plus der Abstand aus `.feld`. Steht hier und nicht als Zahl
+     im Knopf, damit beides zusammenbleibt, wenn sich die Beschriftung ändert. */
+  --beschriftungshoehe: calc(0.75rem * 1.4 + 0.2rem);
 }
 /* Knöpfe bemessen sich am Wort, nicht am Fenster. Ohne das zog sich „Löschen" auf einem
    1200-px-Schirm über 440 px Breite. */
 .satz__aktionen .knopf { flex: 0 0 auto; }
+
+/* Steht ein Knopf neben Eingabefeldern, ist er so hoch wie sie und sitzt auf derselben Linie.
+   Ohne das streckte er sich über die volle Zeilenhöhe — ein Flex-Kind tut das von sich aus —,
+   und bei „Konto anlegen" hieß das gemessene 119 px neben Kästen von 44 px, weil unter dem
+   ersten Feld noch zwei Zeilen Hinweis stehen. Er sah aus wie eine Fläche, nicht wie ein Knopf.
+   Der Versatz nach unten setzt ihn auf die Linie der Kästen statt auf die der Beschriftungen.
+
+   `:has()` grenzt es auf gemischte Zeilen ein: Eine Reihe aus lauter Knöpfen — „Bearbeiten,
+   Abschließen, Löschen" — hat keine Beschriftung, um die sie rücken müsste. */
+.satz__aktionen:has(.feld) .knopf {
+  align-self: start;
+  margin-top: var(--beschriftungshoehe);
+}
 
 /* Ein Eintrag in einer Aufzählung, durch eine Linie vom vorigen getrennt: eine Mannschaft, ein
    Verwalterkonto, eine Sicherung. Dreimal dieselbe Zeile, dreimal als Stilangabe im Bauteil
@@ -256,7 +273,13 @@
   gap: 0.6rem;
   margin: 0.6rem 0;
 }
-.feld { display: flex; flex-direction: column; gap: 0.2rem; }
+/* `min-width: 0` ist die Erlaubnis zu schrumpfen: Ein Flex- oder Grid-Kind geht von sich aus
+   nicht unter die Mindestbreite seines Inhalts, und ein Dateifeld bringt eine kräftige mit —
+   den Knopf des Browsers plus den Dateinamen. „Datei zurückgeben" stand damit bei 320 px
+   30 px breiter da, als Platz war. Zu sehen war es nicht, weil der Rahmen abschneidet; der
+   rechte Teil des Feldes fehlte trotzdem. */
+.feld { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.feld input[type='file'] { max-width: 100%; }
 /* Zwei Arten, wie ein Feld in einer Aktionszeile steht — mehr braucht es nicht.
    `--zeile` nimmt sich den Rest der Zeile: Namen, Anmeldenamen, Passwörter, ein Dateifeld. Das
    stand neunmal als Stilangabe im Bauteil, mit zwei verschiedenen Grundbreiten, die nie eine

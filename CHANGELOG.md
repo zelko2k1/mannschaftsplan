@@ -7,6 +7,18 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+### Behoben
+- **Knöpfe neben Eingabefeldern sind so hoch wie die Felder.** Ein Knopf ist ein Flex-Kind und
+  streckte sich von sich aus über die volle Zeilenhöhe: „Konto anlegen" stand mit gemessenen
+  **119 px** neben Kästen von 44 px, weil unter dem ersten Feld noch zwei Zeilen Hinweistext
+  stehen; „Sicherung erstellen" auf 64 px. Er sah aus wie eine Fläche, nicht wie ein Knopf. Jetzt
+  ist er 44 px hoch und sitzt auf derselben Linie wie die Kästen — als Regel für alle gemischten
+  Zeilen, statt wie bisher als Einzelfall an genau einer Stelle.
+- **Das Feld „Datei zurückgeben" passt wieder ins Bild.** Ein Dateifeld bringt seine eigene
+  Mindestbreite mit (Knopf des Browsers plus Dateiname), und ein Flex-Kind schrumpft ohne
+  `min-width: 0` nicht darunter: Bei 320 px war es 330 px breit. Zu sehen war es nicht, weil der
+  Rahmen der Ansicht abschneidet — der rechte Teil des Feldes fehlte trotzdem.
+
 ### Sicherheit
 - **Einladungslinks standen in PocketBases eigenem Anfrageprotokoll — mit vollständigem Token.**
   R8 verlangt, dass ein Token in keinem Protokoll landet; dafür überspringt Caddy die Route

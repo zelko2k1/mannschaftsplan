@@ -776,12 +776,9 @@ function Mitglieder({ abgemeldet, team }: { abgemeldet: () => void; team: string
           <span>Neues Mitglied</span>
           <input value={neuerName} onChange={(x) => setNeuerName(x.target.value)} />
         </label>
-        <button
-          type="submit"
-          className="knopf"
-          style={{ alignSelf: 'end' }}
-          disabled={!neuerName.trim() || laeuft === 'neu'}
-        >
+        {/* Die Ausrichtung kommt jetzt aus `.satz__aktionen:has(.feld) .knopf` — sie war hier
+            als Einzelfall gelöst und an den anderen Stellen gar nicht. */}
+        <button type="submit" className="knopf" disabled={!neuerName.trim() || laeuft === 'neu'}>
           Anlegen
         </button>
       </form>
