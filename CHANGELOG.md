@@ -8,6 +8,24 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 ## [Unveröffentlicht]
 
 ### Behoben
+- **Ohne Mannschaft führt kein Weg mehr ins Leere.** Wer die letzte Mannschaft auflöst, stand
+  bisher vor drei Sackgassen: Der Reiter „Mannschaft" hing unbegrenzt in „Einen Moment …", weil
+  er auf Daten wartete, die es nicht gab; „Spieltage" ließ ein Formular mit elf Feldern ausfüllen
+  und der Server lehnte am Ende ab; und im Kopf stand das Wort „Mannschaft", das sich wie ein
+  Name las. Jetzt steht überall derselbe Wegweiser, die Ansicht springt auf den Reiter „Verein",
+  dort liegt das Anlegen ganz oben mit einem Satz dazu, was danach kommt, und der Kopf sagt
+  „Noch keine Mannschaft".
+- **„Ungültige Angabe." sagt jetzt, was fehlt, wenn es das sagen darf.** Beim Anlegen von
+  Spieltagen und Mitgliedern teilten sich zwei Gründe eine Meldung. „Es ist keine Mannschaft
+  gewählt" ist ein Zustand, den der Anfragende ändern kann — er heißt jetzt „Wähle zuerst eine
+  Mannschaft aus.". „Diese Mannschaft darfst du nicht" bleibt wortkarg (R6).
+- **Eine erfundene Mannschaftskennung fällt nicht mehr der Datenbank vor die Füße.** Für einen
+  Admin lässt die Rechteprüfung jede Mannschaft zu, auch eine, die es nicht gibt — der Fehler
+  fiel erst beim Speichern auf, und PocketBase antwortete mit „Failed to find all relation
+  records with the provided ids.": englischer Rohtext, genau das, was der Code an dieser Stelle
+  zu verhindern versprach.
+
+### Behoben
 - **Knöpfe neben Eingabefeldern sind so hoch wie die Felder.** Ein Knopf ist ein Flex-Kind und
   streckte sich von sich aus über die volle Zeilenhöhe: „Konto anlegen" stand mit gemessenen
   **119 px** neben Kästen von 44 px, weil unter dem ersten Feld noch zwei Zeilen Hinweistext

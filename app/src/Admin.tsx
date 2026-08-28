@@ -69,6 +69,11 @@ export default function Admin() {
       const d = await adminApi.werBinIch()
       setIch(d)
       setGewaehlt((vorher) => (d.teams.some((t) => t.id === vorher) ? vorher : (d.teams[0]?.id ?? '')))
+      // Eine frisch aufgesetzte Anwendung enthält bewusst keine Daten (PRODUCT.md) — der erste
+      // Admin steht also vor einer leeren Instanz. „Spieltage" ist dann der einzige Reiter, auf
+      // dem er nichts tun kann: Ohne Mannschaft gibt es keinen Spieltag. Er landet deshalb dort,
+      // wo der erste Schritt liegt. Sobald eine Mannschaft existiert, greift das nie wieder.
+      if (d.rolle === 'admin' && d.teams.length === 0) setReiter('verein')
     } catch {
       setIch(null)
     } finally {
@@ -99,8 +104,13 @@ export default function Admin() {
     <div className="admin">
       <header className="balken admin__kopf">
         {/* Die Überschrift ist die Mannschaft, um die es gerade geht — nicht die Rolle des
-            Anmeldenden. „Kapitän" sagte ihm nichts, was er nicht wüsste. */}
-        <h1>{ich.teams.find((t) => t.id === gewaehlt)?.name ?? 'Mannschaft'}</h1>
+            Anmeldenden. „Kapitän" sagte ihm nichts, was er nicht wüsste.
+            Gibt es keine, stand hier das Wort „Mannschaft" — das las sich wie ein Name und
+            behauptete etwas, das nicht stimmte. */}
+        <h1>
+          {ich.teams.find((t) => t.id === gewaehlt)?.name ??
+            (ich.teams.length === 0 ? 'Noch keine Mannschaft' : 'Mannschaft')}
+        </h1>
         <span className="admin__wer">
           {/* Ein Kapitän hat genau eine Mannschaft — für ihn wäre eine Auswahl mit einem Eintrag
               keine Auswahl. Ihr Name steht ohnehin schon in der Überschrift. */}
@@ -172,7 +182,11 @@ export default function Admin() {
         )}
         {reiter === 'konten' && ich.rolle === 'admin' && <Konten abgemeldet={abgemeldet} />}
         {reiter === 'verein' && ich.rolle === 'admin' && (
-          <Verein abgemeldet={abgemeldet} neuLaden={() => void werBinIch()} />
+          <Verein
+            abgemeldet={abgemeldet}
+            neuLaden={() => void werBinIch()}
+            ohneMannschaft={ich.teams.length === 0}
+          />
         )}
         {reiter === 'konto' && <MeinKonto abgemeldet={abgemeldet} />}
         {/* Der Gesamt-Admin sieht das ganze Protokoll — die zentralen Ereignisse gehören zu
@@ -399,6 +413,18 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
   }
 
   if (!items) return <p>Einen Moment …</p>
+
+  // Ohne Mannschaft gibt es keinen Spieltag — das Schema verlangt eine. Vorher stand hier
+  // „Neuer Spieltag", das Formular ließ sich ausfüllen, und der Server lehnte am Ende ab. Elf
+  // Felder umsonst, mit einer Meldung, die den Grund nicht nannte.
+  if (!team) {
+    return (
+      <p className="namen">
+        Für einen Spieltag braucht es zuerst eine Mannschaft. Angelegt wird sie im Reiter
+        „Verein" — das kann der Admin.
+      </p>
+    )
+  }
 
   return (
     <>
@@ -937,7 +963,16 @@ function Mitglieder({ abgemeldet, team }: { abgemeldet: () => void; team: string
  * Mannschaftsliste vermutet. Was einer einzelnen Mannschaft gehört, steht im Reiter
  * „Mannschaft"; was zur angemeldeten Person gehört, unter „Mein Konto".
  */
-function Verein({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLaden: () => void }) {
+function Verein({
+  abgemeldet,
+  neuLaden,
+  ohneMannschaft,
+}: {
+  abgemeldet: () => void
+  neuLaden: () => void
+  /** Es gibt noch gar keine Mannschaft — dann ist ihr Anlegen der erste Schritt. */
+  ohneMannschaft: boolean
+}) {
   const [daten, setDaten] = useState<EinstellungenDaten | null>(null)
   const [entwurf, setEntwurf] = useState<EinstellungenDaten | null>(null)
   const [fehler, setFehler] = useState('')
@@ -1009,6 +1044,7 @@ function Verein({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLaden: ()
 
   return (
     <>
+    {ohneMannschaft && <Mannschaften abgemeldet={abgemeldet} neuLaden={neuLaden} />}
     <form onSubmit={speichern}>
       <Fehler text={fehler} />
 
@@ -1142,7 +1178,9 @@ function Verein({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLaden: ()
         </div>
       </div>
     </form>
-    <Mannschaften abgemeldet={abgemeldet} neuLaden={neuLaden} />
+    {/* Sonst steht der eine Schritt, der jetzt zählt, unter Vereinsname, Sperrfrist und zwei
+        Rechtstexten — und der erste Admin scrollt an ihm vorbei. */}
+    {!ohneMannschaft && <Mannschaften abgemeldet={abgemeldet} neuLaden={neuLaden} />}
     <Sicherungen abgemeldet={abgemeldet} />
     </>
   )
@@ -1491,6 +1529,18 @@ function MannschaftenReiter({
   team: string
   neuLaden: () => void
 }) {
+  // Ein Reiter, eine Aussage: Ohne Mannschaft haben weder ihre Werte noch ihre Spieler einen
+  // Gegenstand. Das steht hier und nicht in den beiden Bauteilen darunter, sonst stünde derselbe
+  // Satz zweimal untereinander.
+  if (!team) {
+    return (
+      <p className="namen">
+        Es gibt noch keine Mannschaft. Angelegt wird sie im Reiter „Verein" — das kann der Admin.
+        Danach stehen hier ihr Name und ihre Spieler.
+      </p>
+    )
+  }
+
   return (
     <>
       <Mannschaftseinstellungen abgemeldet={abgemeldet} team={team} neuLaden={neuLaden} />
@@ -1535,6 +1585,9 @@ function Mannschaftseinstellungen({
     void laden()
   }, [laden])
 
+  // Ohne gewählte Mannschaft fände `laden()` nichts und `satz` bliebe null — die Ladeanzeige
+  // stünde dann unbegrenzt. Erreichbar ist das nicht mehr, `MannschaftenReiter` fängt den Fall
+  // eine Ebene höher ab; der Hinweis bleibt, damit niemand die Bedingung dort für Zierrat hält.
   if (!satz || !entwurf) return <p className="namen">Einen Moment …</p>
 
   const name = entwurf.name.trim()
@@ -1651,6 +1704,17 @@ function Mannschaften({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLad
 
       {items === null ? (
         <p className="namen">Einen Moment …</p>
+      ) : items.length === 0 ? (
+        /* Der erste Bildschirm einer frisch aufgesetzten Anwendung. Kein Willkommensrundgang —
+           nur der eine Schritt, an dem alles andere hängt, und wozu er führt. */
+        <div className="token">
+          <p className="token__hinweis">Fang hier an</p>
+          <p className="token__text">
+            Lege eure erste Mannschaft an. Danach kannst du im Reiter „Mannschaft" die Spieler
+            eintragen und ihnen ihren persönlichen Link schicken, und unter „Spieltage" den
+            Spielplan.
+          </p>
+        </div>
       ) : (
         <ul className="namen liste">
           {items.map((t) => (

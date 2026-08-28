@@ -1614,6 +1614,28 @@ await pruefe('T22', 'Der Einladungslink steht in keinem Protokoll — auch nicht
   gleich(treffer.length, 0, 'kein Protokolleintrag enthält das Token')
 })
 
+await pruefe('T23', 'Ohne gewählte Mannschaft sagt der Server, was fehlt', async () => {
+  // Zwei Gründe teilten sich eine Meldung: „keine Mannschaft gewählt" und „diese darfst du
+  // nicht". Der erste ist ein Zustand, den der Anfragende ändern kann — und er hat gerade ein
+  // Formular ausgefüllt. Der zweite bleibt wortkarg (R6).
+  const { jar } = await adminAnmelden()
+  const ruf = alsKapitaen(jar)
+
+  const ohne = await ruf('/admin/api/fixtures', {
+    method: 'POST',
+    body: JSON.stringify({ opponent_town: 'test-t23', date: '2026-09-12 17:30:00.000Z' }),
+  })
+  gleich(ohne.status, 400, 'abgelehnt')
+  gleich((await ohne.json()).message, 'Wähle zuerst eine Mannschaft aus.', 'und sagt warum')
+
+  const fremd = await ruf('/admin/api/fixtures', {
+    method: 'POST',
+    body: JSON.stringify({ opponent_town: 'test-t23b', date: '2026-09-12 17:30:00.000Z', team: 'gibtesnicht123' }),
+  })
+  gleich(fremd.status, 400, 'unbekannte Mannschaft abgelehnt')
+  gleich((await fremd.json()).message, 'Ungültige Angabe.', 'ohne zu verraten, ob es sie gibt')
+})
+
 await pruefe('A10b', 'Tempo und Puffer stehen am Spieltag, sonst gilt der Standard', async () => {
   const { jar: kapitaen } = await adminAnmelden()
   const ruf = alsKapitaen(kapitaen)

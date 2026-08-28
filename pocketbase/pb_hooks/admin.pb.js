@@ -309,7 +309,22 @@ routerAdd('POST', '/admin/api/fixtures', (e) => {
   // der Gesamt-Admin muss sagen, für welche. Das Schema lehnte es ohnehin ab — hier steht es,
   // damit die Meldung verständlich ist statt einer Datenbankfehlermeldung.
   const team = a.teamFuer(kontext, koerper.team)
-  if (!team || !a.darfTeam(kontext, team)) {
+  // Zwei verschiedene Gründe, zwei verschiedene Sätze. „Es ist keine gewählt" ist ein Zustand,
+  // den der Anfragende ändern kann und deshalb erfahren soll — er hat gerade ein Formular
+  // ausgefüllt. „Diese darfst du nicht" bleibt wortkarg: Ob es die fremde Mannschaft überhaupt
+  // gibt, geht ihn nichts an (R6).
+  if (!team) return e.json(400, { message: 'Wähle zuerst eine Mannschaft aus.' })
+  if (!a.darfTeam(kontext, team)) {
+    return e.json(400, { message: 'Ungültige Angabe.' })
+  }
+  // Für den Admin lässt `darfTeam` jede Mannschaft zu — auch eine, die es nicht gibt. Ohne
+  // diese Zeile fiel eine erfundene Kennung erst beim Speichern auf, und PocketBase antwortete
+  // mit "Failed to find all relation records with the provided ids.": englischer Rohtext aus der
+  // Datenbank, genau das, was der Kommentar oben zu verhindern verspricht. Dieselbe Meldung wie
+  // oben, damit „darfst du nicht" und „gibt es nicht" von außen gleich aussehen (R6).
+  try {
+    e.app.findRecordById('teams', team)
+  } catch {
     return e.json(400, { message: 'Ungültige Angabe.' })
   }
 
@@ -420,7 +435,22 @@ routerAdd('POST', '/admin/api/members', (e) => {
   if (!name) return e.json(400, { message: 'Ungültige Angabe.' })
 
   const team = a.teamFuer(kontext, koerper.team)
-  if (!team || !a.darfTeam(kontext, team)) {
+  // Zwei verschiedene Gründe, zwei verschiedene Sätze. „Es ist keine gewählt" ist ein Zustand,
+  // den der Anfragende ändern kann und deshalb erfahren soll — er hat gerade ein Formular
+  // ausgefüllt. „Diese darfst du nicht" bleibt wortkarg: Ob es die fremde Mannschaft überhaupt
+  // gibt, geht ihn nichts an (R6).
+  if (!team) return e.json(400, { message: 'Wähle zuerst eine Mannschaft aus.' })
+  if (!a.darfTeam(kontext, team)) {
+    return e.json(400, { message: 'Ungültige Angabe.' })
+  }
+  // Für den Admin lässt `darfTeam` jede Mannschaft zu — auch eine, die es nicht gibt. Ohne
+  // diese Zeile fiel eine erfundene Kennung erst beim Speichern auf, und PocketBase antwortete
+  // mit "Failed to find all relation records with the provided ids.": englischer Rohtext aus der
+  // Datenbank, genau das, was der Kommentar oben zu verhindern verspricht. Dieselbe Meldung wie
+  // oben, damit „darfst du nicht" und „gibt es nicht" von außen gleich aussehen (R6).
+  try {
+    e.app.findRecordById('teams', team)
+  } catch {
     return e.json(400, { message: 'Ungültige Angabe.' })
   }
 
