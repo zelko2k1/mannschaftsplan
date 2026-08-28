@@ -23,6 +23,12 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   niemandem seine Mannschaft umbenannt werden.
 
 ### Behoben
+- **Die zugeklappte Zeile sagt jetzt, was du selbst geantwortet hast.** Sie zeigte den Stand der
+  Mannschaft und ob jemand fährt — nur die eigene Zusage fehlte. Solange nichts eingetragen war,
+  stand dort „du fehlst noch"; sobald man antwortete, verschwand der Hinweis und nichts trat an
+  seine Stelle. Wer wissen wollte, ob er zugesagt hatte, musste die Zeile aufklappen. Jetzt steht
+  an derselben Stelle „du: dabei", „du: unsicher" oder „du: kann nicht" — die Zeile wird dadurch
+  nicht länger, und der Aushang bleibt aus einem Blick lesbar.
 - **Ohne Mannschaft führt kein Weg mehr ins Leere.** Wer die letzte Mannschaft auflöst, stand
   bisher vor drei Sackgassen: Der Reiter „Mannschaft" hing unbegrenzt in „Einen Moment …", weil
   er auf Daten wartete, die es nicht gab; „Spieltage" ließ ein Formular mit elf Feldern ausfüllen

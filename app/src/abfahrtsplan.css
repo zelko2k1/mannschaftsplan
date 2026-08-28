@@ -229,6 +229,14 @@
   /* Als Ganzes umbrechen, nicht nach dem ersten Wort („du / fehlst noch"). */
   white-space: nowrap;
 }
+/* Die eigene Antwort steht an derselben Stelle wie „du fehlst noch" und trägt dasselbe Gewicht —
+   nur kein Rot. Das ist der Unterschied, auf den es ankommt: Rot ruft zum Handeln (6.2), eine
+   gegebene Antwort tut das nicht. Gleiches Gewicht, damit der Blick „du" immer an derselben
+   Stelle findet, ob dort noch etwas zu tun ist oder nicht. */
+.zeile__ich {
+  font-weight: 600;
+  white-space: nowrap;
+}
 
 /* ── Stempel „KOMPLETT" ──────────────────────────────────────────────────────────────────── */
 /* Eigene Zeile, rechtsbündig — nicht absolut positioniert. Absolut lag er bei 320 px über

@@ -140,12 +140,31 @@ export default function Zeile({
                 </span>
               </>
             )}
-            {ohneAntwort && !vorbei && !spieltag.locked && (
-              <>
-                {' · '}
-                <span className="zeile__warnung">du fehlst noch</span>
-              </>
-            )}
+            {/* Dieselbe Stelle, zwei Zustände. Die Zeile sagte, wie viele zugesagt haben, wie
+                viele Plätze frei sind und ob ein Fahrer fehlt — nur nicht, was man selbst
+                geantwortet hat. Sobald geantwortet war, verschwand „du fehlst noch" und nichts
+                trat an seine Stelle; wer nachsehen wollte, musste aufklappen. Grundsatz 2
+                verlangt genau das nicht, und es ist die Angabe, die der Betrachter garantiert
+                sucht.
+
+                Die Wörter kommen aus derselben Liste wie die Knöpfe, kleingeschrieben, weil sie
+                hier in einer laufenden Zeile stehen statt auf einem Knopf. */}
+            {ohneAntwort
+              ? !vorbei &&
+                !spieltag.locked && (
+                  <>
+                    {' · '}
+                    <span className="zeile__warnung">du fehlst noch</span>
+                  </>
+                )
+              : (
+                  <>
+                    {' · '}
+                    <span className="zeile__ich">
+                      du: {ANTWORTEN.find((a) => a.wert === meineAntwort)?.text.toLowerCase()}
+                    </span>
+                  </>
+                )}
           </span>
 
           {vollzaehlig && <span className="stempel">Komplett</span>}
