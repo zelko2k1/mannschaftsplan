@@ -193,7 +193,9 @@ Der Reiter **Einstellungen** hat vier Dinge:
 
 **Name des Vereins.** Er steht dort, wo es um die Anwendung als Ganzes geht: über Impressum und
 Datenschutzhinweis, auf der Seite „Link ungültig", und als Herausgeber in der Authenticator-App.
-Voreingestellt ist „Mannschaftsplan".
+Voreingestellt ist **„Vereinsname"** — ein Platzhalter, den man als solchen erkennt. Steht er
+irgendwo noch da, hat ihn schlicht noch niemand gesetzt. Der Name der Software hatte an dieser
+Stelle nichts verloren; er sah aus wie eine Entscheidung.
 
 Auf der **Einladungsseite** steht dagegen der Name der Mannschaft, zu der der Link gehört — den
 erwartet das Mitglied, und er landet in der Vorschau, die WhatsApp und andere Messenger erzeugen.
