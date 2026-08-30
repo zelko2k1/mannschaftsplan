@@ -392,6 +392,25 @@
   user-select: all;
 }
 
+/* Ersteinrichtung · Der Balken, der auf den fehlenden zweiten Faktor hinweist. Gelb wie der
+   Kopfbalken, nicht rot: Das ist kein Fehler, sondern ein offener Schritt. Rot bleibt in diesem
+   Entwurf der Warnfarbe vorbehalten. */
+.aufforderung {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1rem;
+  margin: 0.8rem 1rem 0;
+  padding: 0.7rem 0.9rem;
+  border: 2px solid var(--tinte);
+  background: var(--gelb);
+}
+.aufforderung p {
+  flex: 1 1 18rem;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
 /* Die zehn Wiederherstellungscodes. Zwei Spalten, damit die Liste auch auf einem Handy in einen
    Blick passt — sie wird abgeschrieben, nicht überflogen. Feste Breite über die Monoschrift:
    untereinander stehende Codes lassen sich Zeichen für Zeichen vergleichen. */

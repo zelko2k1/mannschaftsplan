@@ -18,6 +18,10 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 - **Der Kapitän kommt in seine eigene Spieleransicht** — im Kopf der Verwaltung steht „Als
   Spieler", auf dem Aushang steht „Verwaltung". Ein Konto, ein Spielereintrag, ein Lesezeichen.
   Für „wie steht es" und die eigene Zusage braucht er sich damit gar nicht mehr anzumelden.
+- **Ein Hinweis für die Ersteinrichtung.** Wer als Admin noch keinen zweiten Faktor hat, sieht
+  jetzt oben einen Balken samt Knopf dorthin — vorher erfuhr er von der Pflicht erst, wenn er auf
+  „Konten" klickte und einen roten Kasten bekam. Eine Bedingung, die von Anfang an feststeht,
+  gehört an den Anfang.
 - **Sperren stehen unter „Konten"** — mit der Restzeit und einem Knopf zum Aufheben. Vorher war
   eine Anmeldesperre für den Admin unsichtbar, und der Kapitän am Telefon konnte nur warten.
 - **`MANAGE_ALLOW` und `ADMIN_ALLOW`** schränken ein, aus welchen Netzen die beiden Eingänge

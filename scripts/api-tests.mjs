@@ -897,6 +897,10 @@ await pruefe('A13', 'Admin-Konto ohne zweiten Faktor kommt nicht an /admin/api (
   const jar = await adminSitzung()
   const ruf = alsKapitaen(jar)
 
+  // Die Oberfläche erfährt es, bevor jemand dagegenläuft: /manage/api/me sagt, ob ein Faktor da
+  // ist. Daran hängt der Hinweisbalken der Ersteinrichtung.
+  gleich((await (await ruf('/manage/api/me')).json()).totp, false, 'me.totp vor der Einrichtung')
+
   // Vorher: die Rolle stimmt, der Faktor fehlt. 403 mit Klartext, nicht 404 — wer angemeldet
   // ist, soll erfahren, was ihm fehlt.
   const gesperrt = await ruf('/admin/api/verwalter')
@@ -923,6 +927,7 @@ await pruefe('A13', 'Admin-Konto ohne zweiten Faktor kommt nicht an /admin/api (
 
   // Nachher: dieselbe Sitzung, dieselbe Rolle — und jetzt geht es.
   gleich((await ruf('/admin/api/verwalter')).status, 200, 'mit Faktor')
+  gleich((await (await ruf('/manage/api/me')).json()).totp, true, 'me.totp nach der Einrichtung')
 })
 
 await pruefe('A14', 'Ein Wiederherstellungscode ersetzt den Code aus der App — genau einmal', async () => {

@@ -111,6 +111,11 @@ export type Wer = {
   mitglied: string
   /** Zur Auswahl: alle Mannschaften, für einen Kapitän genau seine eine. */
   teams: { id: string; name: string }[]
+  /**
+   * Ob dieses Konto einen zweiten Faktor eingerichtet hat. Für Admin-Konten ist er Pflicht —
+   * ohne ihn antwortet alles unter /admin/api mit 403, und die Oberfläche sagt das vorher.
+   */
+  totp: boolean
 }
 
 export type Sicherung = {

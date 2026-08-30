@@ -156,12 +156,25 @@ Das ist die Anmeldung für die Kapitänsseite — eine andere als die aus Schrit
 wie eine echte E-Mail-Adresse aussehen. Das Passwort steht danach in der Befehls-Historie deiner
 Shell; wenn dich das stört, lösche sie mit `history -c`.
 
-**8 · Die Mannschaft eintragen**
+**8 · Deinen zweiten Faktor einrichten**
 
 `https://dart.mein-verein.de/admin` aufrufen. Es kommen **zwei** Abfragen nacheinander: erst das
 Passwort aus Schritt 4 (der Browser fragt in einem kleinen Fenster), dann die Anmeldung aus
 Schritt 7 auf der Seite selbst. Deine Kapitäne bekommen später eine andere Adresse — `/manage`,
 ohne das Browser-Fenster; mehr dazu unter „Zwei Wege hinein".
+
+Oben steht jetzt ein gelber Balken: **Der zweite Faktor fehlt noch.** Für Admin-Konten ist er
+Pflicht — ohne ihn bleiben Konten, Vereinseinstellungen und Sicherungen verschlossen. Spieltage
+und Spieler kannst du auch ohne ihn schon pflegen, aber es ist der kürzere Weg, ihn jetzt zu
+erledigen: auf **Jetzt einrichten** klicken, den Link auf dem Handy antippen (dann öffnet sich
+deine Authenticator-App von selbst) oder das Geheimnis am Rechner von Hand eintragen, dann einen
+Code eintippen.
+
+> **Die zehn Wiederherstellungscodes, die danach erscheinen, siehst du genau einmal.** Schreib
+> sie ab, bevor du das Fenster schließt — ins Portemonnaie oder in den Passwortmanager. Sie sind
+> dein Weg zurück, wenn das Handy weg ist. Ohne sie bliebe nur ein SSH-Tunnel in die Datenbank.
+
+**9 · Die Mannschaft eintragen**
 
 Dort legst du die Mitglieder an. Bei jedem gibt es den Knopf **„Neues Token"** — der erzeugt den
 persönlichen Link für dieses Mitglied.
@@ -174,7 +187,7 @@ persönlichen Link für dieses Mitglied.
 
 Danach die Spieltage eintragen — Datum, Anwurfzeit, Gegner, Ort, Entfernung. Fertig.
 
-**9 · Einstellungen anpassen** *(freiwillig, aber lohnend)*
+**10 · Einstellungen anpassen** *(freiwillig, aber lohnend)*
 
 Der Reiter **Einstellungen** hat vier Dinge:
 
@@ -305,9 +318,11 @@ Protokoll.
 > gelesen — er bekommt seine eigene, so wie ein Mitglied im Aushang immer sich selbst ändert und
 > nie jemand anderen.
 
-Alle sieben teilen sich weiterhin **ein** Passwort für das Tor aus Schritt 4. Dessen Rolle ändert
-sich damit: Es ist die Vorfilterung, nicht die Anmeldung. Wird es doch einmal öffentlich, steht
-nicht die Verwaltung offen, sondern nur der Anmeldebildschirm.
+**Das Tor aus Schritt 4 brauchen die Kapitäne nicht.** Sie arbeiten unter `/manage` und melden
+sich dort nur in der App an — mit einem eigenen Passwort, das der Server erzeugt und das du
+jederzeit für eine einzelne Person zurücksetzen kannst. Ein geteiltes Tor-Passwort könnte das
+nicht: Es ist nicht widerrufbar, kennt kein Abmelden, und wer ausscheidet, nimmt es mit. Das Tor
+steht deshalb nur noch vor dem, was alle Mannschaften betrifft — siehe „Zwei Wege hinein".
 
 **Eine Mannschaft auflösen** geht erst, wenn sie leer ist — keine Mitglieder, keine Spieltage,
 kein Kapitän. Ein Klick, der ein Jahr Spielbetrieb mitnähme, wäre zu scharf.

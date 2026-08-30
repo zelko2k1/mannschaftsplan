@@ -240,12 +240,28 @@ routerAdd('GET', '/manage/api/me', (e) => {
     teams = []
   }
 
+  // Hat dieses Konto einen zweiten Faktor? Nur die Auskunft, nie das Geheimnis.
+  //
+  // Die Oberfläche braucht sie für die Ersteinrichtung: Für Admin-Konten ist der Faktor Pflicht
+  // (R13), und ohne ihn antwortet alles unter /admin/api mit 403. Ohne diese Auskunft erführe
+  // der frisch eingerichtete Betreiber das erst, wenn er auf „Konten" klickt und einen roten
+  // Kasten bekommt — eine Bedingung, die man von Anfang an sagen kann, gehört an den Anfang.
+  let totp = false
+  try {
+    totp = !!e.app.findFirstRecordByFilter('admin_totp', 'email = {:m} && confirmed = true', {
+      m: kontext.email,
+    })
+  } catch {
+    totp = false
+  }
+
   return e.json(200, {
     email: kontext.email,
     rolle: kontext.rolle,
     team: kontext.team,
     mitglied: kontext.mitglied,
     teams: teams,
+    totp: totp,
   })
 })
 

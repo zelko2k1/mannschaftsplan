@@ -176,6 +176,23 @@ export default function Admin() {
         </span>
       </header>
 
+      {/* Ersteinrichtung · Ein Admin ohne zweiten Faktor kommt an Konten, Verein und Sicherungen
+          nicht heran (R13). Das steht hier, bevor er dagegenläuft — eine Bedingung, die von
+          Anfang an feststeht, gehört an den Anfang und nicht in einen roten Kasten hinter dem
+          dritten Klick. Für Kapitäne erscheint der Balken nie: Für sie ist der Faktor freiwillig. */}
+      {ich.rolle === 'admin' && !ich.totp && reiter !== 'konto' && (
+        <div className="aufforderung" role="status">
+          <p>
+            <strong>Der zweite Faktor fehlt noch.</strong> Für Admin-Konten ist er Pflicht. Bis er
+            steht, bleiben Konten, Vereinseinstellungen und Sicherungen verschlossen — Spieltage
+            und Spieler kannst du schon pflegen.
+          </p>
+          <button type="button" className="knopf" onClick={() => setReiter('konto')}>
+            Jetzt einrichten
+          </button>
+        </div>
+      )}
+
       <nav className="reiter">
         {REITER[ich.rolle].map(([wert, text]) => (
           <button
