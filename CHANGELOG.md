@@ -59,6 +59,11 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   niemandem seine Mannschaft umbenannt werden.
 
 ### Behoben
+- **Der Kopfbalken im Aushang war nur so breit wie seine Beschriftung.** Zwei verschiedene Dinge
+  hießen im Stylesheet `.balken`: der gelbe Kopfbalken und die Kästchen, die die Belegung eines
+  Autos anzeigen. Gleiche Spezifität, und die Datei mit den Kästchen lädt später — deren
+  `display: inline-flex` landete damit auf jedem Kopfbalken und ließ ihn schrumpfen. Die Kästchen
+  heißen jetzt `.belegung`.
 - **Schreibende Anfragen ohne CSRF-Kopfzeile wurden in der Verwaltung trotz „403" ausgeführt.**
   Die Vorprüfung meldete den Fehler korrekt, brach die Bearbeitung aber nicht ab: Sie gab die
   fertige Antwort zurück, und `e.json()` liefert in PocketBases JavaScript-Umgebung `undefined` —

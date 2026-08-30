@@ -83,6 +83,9 @@ body {
    getrennt hingeschrieben; auf „Link ungültig" stand sie sogar als Stilangabe im Bauteil selbst.
    Hier steht, was allen dreien gemeinsam ist. Wie breit, wie hoch, ob mit Rand und ob er beim
    Scrollen klebt, entscheidet jeder für sich — das ist der Unterschied zwischen ihnen. */
+/* Der gelbe Kopfbalken. Der Name ist damit vergeben: Was sonst noch nach „Balken" aussieht —
+   die Belegungskästchen im Aushang etwa — heißt anders, sonst erbt der Kopf dessen Stilangaben.
+   Genau das ist einmal passiert, und der Kopf schrumpfte auf die Breite seiner Beschriftung. */
 .balken {
   background: var(--gelb);
   font-family: var(--schrift-eng);

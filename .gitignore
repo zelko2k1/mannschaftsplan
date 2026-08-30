@@ -33,3 +33,6 @@ pocketbase/pb_public/
 # Lokale Einstellungen des Assistenten und sein Arbeitsverzeichnis.
 .claude/settings.local.json
 .impeccable/
+
+# Bildschirmfotos zum Zeigen und Besprechen — gehören in die Unterhaltung, nicht ins Repo.
+screenshots/

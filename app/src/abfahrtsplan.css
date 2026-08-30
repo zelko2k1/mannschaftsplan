@@ -343,14 +343,19 @@
   color: var(--grau);
 }
 
-/* Belegung als Kästchen: ▮▮▯▯ — auf einen Blick lesbar, ohne Prozentzahl. */
-.balken { display: inline-flex; gap: 3px; vertical-align: -1px; }
-.balken__feld {
+/* Belegung als Kästchen: ▮▮▯▯ — auf einen Blick lesbar, ohne Prozentzahl.
+
+   Hieß bis hierher `.balken` — und trug damit denselben Namen wie der gelbe Kopfbalken aus
+   index.css. Gleiche Spezifität, diese Datei lädt später: Das `display: inline-flex` von hier
+   landete auf JEDEM Kopfbalken und ließ ihn auf die Breite seiner Beschriftung schrumpfen.
+   Zwei Dinge heißen im Deutschen „Balken"; im Stylesheet dürfen sie es nicht. */
+.belegung { display: inline-flex; gap: 3px; vertical-align: -1px; }
+.belegung__feld {
   width: 9px;
   height: 14px;
   border: 1.5px solid var(--tinte);
 }
-.balken__feld--voll { background: var(--tinte); }
+.belegung__feld--voll { background: var(--tinte); }
 
 .plaetze { display: flex; align-items: center; gap: 0.35rem; }
 .plaetze__wert {

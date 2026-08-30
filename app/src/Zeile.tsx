@@ -22,9 +22,9 @@ type Props = {
 function Balken({ voll, gesamt }: { voll: number; gesamt: number }) {
   const felder = Array.from({ length: Math.max(gesamt, 0) }, (_, i) => i < voll)
   return (
-    <span className="balken" aria-hidden="true">
+    <span className="belegung" aria-hidden="true">
       {felder.map((belegt, i) => (
-        <span key={i} className={`balken__feld${belegt ? ' balken__feld--voll' : ''}`} />
+        <span key={i} className={`belegung__feld${belegt ? ' belegung__feld--voll' : ''}`} />
       ))}
     </span>
   )
