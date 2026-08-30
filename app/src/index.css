@@ -64,6 +64,16 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
+/* Hervorhebungen auf 600 statt der Voreinstellung 700.
+   Geladen sind von Barlow die Schnitte 400, 500 und 600 (main.tsx). Ein <strong> verlangt ohne
+   diese Regel 700 — den es nicht gibt, also rechnet der Browser ihn sich aus: Er verdickt die
+   400 künstlich. Das sieht neben einem echten 600 unruhig aus, und im selben Absatz stehen
+   beide. 600 ist ohnehin das Gewicht, mit dem in dieser App betont wird. */
+strong,
+b {
+  font-weight: 600;
+}
+
 /* Für Beschriftungen, die eine Bildschirmleseanwendung braucht, das Auge aber nicht: die
    Plätze-Anzeige zeigt „3", vorgelesen wird „3 Plätze". */
 .visuell-versteckt {

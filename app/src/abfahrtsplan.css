@@ -375,7 +375,7 @@
   line-height: 1.5;
   color: var(--grau);
 }
-.namen strong { color: var(--tinte); font-weight: 600; }
+.namen strong { color: var(--tinte); }
 
 /* ── Fehler und leere Zustände ───────────────────────────────────────────────────────────── */
 /* Keine Modals, keine Toasts, die wegfliegen (6.5) — eine Zeile Klartext, die stehen bleibt. */

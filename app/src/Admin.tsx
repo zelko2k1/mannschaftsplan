@@ -1589,7 +1589,7 @@ function ZweiterFaktor({ abgemeldet }: { abgemeldet: () => void }) {
           <p
             style={{
               margin: '0 0 0.75rem',
-              fontFamily: 'var(--schrift-mono, monospace)',
+              fontFamily: 'var(--schrift-mono)',
               wordBreak: 'break-all',
               fontSize: '1.05rem',
             }}
@@ -2070,7 +2070,7 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
           <p
             style={{
               margin: '0 0 0.5rem',
-              fontFamily: 'var(--schrift-mono, monospace)',
+              fontFamily: 'var(--schrift-mono)',
               fontSize: '1.1rem',
               wordBreak: 'break-all',
             }}

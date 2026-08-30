@@ -59,6 +59,11 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   niemandem seine Mannschaft umbenannt werden.
 
 ### Behoben
+- **Hervorhebungen wurden vom Browser nachgeahmt statt gesetzt.** Von Barlow sind die Schnitte
+  400, 500 und 600 geladen; ein `<strong>` verlangt aber 700, und den rechnete sich der Browser
+  aus, indem er die 400 künstlich verdickte. Neben einem echten 600 im selben Absatz sah das
+  unruhig aus. Hervorhebungen stehen jetzt auf 600 — dem Gewicht, mit dem in dieser App ohnehin
+  betont wird.
 - **Die Kopfbalken sind wieder gleich hoch.** Die Überschrift in der Verwaltung stand auf
   1,4 rem, die im Aushang auf 1,5 — bei gleichem Innenabstand war der Balken damit 1,6 px
   flacher, was beim Wechsel zwischen den Ansichten auffiel. Der Kopf im Aushang bricht jetzt
