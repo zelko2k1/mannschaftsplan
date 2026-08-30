@@ -59,6 +59,10 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   niemandem seine Mannschaft umbenannt werden.
 
 ### Behoben
+- **Die Kopfbalken sind wieder gleich hoch.** Die Überschrift in der Verwaltung stand auf
+  1,4 rem, die im Aushang auf 1,5 — bei gleichem Innenabstand war der Balken damit 1,6 px
+  flacher, was beim Wechsel zwischen den Ansichten auffiel. Der Kopf im Aushang bricht jetzt
+  außerdem um statt zu quetschen, wenn rechts neben dem Namen noch „Verwaltung" steht.
 - **Der Kopfbalken im Aushang war nur so breit wie seine Beschriftung.** Zwei verschiedene Dinge
   hießen im Stylesheet `.balken`: der gelbe Kopfbalken und die Kästchen, die die Belegung eines
   Autos anzeigen. Gleiche Spezifität, und die Datei mit den Kästchen lädt später — deren

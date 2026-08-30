@@ -27,12 +27,17 @@
 /* Auf der Anmeldemaske steht nichts im Balken. `min-height` hält ihn auf der Höhe, die sonst
    die Überschrift vorgibt (1.4rem Schriftgröße bei line-height 1) — sonst schrumpfte er zu
    einem Streifen und sähe aus wie ein Darstellungsfehler. */
+/* Ohne Überschrift bliebe der Balken auf der Anmeldeseite flacher als überall sonst. Die
+   Mindesthöhe ist deshalb genau die Zeilenhöhe einer Überschrift — und muss mit ihr mitwandern. */
 .admin__kopf--leer {
-  min-height: 1.4rem;
+  min-height: 1.5rem;
 }
+/* 1,5 rem wie `.kopf__titel` im Aushang, nicht 1,4: Beide Balken haben denselben Innenabstand,
+   also entscheidet allein die Überschrift über ihre Höhe. Bei 1,4 war die Verwaltung um 1,6 px
+   flacher als der Aushang — wenig, aber beim Wechsel zwischen den Ansichten sichtbar. */
 .admin__kopf h1 {
   margin: 0;
-  font-size: 1.4rem;
+  font-size: 1.5rem;
   font-weight: 700;
   line-height: 1;
 }
