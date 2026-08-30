@@ -15,7 +15,7 @@ body:
       description: Die beiden Bereiche sind getrennt — das grenzt die Ursache oft schon ein.
       options:
         - Mitglied (über den Einladungslink)
-        - Kapitän (/admin)
+        - Kapitän (/manage)
         - Beim Einrichten oder Betreiben
     validations:
       required: true

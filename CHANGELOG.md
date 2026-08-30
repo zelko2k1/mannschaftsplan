@@ -7,7 +7,39 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+- **Wiederherstellungscodes für den zweiten Faktor.** Beim Einschalten erscheinen zehn Codes, jeder
+  einmal verwendbar, jeder ein Ersatz für den Code aus der App. Bisher war ein verlorenes Handy ein
+  Fall für den Admin — und beim Admin selbst einer für den SSH-Tunnel. Über **Neue Codes** gibt es
+  zehn frische; die alten gelten dann nicht mehr.
+- **„Angemeldet bleiben".** Wer den Haken setzt, bleibt 90 Tage auf diesem Gerät angemeldet statt
+  zwölf Stunden. Es gibt ihn **nur mit zweitem Faktor**: Ein Gerät, das drei Monate angemeldet
+  bleibt, ist ein Passwort, das drei Monate niemand mehr eingibt.
+- **Der Kapitän kommt in seine eigene Spieleransicht** — im Kopf der Verwaltung steht „Als
+  Spieler", auf dem Aushang steht „Verwaltung". Ein Konto, ein Spielereintrag, ein Lesezeichen.
+  Für „wie steht es" und die eigene Zusage braucht er sich damit gar nicht mehr anzumelden.
+- **Sperren stehen unter „Konten"** — mit der Restzeit und einem Knopf zum Aufheben. Vorher war
+  eine Anmeldesperre für den Admin unsichtbar, und der Kapitän am Telefon konnte nur warten.
+- **`MANAGE_ALLOW` und `ADMIN_ALLOW`** schränken ein, aus welchen Netzen die beiden Eingänge
+  überhaupt erreichbar sind. Ohne Eintrag ändert sich nichts; die README erklärt unter „Nur aus
+  dem eigenen Netz erreichbar machen", wann sich das lohnt und wie man sich dabei nicht selbst
+  aussperrt.
+
 ### Geändert
+- **Die Kapitäne brauchen kein Tor-Passwort mehr.** Die Verwaltung hat jetzt zwei Eingänge:
+  `/manage` für die Kapitäne, ohne vorgeschaltete Browser-Abfrage, und `/admin` für alles, was nur
+  die Rolle `admin` darf — Konten, Mannschaften, Vereinseinstellungen, Sicherungen —, weiterhin
+  hinter dem Tor. Ein Tor-Passwort, das sich acht Leute teilen, ist nicht pro Person widerrufbar,
+  kennt kein Abmelden und landet im Zweifel in der Mannschaftsgruppe. An seine Stelle treten die
+  erzeugten Passwörter, eine zusätzliche Sperre **pro Konto** und die ohnehin engen Rechte eines
+  Kapitäns. Ausführlich in R13e des Umsetzungsplans.
+- **Für Admin-Konten ist der zweite Faktor Pflicht.** Ohne ihn bleibt alles unter `/admin`
+  verschlossen — die App sagt beim ersten Versuch, was fehlt, statt es zu verstecken. Für
+  Kapitäne bleibt er freiwillig.
+- **Ein selbst gewähltes Passwort braucht zwölf Zeichen** statt zehn und darf nicht den eigenen
+  Anmeldenamen enthalten. Die Rechnung, mit der der zweite Faktor für Kapitäne freiwillig bleiben
+  kann, lautet „Passwörter werden erzeugt, nicht ausgedacht" — und die gilt nur bis zur ersten
+  Änderung.
 - **Der Vereinsname steht ab Werk auf „Vereinsname"** statt auf „Mannschaftsplan". Er erscheint im
   Seitentitel, in der Linkvorschau des Messengers, über Impressum und Datenschutzhinweis und als
   Herausgeber in der Authenticator-App — dort stand also der Name der Software, wo der Verein
@@ -23,6 +55,14 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   niemandem seine Mannschaft umbenannt werden.
 
 ### Behoben
+- **Schreibende Anfragen ohne CSRF-Kopfzeile wurden in der Verwaltung trotz „403" ausgeführt.**
+  Die Vorprüfung meldete den Fehler korrekt, brach die Bearbeitung aber nicht ab: Sie gab die
+  fertige Antwort zurück, und `e.json()` liefert in PocketBases JavaScript-Umgebung `undefined` —
+  die Abbruchbedingung war damit immer falsch. Sichtbar war das nur an zwei JSON-Objekten im
+  Rumpf; der Statuscode stimmte, weil ihn das erste Schreiben festlegt. Betroffen war
+  ausschließlich der Verwaltungs-Router, nicht die Mitgliederseite. Alle Vorprüfungen geben dort
+  jetzt Daten zurück statt einer Antwort, und der neue Testfall C2 prüft die Wirkung statt des
+  Statuscodes.
 - **Die zugeklappte Zeile sagt jetzt, was du selbst geantwortet hast.** Sie zeigte den Stand der
   Mannschaft und ob jemand fährt — nur die eigene Zusage fehlte. Solange nichts eingetragen war,
   stand dort „du fehlst noch"; sobald man antwortete, verschwand der Hinweis und nichts trat an

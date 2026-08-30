@@ -37,6 +37,12 @@ export type Board = {
   /** Ob der Betreiber einen Text hinterlegt hat — nur dann wird im Fuß darauf verlinkt. */
   impressum: boolean
   datenschutz: boolean
+  /**
+   * Ob zu diesem Spieler ein Verwalterkonto gehört (Abschnitt 12). Nur dann erscheint im Kopf
+   * der Weg in die Verwaltung — die übrigen Spieler sollen einen Knopf, den sie nie brauchen,
+   * gar nicht erst sehen.
+   */
+  verwalter: boolean
 }
 
 /** Wird geworfen, wenn die Sitzung weg ist — die App zeigt dann die „Link ungültig"-Seite. */

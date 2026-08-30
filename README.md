@@ -160,7 +160,8 @@ Shell; wenn dich das stört, lösche sie mit `history -c`.
 
 `https://dart.mein-verein.de/admin` aufrufen. Es kommen **zwei** Abfragen nacheinander: erst das
 Passwort aus Schritt 4 (der Browser fragt in einem kleinen Fenster), dann die Anmeldung aus
-Schritt 7 auf der Seite selbst.
+Schritt 7 auf der Seite selbst. Deine Kapitäne bekommen später eine andere Adresse — `/manage`,
+ohne das Browser-Fenster; mehr dazu unter „Zwei Wege hinein".
 
 Dort legst du die Mitglieder an. Bei jedem gibt es den Knopf **„Neues Token"** — der erzeugt den
 persönlichen Link für dieses Mitglied.
@@ -311,11 +312,57 @@ nicht die Verwaltung offen, sondern nur der Anmeldebildschirm.
 **Eine Mannschaft auflösen** geht erst, wenn sie leer ist — keine Mitglieder, keine Spieltage,
 kein Kapitän. Ein Klick, der ein Jahr Spielbetrieb mitnähme, wäre zu scharf.
 
-### Zweiter Faktor für die Kapitänsansicht
+### Zwei Wege hinein: `/manage` und `/admin`
+
+Die Verwaltung ist dieselbe Oberfläche, aber sie hat zwei Eingänge:
+
+| Adresse | Für wen | Davor steht |
+|---|---|---|
+| `https://dart.mein-verein.de/manage` | die Kapitäne — Spieltage, Spieler, Rückmeldungen | nichts. Nur die Anmeldung in der App |
+| `https://dart.mein-verein.de/admin` | dich — Konten, Mannschaften, Verein, Sicherungen | zusätzlich das Tor aus Einrichtungsschritt 4 |
+
+**Den Kapitänen gibst du `/manage`.** Sie sehen dort nur ihre eigene Mannschaft und brauchen kein
+Tor-Passwort — eines, das sich acht Leute teilen, ist ohnehin nicht widerrufbar und landet im
+Zweifel in der Mannschaftsgruppe. Wer sein Passwort verliert, bekommt von dir ein neues; wer sich
+vertippt hat, wartet eine Viertelstunde (siehe unten).
+
+**Du selbst gehst über `/admin`.** Dort fragt der Browser zuerst nach dem Tor-Passwort und danach
+die App nach deinem eigenen. Zweimal, ja — das ist gewollt: Hinter `/admin` hängt der Zugriff auf
+*alle* Mannschaften und auf die Datenbankdatei.
+
+**Der Kapitän, der selbst mitspielt,** braucht für „wie steht es" und die eigene Zu- oder Absage
+gar keine Anmeldung: Er hat wie jeder andere seinen persönlichen Einladungslink. Verbinde dazu
+sein Konto unter **Konten** mit seinem Spielereintrag — dann steht auf dem Aushang oben ein
+„Verwaltung" und in der Verwaltung ein „Als Spieler", und er kommt mit einem Lesezeichen aus.
+
+### Wenn sich jemand vertippt hat
+
+Nach fünf Fehlversuchen in einer Minute ist die Anmeldung von dieser Internetverbindung aus für
+**15 Minuten** gesperrt, nach zehn Fehlversuchen in einer Viertelstunde zusätzlich für dieses
+**Konto**. Beides löst sich von selbst wieder auf — meistens ist Warten die Antwort.
+
+Muss es schneller gehen, steht unter **Konten** neben dem betroffenen Konto „gesperrt, noch x min"
+und daneben **Sperre aufheben**.
+
+> **Eine Ausnahme:** Deine eigene Sperre kannst du nicht aufheben — dafür müsstest du hinein.
+> Da hilft nur Warten oder ein Neustart (`docker compose restart mannschaftsplan`); die Zähler
+> liegen im Arbeitsspeicher und sind danach weg.
+
+### Zweiter Faktor
 
 Unter **Einstellungen → Zweiter Faktor** lässt sich zusätzlich zum Passwort ein sechsstelliger
 Code aus einer Authenticator-App verlangen. Wer dein Passwort erfährt, kommt damit trotzdem nicht
-in die Kapitänsansicht.
+in die Verwaltung.
+
+**Für Kapitäne ist er freiwillig, für Admin-Konten Pflicht.** Ohne ihn bleibt für ein
+Admin-Konto alles unter `/admin` verschlossen — die App sagt das beim ersten Versuch und
+verweist auf die Einrichtung. Warum der Unterschied: Die Passwörter erzeugt der Server (sechzehn
+Zeichen), sie werden nicht ausgedacht — damit fällt der Angriff weg, gegen den ein zweiter Faktor
+im Netz vor allem hilft. Was hinter `/admin` liegt, ist das trotzdem wert.
+
+**Für Kapitäne lohnt er sich anders:** Nur mit zweitem Faktor gibt es beim Anmelden den Haken
+**„angemeldet bleiben"**, und dann hält die Anmeldung 90 Tage statt zwölf Stunden. Wer alle zwei
+Wochen einen Spieltag pflegt, meldet sich damit dreimal in der Saison an statt jedes Mal.
 
 Einrichten: auf **Einrichten** klicken, den angezeigten Link auf dem Handy antippen (dann öffnet
 sich die App von selbst) oder das Geheimnis am Rechner von Hand eintragen, dann einen Code
@@ -325,15 +372,28 @@ funktioniert mit jeder gängigen App: Aegis, 2FAS, Google Authenticator, Bitward
 Jeder Code gilt genau einmal. Nach dem Anmelden musst du für die nächste Aktion, die einen Code
 braucht, bis zum nächsten Wechsel warten — höchstens eine halbe Minute.
 
-> **Was er schützt.** Die **Kapitänsansicht** unter `/admin`. Damit er nicht zu umgehen ist,
+**Die zehn Wiederherstellungscodes**, die beim Einschalten erscheinen, sind der Zettel für den
+Notfall. Sie erscheinen **genau einmal** — abschreiben, ins Portemonnaie oder in den
+Passwortmanager. Beim Anmelden tippst du einen davon statt des Codes aus der App; jeder gilt
+einmal. Wie viele noch übrig sind, steht bei den Einstellungen, und über **Neue Codes** gibt es
+zehn frische (die alten gelten dann nicht mehr).
+
+> **Was er schützt.** Die Verwaltung unter `/manage` und `/admin`. Damit er nicht zu umgehen ist,
 > liegt seit R13c auch die **Superuser-Anmeldung** der API hinter dem Tor aus
 > Einrichtungsschritt 4 — sonst holte sich jemand mit Adresse und Passwort über
 > `/api/collections/_superusers/auth-with-password` einen Token, käme an die ganze Datenbank,
 > ohne `/admin` je zu berühren, und könnte dort auch den zweiten Faktor löschen.
 
-**Handy verloren?** Dann kommst du über die Oberfläche nicht mehr hinein; das Abschalten verlangt
-selbst einen Code. Der Ausweg führt über die API — mit deinem Superuser-Passwort **und** den
-Zugangsdaten des Tors aus Schritt 4 (`-u`):
+**Handy verloren?** Dann nimm einen deiner Wiederherstellungscodes — dafür sind sie da. Melde
+dich damit an und richte den zweiten Faktor auf dem neuen Gerät ein: erst **Abschalten** (auch
+das geht mit einem Wiederherstellungscode nicht, sondern nur mit einem Code aus der App —
+also zuerst neue Codes ziehen, falls nötig), dann neu einrichten.
+
+Für einen **Kapitän** ist der kürzeste Weg ohnehin ein anderer: Du schaltest ihm unter **Konten**
+den zweiten Faktor ab, er richtet ihn neu ein.
+
+**Handy weg und Zettel weg, und zwar bei deinem eigenen Admin-Konto?** Dann führt der Ausweg über
+die API — mit deinem Superuser-Passwort **und** den Zugangsdaten des Tors aus Schritt 4 (`-u`):
 
 ```bash
 TOKEN=$(curl -s -u kapitaen:tor-passwort \
@@ -398,6 +458,43 @@ startet die App neu und ist ein paar Sekunden nicht erreichbar.
 > dafür ein Wegwerf-Mitglied an, spiel eine ältere Sicherung ein und sieh nach, ob es verschwindet
 > — sonst weißt du hinterher nicht, ob überhaupt etwas passiert ist.
 
+### Nur aus dem eigenen Netz erreichbar machen
+
+Standardmäßig sind `/manage` und `/admin` von überall erreichbar — vom Handy im Mobilnetz, aus
+dem Urlaub, von unterwegs. Für die meisten Vereine ist das genau richtig.
+
+Wer eine **feste Internetadresse**, ein **VPN** (WireGuard, Tailscale) oder ein Vereins-WLAN mit
+fester Adresse hat, kann es enger machen: Dann beantwortet Caddy jede Anfrage von woanders mit
+404 — die Anmeldung wird gar nicht erst erreicht. Dafür gibt es zwei Werte in der `.env`:
+
+```bash
+# Nur du selbst, aus dem VPN: das Admin-Gebiet
+ADMIN_ALLOW=10.8.0.0/24
+
+# Die Kapitäne, aus dem VPN und aus dem Vereinsheim
+MANAGE_ALLOW=10.8.0.0/24 203.0.113.7/32
+```
+
+Mehrere Bereiche mit **Leerzeichen** trennen. Danach:
+
+```bash
+docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml up -d
+```
+
+Deine aktuelle Adresse findest du mit `curl -s https://api.ipify.org`. Ein einzelner Rechner ist
+`/32` (z. B. `203.0.113.7/32`), ein Heimnetz meist `192.168.0.0/16`, ein WireGuard-Netz oft
+`10.8.0.0/24`.
+
+> **Die Falle, und sie ist real:** Die meisten Privatanschlüsse bekommen alle paar Tage eine neue
+> Adresse. Wer nur seine heutige einträgt, steht morgen vor einem 404 — und zwar auch dann, wenn
+> das Passwort stimmt. Trag deshalb nur ein, was dauerhaft gleich bleibt: ein VPN-Netz oder eine
+> feste Geschäftsadresse. **Bei `MANAGE_ALLOW` kommt dazu:** Die Kapitäne pflegen ihre Spieltage
+> oft vom Handy aus, also aus dem Mobilnetz. Wer diesen Wert setzt, sperrt sie dort aus.
+
+**Wieder herausgekommen**, wenn du dich ausgesperrt hast: per SSH auf den Server, die Zeile in
+der `.env` auskommentieren, Stack neu starten. Einen anderen Weg gibt es nicht — deshalb steht
+diese Einstellung nicht in der Oberfläche.
+
 ### Wenn schon ein Reverse Proxy läuft
 
 Läuft auf dem Server bereits ein Webserver, der andere Dienste ausliefert — Caddy, nginx,
@@ -442,6 +539,15 @@ lässt sich nicht abstellen, es ist eine Schutzmaßnahme des Browsers.
 **„Ich komme nicht auf `/admin`."** Zwei Passwörter, zwei Schritte: erst das aus Einrichtungs-
 schritt 4 im Browser-Fenster, dann das aus Schritt 7 auf der Seite. Nach fünf Fehlversuchen ist
 die Anmeldung eine Viertelstunde gesperrt — auch für das richtige Passwort.
+
+**„Ein Kapitän kommt nicht auf `/manage`."** Dort gibt es kein Browser-Fenster, nur die Anmeldung
+auf der Seite. Kommt trotzdem ein 404, ist `MANAGE_ALLOW` gesetzt und er sitzt in einem Netz, das
+nicht eingetragen ist — siehe „Nur aus dem eigenen Netz erreichbar machen". Steht dagegen
+„Zu viele Versuche", hat er sich vertippt; unter **Konten** kannst du die Sperre aufheben.
+
+**„Bei mir steht: Für Admin-Konten ist der zweite Faktor Pflicht."** Stimmt — richte ihn unter
+**Einstellungen → Zweiter Faktor** ein, dann geht es weiter. Bis dahin kommst du an alles heran,
+was deine Mannschaften betrifft, nur nicht an Konten, Sicherungen und Vereinseinstellungen.
 
 **„Ich habe mein Kapitäns-Passwort vergessen."** Schritt 7 noch einmal ausführen; `upsert`
 überschreibt den vorhandenen Zugang.
@@ -564,8 +670,11 @@ den Betrieb am stärksten prägen:
 - **R13a** — `/_/` ist nie öffentlich erreichbar. Keine Allowlist, kein Schalter. Zugang über einen
   SSH-Tunnel auf einen an `127.0.0.1` gebundenen Port, siehe die Kommentare in
   [`docker-compose.yaml`](docker-compose.yaml).
-- **R13b** — vor `/admin` steht ein Tor, das nicht das Kapitäns-Passwort ist: IP-Allowlist oder
+- **R13b** — vor `/admin` steht ein Tor, das nicht das Passwort aus der App ist: IP-Allowlist oder
   vorgeschaltete Proxy-Anmeldung. Ohne eines von beiden bleibt `/admin` zu.
+- **R13e** — `/manage` steht dagegen offen: Ein Tor-Passwort, das sich alle Kapitäne teilen, ist
+  nicht widerrufbar und kennt kein Abmelden. An seine Stelle treten erzeugte Passwörter, eine
+  Sperre pro Konto und enge Rechte. Wer trotzdem einschränken will, setzt `MANAGE_ALLOW`.
 - **R13c** — dasselbe Tor steht vor `/api/collections/_superusers/*`. Dort wird der
   Superuser-Token ausgegeben, und mit ihm steht die ganze Datenbank offen; auf den Collections
   liegen keine Regeln. Ein Tor nur vor der Kapitänsansicht wäre eines mit offener Hintertür.

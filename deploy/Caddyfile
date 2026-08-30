@@ -7,7 +7,12 @@
 #   ACME_EMAIL             Adresse für die Zertifikats-Benachrichtigungen
 #   ADMIN_USER             Benutzername für das Tor vor /admin (R13b)
 #   ADMIN_PASSWORD_HASH    dessen bcrypt-Hash
-#   ADMIN_ALLOW            optional, siehe unten
+#   ADMIN_ALLOW            optional: aus welchen Netzen /admin überhaupt erreichbar ist
+#   MANAGE_ALLOW           optional: aus welchen Netzen /manage überhaupt erreichbar ist
+#
+# Die beiden ALLOW-Werte sind ohne Eintrag offen (`0.0.0.0/0 ::/0`) — es ändert sich also nichts,
+# solange sie niemand setzt. Die README erklärt unter „Nur aus dem eigenen Netz erreichbar
+# machen", wann sich das lohnt und wie man sich dabei nicht selbst aussperrt.
 #
 # Wer Caddy selbst betreibt statt über docker-compose.caddy.yaml, setzt dieselben Variablen in der
 # Umgebung des Caddy-Prozesses — oder trägt die Werte hier direkt ein.
@@ -41,20 +46,37 @@
 		respond 404
 	}
 
-	# ── R13b · Vor der Kapitänsansicht steht ein Tor ────────────────────────────────────────────
-	# Nie nur das Kapitäns-Passwort: ein Fehler im Admin-Code soll von außen gar nicht erst
-	# ansprechbar sein. Das Tor ist eine eigene Anmeldung im Proxy, unabhängig von der in der App,
-	# und funktioniert aus jedem Netz — auch vom Handy im Mobilnetz.
+	# ── R13e · Der Weg für den Kapitän steht offen ──────────────────────────────────────────────
+	# Hier arbeiten die Kapitäne: Spieltage, Spieler, Rückmeldungen — jeder nur in seiner eigenen
+	# Mannschaft. Kein Tor davor, und das ist eine Entscheidung, keine Lücke: Ein geteiltes
+	# Proxy-Passwort für acht Leute ist nicht widerrufbar, kennt kein Abmelden und landet im
+	# Zweifel im Mannschafts-Chat. Was an seiner Stelle steht, ist in R13e des Umsetzungsplans
+	# aufgeschrieben — erzeugte Passwörter, Sperre pro Konto, enge Rechte.
+	#
+	# MANAGE_ALLOW schränkt ein, WOHER das erreichbar ist. Ohne Eintrag: von überall.
+	@manage path /manage*
+	handle @manage {
+		@manage_fremd not remote_ip {$MANAGE_ALLOW:0.0.0.0/0 ::/0}
+		respond @manage_fremd 404
+		reverse_proxy mannschaftsplan:8090
+	}
+
+	# ── R13b · Vor dem Admin-Gebiet steht ein Tor ───────────────────────────────────────────────
+	# Alles unter /admin darf nur die Rolle `admin`: Konten und Rollen, Mannschaften anlegen und
+	# löschen, Einstellungen, Sicherungen. Da hängt der Zugriff auf ALLE Mannschaften und auf die
+	# Datenbankdatei — ein Fehler in diesem Code soll von außen gar nicht erst ansprechbar sein.
+	# Das Tor ist eine eigene Anmeldung im Proxy, unabhängig von der in der App, und funktioniert
+	# aus jedem Netz — auch vom Handy im Mobilnetz.
 	#
 	# Der Hash gehört dir, nicht dieser Datei. Erzeugen mit:
 	#     docker run --rm caddy:2.11.4-alpine caddy hash-password --plaintext '<dein-passwort>'
 	#
-	# Wer zusätzlich eine feste Adresse oder ein VPN hat, setzt ADMIN_ALLOW und kommentiert die
-	# beiden Zeilen darunter ein — dann muss beides stimmen.
+	# Wer zusätzlich eine feste Adresse oder ein VPN hat, trägt sie in ADMIN_ALLOW ein — dann muss
+	# beides stimmen, Netz UND Passwort.
 	@admin path /admin*
 	handle @admin {
-		# @fremd not remote_ip {$ADMIN_ALLOW}
-		# respond @fremd 404
+		@admin_fremd not remote_ip {$ADMIN_ALLOW:0.0.0.0/0 ::/0}
+		respond @admin_fremd 404
 		basic_auth {
 			{$ADMIN_USER} {$ADMIN_PASSWORD_HASH}
 		}

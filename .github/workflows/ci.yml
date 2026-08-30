@@ -91,12 +91,13 @@ jobs:
             -v "$PWD/deploy:/vorlagen:ro" "$CADDY_IMAGE" \
             caddy validate --adapter caddyfile --config /vorlagen/Caddyfile
 
-      - name: deploy/Caddyfile — mit eingeschalteter Allowlist (R13b, Weg 1)
+      - name: deploy/Caddyfile — mit eingeschränkten Netzen (R13b und R13e)
         run: |
           set -euo pipefail
-          mkdir -p ci-vorlagen
-          sed -e 's|# @fremd|@fremd|' -e 's|# respond @fremd|respond @fremd|' \
-            deploy/Caddyfile > ci-vorlagen/Caddyfile
+          # Die beiden Allowlists sind fest eingebaut und ohne Eintrag offen. Geprüft wird
+          # deshalb dieselbe Datei ein zweites Mal, nur mit gesetzten Netzbereichen — genau so,
+          # wie ein Verein sie laut README einschaltet. Kein sed mehr: gäbe es hier noch
+          # auszukommentierende Zeilen, prüfte die CI eine Datei, die so niemand betreibt.
           hash="$(docker run --rm "$CADDY_IMAGE" caddy hash-password --plaintext 'nur-fuer-die-ci')"
           docker run --rm \
             -e DOMAIN=dart.example.de \
@@ -104,7 +105,8 @@ jobs:
             -e ADMIN_USER=ci \
             -e ADMIN_PASSWORD_HASH="$hash" \
             -e ADMIN_ALLOW=10.8.0.0/24 \
-            -v "$PWD/ci-vorlagen:/vorlagen:ro" "$CADDY_IMAGE" \
+            -e MANAGE_ALLOW="192.168.0.0/16 10.8.0.0/24" \
+            -v "$PWD/deploy:/vorlagen:ro" "$CADDY_IMAGE" \
             caddy validate --adapter caddyfile --config /vorlagen/Caddyfile
 
       - name: Kommt der bcrypt-Hash unversehrt in Caddy an?

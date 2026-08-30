@@ -9,12 +9,14 @@ const PB = 'http://127.0.0.1:8090'
 // verhält, werden die Backend-Pfade hierher durchgereicht statt gegen eine andere Origin zu
 // sprechen: sonst würde der Browser die HttpOnly-Session-Cookies aus R2 als Third-Party werten.
 //
-// NICHT '/admin' proxyen — das ist die React-Route der Kapitänsansicht. Nur '/admin/api'.
+// NICHT '/manage' oder '/admin' proxyen — das sind die React-Routen der Kapitänsansicht. Nur
+// die beiden API-Präfixe darunter (R13e).
 const backendPaths = {
-  '/j': PB,          // Einladungslink (liefert nur das Formular, siehe R10)
-  '/api': PB,        // Mitglieder-API
-  '/admin/api': PB,  // Admin-API
-  '/_': PB,          // PocketBase-eigene Oberfläche
+  '/j': PB,           // Einladungslink (liefert nur das Formular, siehe R10)
+  '/api': PB,         // Mitglieder-API
+  '/manage/api': PB,  // Verwaltung — alles, was auch ein Kapitän darf
+  '/admin/api': PB,   // nur für die Rolle `admin`, im Betrieb hinter dem Tor aus R13b
+  '/_': PB,           // PocketBase-eigene Oberfläche
 }
 
 // https://vite.dev/config/

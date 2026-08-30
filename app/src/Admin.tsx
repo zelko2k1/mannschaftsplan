@@ -141,6 +141,27 @@ export default function Admin() {
           >
             {ich.email}
           </button>
+          {/* Abschnitt 12 · Nur für den, der auch mitspielt. Wer bloß organisiert, hat keinen
+              Spielereintrag — und für ihn gäbe es auf dem Aushang nichts zu tun. */}
+          {ich.mitglied && (
+            <>
+              {' · '}
+              <button
+                type="button"
+                className="kopf__abmelden"
+                onClick={async () => {
+                  try {
+                    await adminApi.spieleransicht()
+                    window.location.href = '/'
+                  } catch {
+                    /* Klappt das nicht, bleibt man einfach hier — nichts geht dabei verloren. */
+                  }
+                }}
+              >
+                Als Spieler
+              </button>
+            </>
+          )}
           {' · '}
           <button
             type="button"
@@ -207,6 +228,10 @@ function Anmeldung({ fertig }: { fertig: (email: string) => void }) {
   // Erscheint erst, wenn der Server ihn verlangt. Vorher weiß die Maske nicht einmal, ob es für
   // dieses Konto einen zweiten Faktor gibt — und soll es auch nicht (R6).
   const [brauchtCode, setBrauchtCode] = useState(false)
+  // „Angemeldet bleiben" erscheint erst zusammen mit dem Codefeld — also nur für Konten, die
+  // einen zweiten Faktor haben. Nur die bekommen die 90 Tage (R13), und ein Haken, der bei den
+  // anderen wirkungslos abgehakt würde, wäre ein Versprechen, das die App nicht hält.
+  const [bleiben, setBleiben] = useState(false)
   const [fehler, setFehler] = useState('')
   const [hinweis, setHinweis] = useState('')
   const [laeuft, setLaeuft] = useState(false)
@@ -230,7 +255,7 @@ function Anmeldung({ fertig }: { fertig: (email: string) => void }) {
           setFehler('')
           setHinweis('')
           try {
-            const d = await adminApi.anmelden(email, passwort, code)
+            const d = await adminApi.anmelden(email, passwort, code, bleiben)
             fertig(d.email)
           } catch (problem) {
             if (problem instanceof ZweiterFaktorNoetig) {
@@ -283,6 +308,12 @@ function Anmeldung({ fertig }: { fertig: (email: string) => void }) {
                 value={code}
                 onChange={(x) => setCode(x.target.value.replace(/\D/g, ''))}
               />
+            </label>
+          )}
+          {brauchtCode && (
+            <label className="feld">
+              <span>Angemeldet bleiben</span>
+              <input type="checkbox" checked={bleiben} onChange={(x) => setBleiben(x.target.checked)} />
             </label>
           )}
         </div>
@@ -1313,8 +1344,17 @@ function Passwort({ abgemeldet }: { abgemeldet: () => void }) {
  * Ansicht, die ihn abschalten würde, nicht mehr heran.
  */
 function ZweiterFaktor({ abgemeldet }: { abgemeldet: () => void }) {
-  const [stand, setStand] = useState<{ aktiv: boolean; ausstehend: boolean } | null>(null)
+  const [stand, setStand] = useState<{
+    aktiv: boolean
+    ausstehend: boolean
+    codes_uebrig: number
+  } | null>(null)
   const [start, setStart] = useState<{ geheimnis: string; uri: string } | null>(null)
+  // Die Wiederherstellungscodes im Klartext — nur in diesem einen Augenblick, danach nie wieder.
+  // Deshalb bleiben sie stehen, bis der Nutzer selbst wegklickt: Ein Kasten, der von allein
+  // verschwindet, nimmt den Zettel mit, den noch niemand abgeschrieben hat.
+  const [codes, setCodes] = useState<string[] | null>(null)
+  const [neueCodes, setNeueCodes] = useState(false)
   const [code, setCode] = useState('')
   const [abschalten, setAbschalten] = useState(false)
   const [fehler, setFehler] = useState('')
@@ -1356,19 +1396,101 @@ function ZweiterFaktor({ abgemeldet }: { abgemeldet: () => void }) {
           Zusätzlich zum Passwort ein sechsstelliger Code aus einer Authenticator-App auf deinem
           Handy. Wer dein Passwort erfährt, kommt damit trotzdem nicht in die Kapitänsansicht.
           Funktioniert mit jeder gängigen App — Aegis, 2FAS, Google Authenticator, Bitwarden,
-          1Password.
+          1Password. Nebenbei ersparst du dir Tipperei: Nur mit zweitem Faktor gibt es beim
+          Anmelden den Haken „angemeldet bleiben", und dann hält die Anmeldung 90 Tage statt
+          zwölf Stunden.
         </span>
       </div>
 
       <Fehler text={fehler} />
 
+      {/* Das einzige Mal, dass die Codes lesbar sind (R1). Wer sie jetzt nicht mitnimmt, braucht
+          später neue — verloren ist deswegen nichts, aber der Weg dahin führt über die App. */}
+      {codes && (
+        <div className="token">
+          <p className="token__hinweis">Deine zehn Wiederherstellungscodes — jetzt aufschreiben</p>
+          <p className="token__text">
+            Jeder gilt einmal und ersetzt beim Anmelden den Code aus der App. Sie sind der Ausweg,
+            wenn das Handy weg ist. Diese Liste erscheint kein zweites Mal.
+          </p>
+          <ul className="codeliste">
+            {codes.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
+          <button type="button" className="knopf" onClick={() => setCodes(null)}>
+            Habe ich notiert
+          </button>
+        </div>
+      )}
+
       {stand === null ? (
         <p className="namen">Einen Moment …</p>
+      ) : stand.aktiv && !abschalten && neueCodes ? (
+        <form
+          className="token"
+          onSubmit={(ereignis) => {
+            ereignis.preventDefault()
+            if (code.length !== 6 || laeuft) return
+            void fuehreAus(async () => {
+              const d = await adminApi.wiederherstellungscodesNeu(code)
+              setCodes(d.codes)
+              setNeueCodes(false)
+              setCode('')
+            })
+          }}
+        >
+          <p className="token__hinweis">Zehn neue Codes — die alten gelten danach nicht mehr</p>
+          <p className="token__text">
+            Auch dafür braucht es einen Code aus der App. Sonst genügte eine übernommene Sitzung,
+            um sich einen Dauerzugang auszustellen.
+          </p>
+          <label className="feld">
+            <span>Code</span>
+            <input
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={6}
+              autoFocus
+              value={code}
+              onChange={(x) => setCode(x.target.value.replace(/\D/g, ''))}
+            />
+          </label>
+          <div className="satz__aktionen">
+            <button type="submit" className="knopf" disabled={laeuft || code.length !== 6}>
+              Neue Codes erzeugen
+            </button>
+            <button
+              type="button"
+              className="knopf"
+              onClick={() => {
+                setNeueCodes(false)
+                setCode('')
+              }}
+            >
+              Abbrechen
+            </button>
+          </div>
+        </form>
       ) : stand.aktiv && !abschalten ? (
         <div className="satz__aktionen">
           <span className="satz__zusatz" style={{ flex: '1 1 12rem' }}>
-            <strong>Eingeschaltet.</strong> Beim Anmelden fragt die App nach dem Code.
+            <strong>Eingeschaltet.</strong> Beim Anmelden fragt die App nach dem Code — und du
+            kannst dort „angemeldet bleiben" ankreuzen. Wiederherstellungscodes übrig:{' '}
+            <strong>{stand.codes_uebrig}</strong>.
           </span>
+          <button
+            type="button"
+            className="knopf"
+            disabled={laeuft}
+            onClick={() => {
+              setNeueCodes(true)
+              setCode('')
+              setFehler('')
+            }}
+          >
+            Neue Codes
+          </button>
           <button
             type="button"
             className="knopf knopf--gefahr"
@@ -1432,7 +1554,8 @@ function ZweiterFaktor({ abgemeldet }: { abgemeldet: () => void }) {
             ereignis.preventDefault()
             if (code.length !== 6 || laeuft) return
             void fuehreAus(async () => {
-              await adminApi.zweiterFaktorBestaetigen(code)
+              const d = await adminApi.zweiterFaktorBestaetigen(code)
+              setCodes(d.codes)
               setStart(null)
               setCode('')
             })
@@ -1811,6 +1934,23 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
     <li key={v.id} className="eintrag">
       <span style={{ flex: '1 1 14rem' }}>{v.email}</span>
       <span className="satz__zusatz">{v.totp ? 'zweiter Faktor an' : 'nur Passwort'}</span>
+      {/* R7 · Nach zehn Fehlversuchen ist eine Viertelstunde Ruhe. Das steht hier, weil der
+          Betroffene es selbst nicht sehen kann — er kommt ja gerade nicht herein. */}
+      {v.gesperrt > 0 && (
+        <>
+          <span className="satz__zusatz">
+            <strong>gesperrt</strong>, noch {Math.ceil(v.gesperrt / 60)} min
+          </span>
+          <button
+            type="button"
+            className="knopf"
+            disabled={laeuft}
+            onClick={() => void fuehreAus(() => adminApi.verwalterEntsperren(v.id))}
+          >
+            Sperre aufheben
+          </button>
+        </>
+      )}
       {v.totp && (
         <button
           type="button"

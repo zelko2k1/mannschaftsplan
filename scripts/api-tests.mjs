@@ -11,7 +11,7 @@
 // bewusst nicht hier — die brauchen einen Proxy, einen echten Messenger oder ein Backup und
 // bleiben Handprüfungen.
 
-import { randomBytes, createHash } from 'node:crypto'
+import { randomBytes, createHash, createHmac } from 'node:crypto'
 import { createRequire } from 'node:module'
 
 const BASIS = process.env.PB_URL || 'http://127.0.0.1:8090'
@@ -28,6 +28,11 @@ const neuesToken = () => randomBytes(16).toString('base64url')
 const jetzt = () => new Date().toISOString().replace('T', ' ').slice(0, 19)
 
 let adminToken = ''
+// Das Geheimnis des zweiten Faktors für den Superuser. Steht hier oben, weil `adminAnmelden()`
+// weiter unten es liest und schon der erste Test sich anmeldet.
+let totpGeheimnis = ''
+// Eine Sitzung, die alle Prüfungen teilen — siehe adminSitzung() weiter unten.
+let adminJar = null
 const aufraeumen = []
 
 async function pb(pfad, optionen = {}) {
@@ -422,18 +427,18 @@ await pruefe('B2b', 'Eine von Hand gesetzte Abfahrt schlägt die Berechnung', as
 })
 
 await pruefe('A8b', 'Der Kapitän kann die Abfahrt setzen und wieder freigeben', async () => {
-  const { jar } = await adminAnmelden()
+  const jar = await adminSitzung()
   const ruf = alsKapitaen(jar)
   const spieltag = await testSpieltag({ km: 80, is_home: false, date: '2026-09-05 19:30:00' })
 
   // Der berechnete Wert wird mitgeliefert, damit die Eingabemaske zeigen kann, was „leer" heißt.
-  const vorher = (await (await ruf('/admin/api/fixtures')).json()).items.find((x) => x.id === spieltag.id)
+  const vorher = (await (await ruf('/manage/api/fixtures')).json()).items.find((x) => x.id === spieltag.id)
   gleich(vorher.departure_manual, '', 'anfangs nichts von Hand')
   stimmt(!!vorher.departure_berechnet, 'der berechnete Wert fehlt in der Kapitänsansicht')
 
   gleich(
     (
-      await ruf(`/admin/api/fixtures/${spieltag.id}`, {
+      await ruf(`/manage/api/fixtures/${spieltag.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ departure_manual: '2026-09-05 16:00:00' }),
       })
@@ -441,15 +446,15 @@ await pruefe('A8b', 'Der Kapitän kann die Abfahrt setzen und wieder freigeben',
     200,
     'setzen',
   )
-  const gesetzt = (await (await ruf('/admin/api/fixtures')).json()).items.find((x) => x.id === spieltag.id)
+  const gesetzt = (await (await ruf('/manage/api/fixtures')).json()).items.find((x) => x.id === spieltag.id)
   stimmt(gesetzt.departure_manual.startsWith('2026-09-05 16:00'), `steht: ${gesetzt.departure_manual}`)
 
   // Und wieder leeren — sonst gäbe es keinen Weg zurück zur Berechnung.
-  await ruf(`/admin/api/fixtures/${spieltag.id}`, {
+  await ruf(`/manage/api/fixtures/${spieltag.id}`, {
     method: 'PATCH',
     body: JSON.stringify({ departure_manual: '' }),
   })
-  const geleert = (await (await ruf('/admin/api/fixtures')).json()).items.find((x) => x.id === spieltag.id)
+  const geleert = (await (await ruf('/manage/api/fixtures')).json()).items.find((x) => x.id === spieltag.id)
   gleich(geleert.departure_manual, '', 'wieder leer')
 })
 
@@ -705,23 +710,89 @@ await pruefe('F4', 'Fahrt zurückziehen nimmt die Mitfahrer mit', async () => {
 // ── Kapitänsansicht ────────────────────────────────────────────────────────────────────────
 // Anmerkung zu T8: „/admin von außerhalb des VPN → 404" ist eine Aussage über den Reverse Proxy
 // und bleibt eine Handprüfung. Hier steht die Hälfte, die die Anwendung selbst verantwortet:
-// ohne Kapitänssitzung antwortet /admin/api mit 404, nicht mit 401 oder 403 (R6).
+// ohne Kapitänssitzung antwortet /manage/api mit 404, nicht mit 401 oder 403 (R6).
 
+// Beide Präfixe, denn beide müssen ohne Sitzung mit 404 antworten (R6). Der Unterschied ist der
+// Proxy davor, nicht die Anwendung: /manage steht offen (R13e), /admin liegt hinter dem Tor.
 const ADMIN_ROUTEN = [
-  '/admin/api/me',
-  '/admin/api/fixtures',
-  '/admin/api/members',
-  '/admin/api/settings',
-  '/admin/api/audit',
+  '/manage/api/me',
+  '/manage/api/fixtures',
+  '/manage/api/members',
+  '/manage/api/settings',
+  '/manage/api/audit',
+  '/manage/api/totp',
   '/admin/api/backups',
-  '/admin/api/totp',
+  '/admin/api/verwalter',
 ]
 
-async function adminAnmelden(passwort = PASSWORT, code = '') {
-  const antwort = await roh('/admin/api/login', {
+// ── Zweiter Faktor, nachgerechnet ──────────────────────────────────────────────────────────
+// Seit der Faktor für Admin-Konten Pflicht ist (R13), kommt kein Test mehr an /admin/api vorbei,
+// ohne einen zu haben. Also rechnet die Suite die Codes selbst — RFC 6238, dieselben sechs
+// Ziffern, die sonst die Authenticator-App anzeigt.
+
+function base32Entschluesseln(text) {
+  const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+  let bits = ''
+  for (const zeichen of text.toUpperCase().replace(/=+$/, '')) {
+    const wert = ALPHABET.indexOf(zeichen)
+    if (wert === -1) continue
+    bits += wert.toString(2).padStart(5, '0')
+  }
+  const bytes = []
+  for (let i = 0; i + 8 <= bits.length; i += 8) bytes.push(parseInt(bits.slice(i, i + 8), 2))
+  return Buffer.from(bytes)
+}
+
+let letzterSchritt = 0
+
+function totpCode(geheimnis, jetztSekunden = Math.floor(Date.now() / 1000)) {
+  const schritt = Math.floor(jetztSekunden / 30)
+  if (schritt > letzterSchritt) letzterSchritt = schritt
+  const zaehler = Buffer.alloc(8)
+  zaehler.writeUInt32BE(Math.floor(schritt / 2 ** 32), 0)
+  zaehler.writeUInt32BE(schritt >>> 0, 4)
+  const hmac = createHmac('sha1', base32Entschluesseln(geheimnis)).update(zaehler).digest()
+  const versatz = hmac[hmac.length - 1] & 0x0f
+  const zahl = hmac.readUInt32BE(versatz) & 0x7fffffff
+  return String(zahl % 1000000).padStart(6, '0')
+}
+
+// Eine Sitzung, die alle Prüfungen teilen. Der Grund ist der zweite Faktor: Ein Zeitcode gilt
+// genau einmal, und der nächste kommt erst mit dem nächsten 30-Sekunden-Schritt. Meldete sich
+// jede Prüfung neu an, wartete der Lauf minutenlang auf Codes — oder scheiterte daran, dass der
+// Schritt schon verbraucht war. Angemeldet wird deshalb einmal; wer die Anmeldung SELBST prüft,
+// ruft weiterhin adminAnmelden() auf.
+
+/**
+ * Warten, bis eine neue 30-Sekunden-Scheibe beginnt. Ein Zeitcode gilt einmal; wer kurz nach
+ * einer Anmeldung eine zweite braucht, muss den nächsten Schritt abwarten. Einmal im ganzen
+ * Lauf ist das zu verschmerzen.
+ */
+async function naechsteZeitscheibe() {
+  // Nicht bis zur nächsten Scheibe, sondern bis hinter die zuletzt BENUTZTE: Ein Code kann aus
+  // der Zukunft geholt worden sein, dann ist die nächste Scheibe schon verbraucht.
+  while (Math.floor(Date.now() / 30000) <= letzterSchritt) {
+    await new Promise((weiter) => setTimeout(weiter, 30000 - (Date.now() % 30000) + 500))
+  }
+}
+
+async function adminSitzung() {
+  if (adminJar) return adminJar
+  const { antwort, jar } = await adminAnmelden()
+  if (antwort.status !== 200) {
+    throw new Error(`Anmeldung als Superuser fehlgeschlagen: ${antwort.status}`)
+  }
+  adminJar = jar
+  return jar
+}
+
+async function adminAnmelden(passwort = PASSWORT, code = '', bleiben = false) {
+  // Ist der Faktor eingerichtet, gehört der Code dazu — sonst käme nur `mfa: true` zurück.
+  const mit = code || (totpGeheimnis && passwort === PASSWORT ? totpCode(totpGeheimnis) : '')
+  const antwort = await roh('/manage/api/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: EMAIL, password: passwort, ...(code ? { code } : {}) }),
+    body: JSON.stringify({ email: EMAIL, password: passwort, bleiben, ...(mit ? { code: mit } : {}) }),
   })
   return { antwort, ...kekse(antwort) }
 }
@@ -739,15 +810,15 @@ function alsKapitaen(jar) {
     })
 }
 
-await pruefe('T8a', '/admin/api ohne Kapitänssitzung → 404, nicht 401/403 (R6)', async () => {
+await pruefe('T8a', '/manage/api ohne Kapitänssitzung → 404, nicht 401/403 (R6)', async () => {
   for (const pfad of ADMIN_ROUTEN) {
     gleich((await roh(pfad)).status, 404, pfad)
   }
   // Auch schreibend darf nichts durchkommen.
   gleich(
-    (await roh('/admin/api/members', { method: 'POST', body: '{"name":"Eindringling"}' })).status,
+    (await roh('/manage/api/members', { method: 'POST', body: '{"name":"Eindringling"}' })).status,
     404,
-    'POST /admin/api/members',
+    'POST /manage/api/members',
   )
 })
 
@@ -759,25 +830,155 @@ await pruefe('T8b', 'Eine Mitgliedersitzung öffnet die Kapitänsansicht nicht (
   }
 })
 
-await pruefe('A1', 'Anmelden setzt zwei Cookies mit Path=/admin', async () => {
+await pruefe('A1', 'Anmelden setzt beide Cookies auf beiden Pfaden', async () => {
   const { antwort, jar, roh: zeilen } = await adminAnmelden()
   gleich(antwort.status, 200, 'Status')
   if (!jar.dz_admin) throw new Error('dz_admin fehlt')
   if (!jar.dz_admin_csrf) throw new Error('dz_admin_csrf fehlt')
 
+  // R13e · Zwei Wege, ein Cookie kennt aber nur EINEN Pfad. Also wird jeder zweimal gesetzt.
+  // Fehlte einer, liefe die Kapitänsansicht auf dem einen Pfad und wäre auf dem anderen
+  // abgemeldet — und zwar ohne Fehlermeldung, nur mit 404 auf jede Anfrage.
+  for (const name of ['dz_admin', 'dz_admin_csrf']) {
+    const gesetzt = zeilen.filter((z) => z.startsWith(`${name}=`))
+    gleich(gesetzt.length, 2, `${name}: Anzahl Set-Cookie`)
+    for (const pfad of ['Path=/manage', 'Path=/admin']) {
+      if (!gesetzt.some((z) => z.includes(pfad))) throw new Error(`${name} ohne ${pfad}`)
+    }
+  }
+
   const sid = zeilen.find((z) => z.startsWith('dz_admin='))
-  for (const teil of ['Path=/admin', 'HttpOnly', 'Secure', 'SameSite=Lax']) {
+  for (const teil of ['HttpOnly', 'Secure', 'SameSite=Lax']) {
     if (!sid.includes(teil)) throw new Error(`dz_admin ohne ${teil}: ${sid}`)
   }
-  // Path=/admin heißt: der Browser schickt diesen Cookie bei /api/* gar nicht erst mit.
+  // Kein Path=/ heißt: der Browser schickt diesen Cookie bei /api/* gar nicht erst mit.
   if (zeilen.find((z) => z.startsWith('dz_admin_csrf=')).includes('HttpOnly')) {
     throw new Error('dz_admin_csrf ist HttpOnly, Double-Submit unmöglich')
   }
 })
 
+// ── Der zweite Faktor, ab hier für alles unter /admin/api nötig ─────────────────────────────
+// Diese Prüfung ist zugleich die Vorbereitung: Sie richtet den Faktor für den Superuser ein und
+// legt das Geheimnis in `totpGeheimnis` ab. Alles Folgende meldet sich damit an.
+await pruefe('C2', 'Ohne CSRF-Kopfzeile wird in der Verwaltung nichts geschrieben (R11)', async () => {
+  // Diese Prüfung gab es nur für die Mitgliederseite (C1). Für die Verwaltung fehlte sie — und
+  // genau dort war die Absicherung wirkungslos: Der Statuscode war 403, geschrieben wurde
+  // trotzdem. Ursache war `e.json()`, das im JSVM nichts zurückgibt; die Vorprüfung meldete
+  // ihren Fehler, der Handler lief weiter. Geprüft wird deshalb nicht der Statuscode, sondern
+  // die WIRKUNG.
+  const jar = await adminSitzung()
+  const team = await testTeam()
+  const name = `test-csrf-${randomBytes(4).toString('hex')}`
+
+  const ohneKopf = await roh('/manage/api/members', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: alsHeader(jar) },
+    body: JSON.stringify({ name, team }),
+  })
+  gleich(ohneKopf.status, 403, 'Status')
+
+  const liste = await (await alsKapitaen(jar)(`/manage/api/members?team=${team}`)).json()
+  if (liste.items.some((m) => m.name === name)) {
+    throw new Error('Der Datensatz wurde trotz 403 angelegt — R11 wirkt nicht')
+  }
+
+  // Und der Rumpf enthält genau EINE Antwort, nicht zwei hintereinander.
+  const text = await (
+    await roh('/manage/api/members', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: alsHeader(jar) },
+      body: JSON.stringify({ name, team }),
+    })
+  ).text()
+  JSON.parse(text)
+})
+
+await pruefe('A13', 'Admin-Konto ohne zweiten Faktor kommt nicht an /admin/api (R13)', async () => {
+  const jar = await adminSitzung()
+  const ruf = alsKapitaen(jar)
+
+  // Vorher: die Rolle stimmt, der Faktor fehlt. 403 mit Klartext, nicht 404 — wer angemeldet
+  // ist, soll erfahren, was ihm fehlt.
+  const gesperrt = await ruf('/admin/api/verwalter')
+  gleich(gesperrt.status, 403, 'ohne Faktor')
+  const grund = await gesperrt.json()
+  if (!grund.totp_pflicht) throw new Error('kein Hinweis auf die Pflicht')
+
+  // Einrichten — genau so, wie es die Oberfläche tut.
+  const begonnen = await (await ruf('/manage/api/totp', { method: 'POST' })).json()
+  if (!begonnen.geheimnis) throw new Error('kein Geheimnis')
+
+  const bestaetigt = await ruf('/manage/api/totp/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ code: totpCode(begonnen.geheimnis) }),
+  })
+  gleich(bestaetigt.status, 200, 'bestätigen')
+  const codes = (await bestaetigt.json()).codes
+  gleich(codes.length, 10, 'Wiederherstellungscodes')
+  for (const c of codes) {
+    if (!/^[a-z0-9]{4}-[a-z0-9]{4}$/.test(c)) throw new Error(`unbrauchbarer Code: ${c}`)
+  }
+
+  totpGeheimnis = begonnen.geheimnis
+
+  // Nachher: dieselbe Sitzung, dieselbe Rolle — und jetzt geht es.
+  gleich((await ruf('/admin/api/verwalter')).status, 200, 'mit Faktor')
+})
+
+await pruefe('A14', 'Ein Wiederherstellungscode ersetzt den Code aus der App — genau einmal', async () => {
+  // Neue Codes ziehen, damit dieser Test nicht von denen aus A13 abhängt.
+  const jar = await adminSitzung()
+  const frisch = await (
+    await alsKapitaen(jar)('/manage/api/totp/codes', {
+      method: 'POST',
+      // Eine Zeitscheibe weiter: Der aktuelle Schritt ist von der Einrichtung in A13 verbraucht.
+      body: JSON.stringify({ code: totpCode(totpGeheimnis, Math.floor(Date.now() / 1000) + 30) }),
+    })
+  ).json()
+  gleich(frisch.codes.length, 10, 'neue Codes')
+
+  const einer = frisch.codes[0]
+  const erste = await adminAnmelden(PASSWORT, einer)
+  gleich(erste.antwort.status, 200, 'erste Anmeldung mit Zettel')
+
+  // Verbraucht ist verbraucht.
+  const zweite = await adminAnmelden(PASSWORT, einer)
+  gleich(zweite.antwort.status, 401, 'zweite Anmeldung mit demselben Code')
+
+  // Und der Rest des Zettels gilt weiter.
+  const anderer = await adminAnmelden(PASSWORT, frisch.codes[1])
+  gleich(anderer.antwort.status, 200, 'anderer Code vom selben Zettel')
+})
+
+await pruefe('T14', '„Angemeldet bleiben" gibt es nur mit zweitem Faktor (R13)', async () => {
+  // A13 und A14 haben die laufende Zeitscheibe verbraucht.
+  await naechsteZeitscheibe()
+  const mitFaktor = await adminAnmelden(PASSWORT, '', true)
+  gleich(mitFaktor.antwort.status, 200, 'Status')
+  gleich((await mitFaktor.antwort.json()).bleiben, true, 'mit Faktor')
+
+  // Ein Konto ohne Faktor: derselbe Wunsch, aber die kurze Sitzung. Der Server sagt das auch.
+  const jar = await adminSitzung()
+  const konto = await (
+    await alsKapitaen(jar)('/admin/api/verwalter', {
+      method: 'POST',
+      body: JSON.stringify({ email: `test-ohne-faktor-${Date.now()}@example.com`, rolle: 'admin' }),
+    })
+  ).json()
+  aufraeumen.push(['verwalter', konto.id])
+
+  const ohne = await roh('/manage/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: konto.email, password: konto.passwort, bleiben: true }),
+  })
+  gleich(ohne.status, 200, 'Anmeldung ohne Faktor')
+  gleich((await ohne.json()).bleiben, false, 'ohne Faktor keine 90 Tage')
+})
+
 await pruefe('A2', 'Falsches Passwort und unbekannte Adresse sind ununterscheidbar (R6)', async () => {
   const falsch = await adminAnmelden('ganz-sicher-falsch')
-  const unbekannt = await roh('/admin/api/login', {
+  const unbekannt = await roh('/manage/api/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: 'gibtsnicht@example.com', password: 'ganz-sicher-falsch' }),
@@ -789,21 +990,21 @@ await pruefe('A2', 'Falsches Passwort und unbekannte Adresse sind ununterscheidb
 })
 
 await pruefe('A3', 'Schreiben ohne CSRF-Kopfzeile → 403 (R11)', async () => {
-  const { jar } = await adminAnmelden()
-  const ohne = await roh('/admin/api/members', {
+  const jar = await adminSitzung()
+  const ohne = await roh('/manage/api/members', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Cookie: alsHeader(jar) },
     body: JSON.stringify({ name: 'test-ohne-csrf' }),
   })
   gleich(ohne.status, 403, 'Status')
   // Lesen darf weiterhin gehen — die Kopfzeile schützt Änderungen, nicht Abfragen.
-  gleich((await roh('/admin/api/members', { headers: { Cookie: alsHeader(jar) } })).status, 200, 'GET')
+  gleich((await roh('/manage/api/members', { headers: { Cookie: alsHeader(jar) } })).status, 200, 'GET')
 })
 
 await pruefe('A4', 'Der Token-Hash verlässt den Server nie (R1)', async () => {
   await testMitglied('hash-check')
-  const { jar } = await adminAnmelden()
-  const koerper = await (await alsKapitaen(jar)('/admin/api/members')).text()
+  const jar = await adminSitzung()
+  const koerper = await (await alsKapitaen(jar)('/manage/api/members')).text()
   if (koerper.includes('token_hash')) throw new Error('token_hash steht in der Antwort')
   const liste = JSON.parse(koerper).items
   if (!liste.some((m) => 'hat_token' in m)) throw new Error('hat_token fehlt')
@@ -814,8 +1015,8 @@ await pruefe('A5', '„Neues Token" tötet alten Link und alle Geräte (R12)', a
   const mitglied = await anmelden(klartext)
   gleich((await roh('/api/me', { headers: { Cookie: alsHeader(mitglied.jar) } })).status, 200, 'vorher')
 
-  const { jar } = await adminAnmelden()
-  const antwort = await alsKapitaen(jar)(`/admin/api/members/${satz.id}/rotate-token`, { method: 'POST' })
+  const jar = await adminSitzung()
+  const antwort = await alsKapitaen(jar)(`/manage/api/members/${satz.id}/rotate-token`, { method: 'POST' })
   gleich(antwort.status, 200, 'Status')
   const { token: neu, sitzungen_beendet } = await antwort.json()
   if (!neu || neu.length !== 22) throw new Error(`Token hat ${neu?.length} Zeichen statt 22`)
@@ -831,10 +1032,10 @@ await pruefe('A6', 'Deaktivieren wirft das Mitglied sofort von allen Geräten', 
   const mitglied = await anmelden(klartext)
   gleich((await roh('/api/me', { headers: { Cookie: alsHeader(mitglied.jar) } })).status, 200, 'vorher')
 
-  const { jar } = await adminAnmelden()
+  const jar = await adminSitzung()
   gleich(
     (
-      await alsKapitaen(jar)(`/admin/api/members/${satz.id}`, {
+      await alsKapitaen(jar)(`/manage/api/members/${satz.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ active: false }),
       })
@@ -849,11 +1050,11 @@ await pruefe('A6', 'Deaktivieren wirft das Mitglied sofort von allen Geräten', 
 await pruefe('A7', 'Der Kapitän darf auch abgeschlossene Spieltage korrigieren', async () => {
   const { satz } = await testMitglied('korrektur')
   const spieltag = await testSpieltag({ locked: true })
-  const { jar } = await adminAnmelden()
+  const jar = await adminSitzung()
 
   gleich(
     (
-      await alsKapitaen(jar)(`/admin/api/response/${spieltag.id}/${satz.id}`, {
+      await alsKapitaen(jar)(`/manage/api/response/${spieltag.id}/${satz.id}`, {
         method: 'PUT',
         body: JSON.stringify({ status: 'yes' }),
       })
@@ -869,10 +1070,10 @@ await pruefe('A7', 'Der Kapitän darf auch abgeschlossene Spieltage korrigieren'
 })
 
 await pruefe('A8', 'Spieltag anlegen, ändern und löschen', async () => {
-  const { jar } = await adminAnmelden()
+  const jar = await adminSitzung()
   const ruf = alsKapitaen(jar)
 
-  const angelegt = await ruf('/admin/api/fixtures', {
+  const angelegt = await ruf('/manage/api/fixtures', {
     method: 'POST',
     body: JSON.stringify({
       // Seit Abschnitt 12 Pflicht. Ein Kapitän bekäme seine eigene zugewiesen; hier meldet sich
@@ -889,29 +1090,29 @@ await pruefe('A8', 'Spieltag anlegen, ändern und löschen', async () => {
   const { id } = await angelegt.json()
 
   gleich(
-    (await ruf(`/admin/api/fixtures/${id}`, { method: 'PATCH', body: JSON.stringify({ km: 55 }) })).status,
+    (await ruf(`/manage/api/fixtures/${id}`, { method: 'PATCH', body: JSON.stringify({ km: 55 }) })).status,
     200,
     'ändern',
   )
-  const liste = await (await ruf('/admin/api/fixtures')).json()
+  const liste = await (await ruf('/manage/api/fixtures')).json()
   gleich(liste.items.find((s) => s.id === id).km, 55, 'km nach dem Ändern')
 
   // R4 · Unsinn wird abgewiesen.
   gleich(
-    (await ruf(`/admin/api/fixtures/${id}`, { method: 'PATCH', body: JSON.stringify({ km: -5 }) })).status,
+    (await ruf(`/manage/api/fixtures/${id}`, { method: 'PATCH', body: JSON.stringify({ km: -5 }) })).status,
     400,
     'negative Entfernung',
   )
 
-  gleich((await ruf(`/admin/api/fixtures/${id}`, { method: 'DELETE' })).status, 200, 'löschen')
+  gleich((await ruf(`/manage/api/fixtures/${id}`, { method: 'DELETE' })).status, 200, 'löschen')
 })
 
 await pruefe('A9', 'Anzeigename wirkt auf die Einladungsseite und wird escaped', async () => {
-  const { jar } = await adminAnmelden()
+  const jar = await adminSitzung()
   const ruf = alsKapitaen(jar)
   const seite = async () => (await roh('/j/beliebiges-token')).text()
 
-  const vorher = (await (await ruf('/admin/api/settings')).json()).anzeigename
+  const vorher = (await (await ruf('/manage/api/settings')).json()).anzeigename
 
   try {
     gleich(
@@ -962,9 +1163,9 @@ await pruefe('A9', 'Anzeigename wirkt auf die Einladungsseite und wird escaped',
 })
 
 await pruefe('A10', 'Die zentralen Einstellungen nehmen keine unsinnigen Werte an', async () => {
-  const { jar } = await adminAnmelden()
+  const jar = await adminSitzung()
   const ruf = alsKapitaen(jar)
-  const vorher = await (await ruf('/admin/api/settings')).json()
+  const vorher = await (await ruf('/manage/api/settings')).json()
 
   try {
     // Grenzen aus der Migration, hier gespiegelt: sonst lehnte erst die Datenbank ab, mit einer
@@ -996,9 +1197,9 @@ await pruefe('A10', 'Die zentralen Einstellungen nehmen keine unsinnigen Werte a
 })
 
 await pruefe('A11', 'Impressum und Datenschutz: eigene Seiten, ohne Anmeldung, ohne HTML', async () => {
-  const { jar } = await adminAnmelden()
+  const jar = await adminSitzung()
   const ruf = alsKapitaen(jar)
-  const vorher = await (await ruf('/admin/api/settings')).json()
+  const vorher = await (await ruf('/manage/api/settings')).json()
 
   try {
     // Leer heißt: es gibt die Seite nicht. Ein leeres Impressum täuscht Vollständigkeit vor.
@@ -1048,7 +1249,7 @@ await pruefe('A11', 'Impressum und Datenschutz: eigene Seiten, ohne Anmeldung, o
     )
 
     // Im Protokoll steht die Länge, nicht der Text — sonst stünde er dort in voller Länge.
-    const protokoll = await (await ruf('/admin/api/audit?limit=50')).json()
+    const protokoll = await (await ruf('/manage/api/audit?limit=50')).json()
     const zeile = protokoll.items.find((z) => z.action === 'settings.update' && z.target === 'impressum')
     stimmt(!!zeile && !zeile.new_value.includes('Musterweg'), 'Protokoll ohne den Textinhalt')
   } finally {
@@ -1068,7 +1269,7 @@ await pruefe('A11', 'Impressum und Datenschutz: eigene Seiten, ohne Anmeldung, o
 // neu. Geprüft wird stattdessen, dass die Absicherungen davor halten.
 
 await pruefe('T14', 'Sicherung erstellen, auflisten, herunterladen', async () => {
-  const { jar } = await adminAnmelden()
+  const jar = await adminSitzung()
   const ruf = alsKapitaen(jar)
 
   const erzeugt = await ruf('/admin/api/backup', { method: 'POST' })
@@ -1095,7 +1296,7 @@ await pruefe('T14', 'Sicherung erstellen, auflisten, herunterladen', async () =>
 })
 
 await pruefe('T14b', 'Zurückgegebene Datei landet wieder im Bestand', async () => {
-  const { jar } = await adminAnmelden()
+  const jar = await adminSitzung()
   const ruf = alsKapitaen(jar)
 
   const name = (await (await ruf('/admin/api/backup', { method: 'POST' })).json()).name
@@ -1119,7 +1320,7 @@ await pruefe('T14b', 'Zurückgegebene Datei landet wieder im Bestand', async () 
 })
 
 await pruefe('T14c', 'Nur Sicherungsdateien werden angenommen', async () => {
-  const { jar } = await adminAnmelden()
+  const jar = await adminSitzung()
 
   const formular = new FormData()
   formular.append('datei', new Blob([new Uint8Array([1, 2, 3])]), 'schad.sh')
@@ -1135,7 +1336,7 @@ await pruefe('T14c', 'Nur Sicherungsdateien werden angenommen', async () => {
 })
 
 await pruefe('T14d', 'Zurückspielen ohne abgetippten Namen passiert nicht', async () => {
-  const { jar } = await adminAnmelden()
+  const jar = await adminSitzung()
   const ruf = alsKapitaen(jar)
 
   const name = (await (await ruf('/admin/api/backup', { method: 'POST' })).json()).name
@@ -1245,18 +1446,36 @@ async function totpWegraeumen() {
   for (const satz of liste.items) {
     await pb(`/api/collections/admin_totp/records/${satz.id}`, { method: 'DELETE' })
   }
+  totpGeheimnis = ''
+}
+
+/**
+ * Den zweiten Faktor des Superusers wiederherstellen. Ohne ihn bleibt seit R13 jede Route unter
+ * /admin/api verschlossen — die Prüfungen danach scheiterten sonst reihenweise an 403, und die
+ * Ursache stünde am ganz anderen Ende der Datei.
+ */
+async function faktorNeuSetzen() {
+  await totpWegraeumen()
+  const ruf = alsKapitaen(await adminSitzung())
+  const start = await (await ruf('/manage/api/totp', { method: 'POST' })).json()
+  await totpAufraeumenVormerken()
+  await ruf('/manage/api/totp/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ code: totp.codeFuer(start.geheimnis, totpSchritt()) }),
+  })
+  totpGeheimnis = start.geheimnis
 }
 
 const totpSchritt = () => Math.floor(Date.now() / 30000)
 
 await pruefe('T15b', 'Einrichten gilt erst, wenn ein Code gestimmt hat', async () => {
   await totpWegraeumen()
-  const { jar } = await adminAnmelden()
+  const jar = await adminSitzung()
   const ruf = alsKapitaen(jar)
 
-  gleich(JSON.stringify(await (await ruf('/admin/api/totp')).json()), '{"aktiv":false,"ausstehend":false}', 'Anfangslage')
+  gleich(JSON.stringify(await (await ruf('/manage/api/totp')).json()), '{"aktiv":false,"ausstehend":false,"codes_uebrig":0}', 'Anfangslage')
 
-  const start = await (await ruf('/admin/api/totp', { method: 'POST' })).json()
+  const start = await (await ruf('/manage/api/totp', { method: 'POST' })).json()
   await totpAufraeumenVormerken()
   gleich(start.geheimnis.length, 32, 'Länge des Geheimnisses')
   stimmt(start.uri.includes('algorithm=SHA1'), 'Die URI nennt SHA1 nicht')
@@ -1264,20 +1483,20 @@ await pruefe('T15b', 'Einrichten gilt erst, wenn ein Code gestimmt hat', async (
   // Solange nicht bestätigt, darf der Login nichts verlangen — sonst sperrt sich aus, wer die
   // Einrichtung abbricht.
   gleich(
-    JSON.stringify(await (await ruf('/admin/api/totp')).json()),
-    '{"aktiv":false,"ausstehend":true}',
+    JSON.stringify(await (await ruf('/manage/api/totp')).json()),
+    '{"aktiv":false,"ausstehend":true,"codes_uebrig":0}',
     'Zwischenstand',
   )
   gleich((await adminAnmelden()).antwort.status, 200, 'Login bei unbestätigter Einrichtung')
 
   gleich(
-    (await ruf('/admin/api/totp/confirm', { method: 'POST', body: JSON.stringify({ code: '000000' }) })).status,
+    (await ruf('/manage/api/totp/confirm', { method: 'POST', body: JSON.stringify({ code: '000000' }) })).status,
     400,
     'Bestätigen mit falschem Code',
   )
   gleich(
     (
-      await ruf('/admin/api/totp/confirm', {
+      await ruf('/manage/api/totp/confirm', {
         method: 'POST',
         body: JSON.stringify({ code: totp.codeFuer(start.geheimnis, totpSchritt()) }),
       })
@@ -1285,17 +1504,17 @@ await pruefe('T15b', 'Einrichten gilt erst, wenn ein Code gestimmt hat', async (
     200,
     'Bestätigen mit richtigem Code',
   )
-  gleich(JSON.stringify(await (await ruf('/admin/api/totp')).json()), '{"aktiv":true,"ausstehend":false}', 'Endstand')
+  gleich(JSON.stringify(await (await ruf('/manage/api/totp')).json()), '{"aktiv":true,"ausstehend":false,"codes_uebrig":10}', 'Endstand')
 
   // Das Bestätigen hat den aktuellen Schritt verbraucht; der nächste liegt noch in der Toleranz.
   gleich(
-    (await ruf('/admin/api/totp', { method: 'DELETE', body: '{}' })).status,
+    (await ruf('/manage/api/totp', { method: 'DELETE', body: '{}' })).status,
     400,
     'Abschalten ohne Code',
   )
   gleich(
     (
-      await ruf('/admin/api/totp', {
+      await ruf('/manage/api/totp', {
         method: 'DELETE',
         body: JSON.stringify({ code: totp.codeFuer(start.geheimnis, totpSchritt() + 1) }),
       })
@@ -1307,12 +1526,12 @@ await pruefe('T15b', 'Einrichten gilt erst, wenn ein Code gestimmt hat', async (
 
 await pruefe('T15c', 'Der Login verlangt den Code und nimmt ihn nur einmal', async () => {
   await totpWegraeumen()
-  const { jar } = await adminAnmelden()
+  const jar = await adminSitzung()
   const ruf = alsKapitaen(jar)
 
-  const start = await (await ruf('/admin/api/totp', { method: 'POST' })).json()
+  const start = await (await ruf('/manage/api/totp', { method: 'POST' })).json()
   await totpAufraeumenVormerken()
-  await ruf('/admin/api/totp/confirm', {
+  await ruf('/manage/api/totp/confirm', {
     method: 'POST',
     body: JSON.stringify({ code: totp.codeFuer(start.geheimnis, totpSchritt()) }),
   })
@@ -1343,6 +1562,9 @@ await pruefe('T15c', 'Der Login verlangt den Code und nimmt ihn nur einmal', asy
 // Der teuerste Fehler dieses Umbaus wäre, dass eine Mannschaft die andere sieht. Er passiert
 // nicht durch böse Absicht, sondern durch eine vergessene Einschränkung in einer von 41
 // Abfragen. Deshalb steht er hier — auf beiden Seiten, Mitglied wie Kapitän.
+
+// Die beiden Prüfungen davor haben den Faktor abgeschaltet. Alles Weitere braucht ihn wieder.
+await faktorNeuSetzen()
 
 await pruefe('B3', 'Ein Mitglied sieht ausschließlich seine eigene Mannschaft', async () => {
   const fremde = await zweiteMannschaft()
@@ -1406,7 +1628,7 @@ await pruefe('T16', 'Ein Kapitän sieht und ändert nur seine eigene Mannschaft'
   const fremderSpieltag = await testSpieltag({ team: fremde.id, opponent_town: 'test-t16-fremd' })
 
   // Konto anlegen — das darf nur der Gesamt-Admin, hier also der Superuser.
-  const { jar: chef } = await adminAnmelden()
+  const chef = await adminSitzung()
   const alsChef = alsKapitaen(chef)
   const neu = await (
     await alsChef('/admin/api/verwalter', {
@@ -1422,7 +1644,7 @@ await pruefe('T16', 'Ein Kapitän sieht und ändert nur seine eigene Mannschaft'
   gleich(neu.passwort.length, 16, 'Das Passwort kommt genau einmal zurück')
 
   // Anmelden als Kapitän.
-  const antwort = await roh('/admin/api/login', {
+  const antwort = await roh('/manage/api/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: neu.email, password: neu.passwort }),
@@ -1430,19 +1652,19 @@ await pruefe('T16', 'Ein Kapitän sieht und ändert nur seine eigene Mannschaft'
   gleich(antwort.status, 200, 'Kapitän meldet sich an')
   const ruf = alsKapitaen(kekse(antwort).jar)
 
-  const ich = await (await ruf('/admin/api/me')).json()
+  const ich = await (await ruf('/manage/api/me')).json()
   gleich(ich.rolle, 'kapitaen', 'Rolle')
   gleich(ich.teams.length, 1, 'sichtbare Mannschaften')
 
   // Lesen: nur die eigene — auch wenn er ausdrücklich nach der fremden fragt. Der Wunsch aus dem
   // Request wird für einen Kapitän gar nicht erst gelesen (dieselbe Regel wie R3).
   for (const abfrage of ['', `?team=${fremde.id}`]) {
-    const s = await (await ruf(`/admin/api/fixtures${abfrage}`)).json()
+    const s = await (await ruf(`/manage/api/fixtures${abfrage}`)).json()
     stimmt(
       s.items.some((x) => x.id === meinSpieltag.id) && !s.items.some((x) => x.id === fremderSpieltag.id),
       `Spieltagliste bei "${abfrage}"`,
     )
-    const m = await (await ruf(`/admin/api/members${abfrage}`)).json()
+    const m = await (await ruf(`/manage/api/members${abfrage}`)).json()
     stimmt(
       m.items.some((x) => x.id === meinMitglied.satz.id) &&
         !m.items.some((x) => x.id === fremdesMitglied.satz.id),
@@ -1452,19 +1674,19 @@ await pruefe('T16', 'Ein Kapitän sieht und ändert nur seine eigene Mannschaft'
 
   // Schreiben: nichts Fremdes.
   for (const [was, pfad, optionen] of [
-    ['fremden Spieltag ändern', `/admin/api/fixtures/${fremderSpieltag.id}`, { method: 'PATCH', body: '{"km":5}' }],
-    ['fremden Spieltag löschen', `/admin/api/fixtures/${fremderSpieltag.id}`, { method: 'DELETE' }],
-    ['fremdes Mitglied ändern', `/admin/api/members/${fremdesMitglied.satz.id}`, { method: 'PATCH', body: '{"name":"X"}' }],
-    ['fremdes Token neu', `/admin/api/members/${fremdesMitglied.satz.id}/rotate-token`, { method: 'POST' }],
-    ['fremde Rückmeldung', `/admin/api/response/${meinSpieltag.id}/${fremdesMitglied.satz.id}`, { method: 'PUT', body: '{"status":"yes"}' }],
-    ['fremde Mannschaft umbenennen', `/admin/api/teams/${fremde.id}`, { method: 'PATCH', body: '{"name":"Weg"}' }],
+    ['fremden Spieltag ändern', `/manage/api/fixtures/${fremderSpieltag.id}`, { method: 'PATCH', body: '{"km":5}' }],
+    ['fremden Spieltag löschen', `/manage/api/fixtures/${fremderSpieltag.id}`, { method: 'DELETE' }],
+    ['fremdes Mitglied ändern', `/manage/api/members/${fremdesMitglied.satz.id}`, { method: 'PATCH', body: '{"name":"X"}' }],
+    ['fremdes Token neu', `/manage/api/members/${fremdesMitglied.satz.id}/rotate-token`, { method: 'POST' }],
+    ['fremde Rückmeldung', `/manage/api/response/${meinSpieltag.id}/${fremdesMitglied.satz.id}`, { method: 'PUT', body: '{"status":"yes"}' }],
+    ['fremde Mannschaft umbenennen', `/manage/api/teams/${fremde.id}`, { method: 'PATCH', body: '{"name":"Weg"}' }],
   ]) {
     gleich((await ruf(pfad, optionen)).status, 400, was)
   }
 
   // Und ein Mitglied, das er in die fremde Mannschaft schmuggeln will, landet in seiner eigenen.
   const geschmuggelt = await (
-    await ruf('/admin/api/members', {
+    await ruf('/manage/api/members', {
       method: 'POST',
       body: JSON.stringify({ name: `test-schmuggel-${randomBytes(3).toString('hex')}`, team: fremde.id }),
     })
@@ -1486,20 +1708,20 @@ await pruefe('T16', 'Ein Kapitän sieht und ändert nur seine eigene Mannschaft'
   }
 
   // Was er darf: seine eigene Mannschaft benennen — das ist „die Einstellung der Mannschaft".
-  const alterName = (await (await ruf('/admin/api/teams')).json()).items[0].name
+  const alterName = (await (await ruf('/manage/api/teams')).json()).items[0].name
   gleich(
-    (await ruf(`/admin/api/teams/${eigenes}`, { method: 'PATCH', body: '{"name":"test-Umbenannt"}' })).status,
+    (await ruf(`/manage/api/teams/${eigenes}`, { method: 'PATCH', body: '{"name":"test-Umbenannt"}' })).status,
     200,
     'eigene Mannschaft ändern',
   )
-  await ruf(`/admin/api/teams/${eigenes}`, { method: 'PATCH', body: JSON.stringify({ name: alterName }) })
+  await ruf(`/manage/api/teams/${eigenes}`, { method: 'PATCH', body: JSON.stringify({ name: alterName }) })
 
   // Einstellungen LESEN darf er — Impressum und Datenschutz sind keine Geheimnisse.
-  gleich((await ruf('/admin/api/settings')).status, 200, 'Einstellungen lesen')
+  gleich((await ruf('/manage/api/settings')).status, 200, 'Einstellungen lesen')
 })
 
 await pruefe('T16b', 'Eine Mannschaft mit Inhalt lässt sich nicht auflösen', async () => {
-  const { jar } = await adminAnmelden()
+  const jar = await adminSitzung()
   const ruf = alsKapitaen(jar)
 
   const leere = await zweiteMannschaft()
@@ -1525,8 +1747,8 @@ await pruefe('T20', 'Die Spieltagsliste des Kapitäns trägt den Stand der Manns
   await alsIch(`/api/response/${spieltag.id}`, { method: 'PUT', body: JSON.stringify({ status: 'yes' }) })
   await alsIch(`/api/ride/${spieltag.id}`, { method: 'PUT', body: JSON.stringify({ driving: true, seats: 4 }) })
 
-  const { jar: chef } = await adminAnmelden()
-  const liste = await (await alsKapitaen(chef)('/admin/api/fixtures')).json()
+  const chef = await adminSitzung()
+  const liste = await (await alsKapitaen(chef)('/manage/api/fixtures')).json()
   const meiner = liste.items.find((s) => s.id === spieltag.id)
   gleich(meiner.responses[mitglied.id], 'yes', 'die Zusage steht in der Antwort')
   gleich(meiner.rides.length, 1, 'die Fahrt steht in der Antwort')
@@ -1537,15 +1759,15 @@ await pruefe('T20', 'Die Spieltagsliste des Kapitäns trägt den Stand der Manns
 await pruefe('T20b', 'Der Kapitän korrigiert eine Rückmeldung, auch an einem gesperrten Spieltag', async () => {
   const { satz: mitglied } = await testMitglied('t17b')
   const spieltag = await testSpieltag({ opponent_town: 'test-t17b' })
-  const { jar: chef } = await adminAnmelden()
+  const chef = await adminSitzung()
   const alsChef = alsKapitaen(chef)
 
   const stand = async () => {
-    const liste = await (await alsChef('/admin/api/fixtures')).json()
+    const liste = await (await alsChef('/manage/api/fixtures')).json()
     return liste.items.find((s) => s.id === spieltag.id).responses[mitglied.id]
   }
   const setzen = (status) =>
-    alsChef(`/admin/api/response/${spieltag.id}/${mitglied.id}`, {
+    alsChef(`/manage/api/response/${spieltag.id}/${mitglied.id}`, {
       method: 'PUT',
       body: JSON.stringify({ status }),
     })
@@ -1555,7 +1777,7 @@ await pruefe('T20b', 'Der Kapitän korrigiert eine Rückmeldung, auch an einem g
 
   // Genau dafür ist die Route da: Wer telefonisch absagt, wird auch nach dem Abschließen noch
   // eingetragen. Die Route des Mitglieds lehnt das ab, diese nicht.
-  await alsChef(`/admin/api/fixtures/${spieltag.id}`, {
+  await alsChef(`/manage/api/fixtures/${spieltag.id}`, {
     method: 'PATCH',
     body: JSON.stringify({ locked: true }),
   })
@@ -1575,7 +1797,7 @@ await pruefe('T21', 'Das Protokoll findet die Zeilen einer Mannschaft auch weite
   //
   // Der Testfall ahmt das mit `limit=1` nach: Die neueste Zeile gehört einer anderen
   // Mannschaft, die gesuchte liegt dahinter.
-  const { jar: chef } = await adminAnmelden()
+  const chef = await adminSitzung()
   const alsChef = alsKapitaen(chef)
 
   const meine = await testTeam()
@@ -1584,10 +1806,10 @@ await pruefe('T21', 'Das Protokoll findet die Zeilen einer Mannschaft auch weite
   const { satz: fremdes } = await testMitglied('t21-fremd', true, fremde.id)
 
   // Erst eine Zeile für die eigene Mannschaft, dann eine neuere für die fremde.
-  await alsChef(`/admin/api/members/${meins.id}`, { method: 'PATCH', body: JSON.stringify({ active: false }) })
-  await alsChef(`/admin/api/members/${fremdes.id}`, { method: 'PATCH', body: JSON.stringify({ active: false }) })
+  await alsChef(`/manage/api/members/${meins.id}`, { method: 'PATCH', body: JSON.stringify({ active: false }) })
+  await alsChef(`/manage/api/members/${fremdes.id}`, { method: 'PATCH', body: JSON.stringify({ active: false }) })
 
-  const antwort = await alsChef(`/admin/api/audit?limit=1&team=${meine}`)
+  const antwort = await alsChef(`/manage/api/audit?limit=1&team=${meine}`)
   gleich(antwort.status, 200, 'Status')
   const daten = await antwort.json()
   gleich(daten.items.length, 1, 'die eigene Zeile wird gefunden, obwohl eine fremdere neuer ist')
@@ -1618,17 +1840,17 @@ await pruefe('T23', 'Ohne gewählte Mannschaft sagt der Server, was fehlt', asyn
   // Zwei Gründe teilten sich eine Meldung: „keine Mannschaft gewählt" und „diese darfst du
   // nicht". Der erste ist ein Zustand, den der Anfragende ändern kann — und er hat gerade ein
   // Formular ausgefüllt. Der zweite bleibt wortkarg (R6).
-  const { jar } = await adminAnmelden()
+  const jar = await adminSitzung()
   const ruf = alsKapitaen(jar)
 
-  const ohne = await ruf('/admin/api/fixtures', {
+  const ohne = await ruf('/manage/api/fixtures', {
     method: 'POST',
     body: JSON.stringify({ opponent_town: 'test-t23', date: '2026-09-12 17:30:00.000Z' }),
   })
   gleich(ohne.status, 400, 'abgelehnt')
   gleich((await ohne.json()).message, 'Wähle zuerst eine Mannschaft aus.', 'und sagt warum')
 
-  const fremd = await ruf('/admin/api/fixtures', {
+  const fremd = await ruf('/manage/api/fixtures', {
     method: 'POST',
     body: JSON.stringify({ opponent_town: 'test-t23b', date: '2026-09-12 17:30:00.000Z', team: 'gibtesnicht123' }),
   })
@@ -1637,7 +1859,7 @@ await pruefe('T23', 'Ohne gewählte Mannschaft sagt der Server, was fehlt', asyn
 })
 
 await pruefe('A10b', 'Tempo und Puffer stehen am Spieltag, sonst gilt der Standard', async () => {
-  const { jar: kapitaen } = await adminAnmelden()
+  const kapitaen = await adminSitzung()
   const ruf = alsKapitaen(kapitaen)
   const { klartext } = await testMitglied('a10b')
   const { jar } = await anmelden(klartext)
@@ -1654,7 +1876,7 @@ await pruefe('A10b', 'Tempo und Puffer stehen am Spieltag, sonst gilt der Standa
 
   // Nur für diesen Spieltag: halbes Tempo. 80 km bei 40 km/h sind 120 min, plus 25 = 145.
   gleich(
-    (await ruf(`/admin/api/fixtures/${spieltag.id}`, { method: 'PATCH', body: '{"tempo_kmh":40}' })).status,
+    (await ruf(`/manage/api/fixtures/${spieltag.id}`, { method: 'PATCH', body: '{"tempo_kmh":40}' })).status,
     200,
     'Tempo setzen',
   )
@@ -1663,14 +1885,14 @@ await pruefe('A10b', 'Tempo und Puffer stehen am Spieltag, sonst gilt der Standa
   // Ein eigener Puffer von 0 — die Null muss „keine Rüstzeit" heißen und nicht „Standard",
   // sonst wäre der Wunsch nicht ausdrückbar.
   gleich(
-    (await ruf(`/admin/api/fixtures/${spieltag.id}`, { method: 'PATCH', body: '{"puffer_minuten":0}' })).status,
+    (await ruf(`/manage/api/fixtures/${spieltag.id}`, { method: 'PATCH', body: '{"puffer_minuten":0}' })).status,
     200,
     'Puffer 0 setzen',
   )
   gleich(await vorlauf(), 120, 'eigener Puffer von 0')
 
   // Zurück auf Standard.
-  await ruf(`/admin/api/fixtures/${spieltag.id}`, {
+  await ruf(`/manage/api/fixtures/${spieltag.id}`, {
     method: 'PATCH',
     body: '{"tempo_kmh":-1,"puffer_minuten":-1}',
   })
@@ -1685,21 +1907,21 @@ await pruefe('A10b', 'Tempo und Puffer stehen am Spieltag, sonst gilt der Standa
     ['{"tempo_kmh":-1}', 200],
   ]) {
     gleich(
-      (await ruf(`/admin/api/fixtures/${spieltag.id}`, { method: 'PATCH', body: koerper })).status,
+      (await ruf(`/manage/api/fixtures/${spieltag.id}`, { method: 'PATCH', body: koerper })).status,
       soll,
       koerper,
     )
   }
 
   // Die Kapitänsansicht liefert mit, was tatsächlich gilt — sonst müsste der Browser rechnen.
-  const liste = await (await ruf('/admin/api/fixtures')).json()
+  const liste = await (await ruf('/manage/api/fixtures')).json()
   const x = liste.items.find((f) => f.id === spieltag.id)
   gleich(x.tempo_effektiv, 80, 'tempo_effektiv')
   gleich(x.puffer_effektiv, 25, 'puffer_effektiv')
 })
 
 await pruefe('T17', 'Der Gesamt-Admin sieht den zweiten Faktor der Kapitäne und kann ihn abschalten', async () => {
-  const { jar } = await adminAnmelden()
+  const jar = await adminSitzung()
   const ruf = alsKapitaen(jar)
 
   const konto = await (
@@ -1721,14 +1943,14 @@ await pruefe('T17', 'Der Gesamt-Admin sieht den zweiten Faktor der Kapitäne und
 
   // Der Kapitän richtet ihn selbst ein — der Gesamt-Admin kann das nicht für ihn tun, sonst
   // liefe das Geheimnis über dessen Bildschirm.
-  const anmeldung = await roh('/admin/api/login', {
+  const anmeldung = await roh('/manage/api/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: konto.email, password: konto.passwort }),
   })
   const alsKapitaenSelbst = alsKapitaen(kekse(anmeldung).jar)
-  const start = await (await alsKapitaenSelbst('/admin/api/totp', { method: 'POST' })).json()
-  await alsKapitaenSelbst('/admin/api/totp/confirm', {
+  const start = await (await alsKapitaenSelbst('/manage/api/totp', { method: 'POST' })).json()
+  await alsKapitaenSelbst('/manage/api/totp/confirm', {
     method: 'POST',
     body: JSON.stringify({ code: totp.codeFuer(start.geheimnis, Math.floor(Date.now() / 30000)) }),
   })
@@ -1744,7 +1966,7 @@ await pruefe('T17', 'Der Gesamt-Admin sieht den zweiten Faktor der Kapitäne und
   gleich((await finde()).totp, false, 'danach wieder aus')
 
   // Es steht im Protokoll — eine Schwächung, die nachvollziehbar sein muss.
-  const protokoll = await (await ruf('/admin/api/audit?limit=200')).json()
+  const protokoll = await (await ruf('/manage/api/audit?limit=200')).json()
   stimmt(
     protokoll.items.some((z) => z.action === 'verwalter.totp.off'),
     'Das Abschalten steht nicht im Protokoll',
@@ -1752,7 +1974,7 @@ await pruefe('T17', 'Der Gesamt-Admin sieht den zweiten Faktor der Kapitäne und
 })
 
 await pruefe('T18', 'Der Admin ist weder Kapitän noch Spieler, und ein Kapitän spielt in seiner Mannschaft', async () => {
-  const { jar } = await adminAnmelden()
+  const jar = await adminSitzung()
   const ruf = alsKapitaen(jar)
   const eigenes = await testTeam()
   const fremde = await zweiteMannschaft()
@@ -1833,7 +2055,7 @@ await pruefe('T18', 'Der Admin ist weder Kapitän noch Spieler, und ein Kapitän
 })
 
 await pruefe('T19', 'Jeder ändert sein eigenes Passwort, aber nur mit dem bisherigen', async () => {
-  const { jar } = await adminAnmelden()
+  const jar = await adminSitzung()
   const ruf = alsKapitaen(jar)
 
   const email = `test-t19-${randomBytes(4).toString('hex')}@example.org`
@@ -1846,7 +2068,7 @@ await pruefe('T19', 'Jeder ändert sein eigenes Passwort, aber nur mit dem bishe
   aufraeumen.push(['verwalter', konto.id])
 
   const anmelden2 = async (passwort) =>
-    roh('/admin/api/login', {
+    roh('/manage/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password: passwort }),
@@ -1857,13 +2079,13 @@ await pruefe('T19', 'Jeder ändert sein eigenes Passwort, aber nur mit dem bishe
   const alsKap = alsKapitaen(kekse(ersteAnmeldung).jar)
 
   gleich(
-    (await alsKap('/admin/api/passwort', { method: 'PATCH', body: '{"alt":"falsch","neu":"NeuesPasswort123"}' })).status,
+    (await alsKap('/manage/api/passwort', { method: 'PATCH', body: '{"alt":"falsch","neu":"NeuesPasswort123"}' })).status,
     400,
     'falsches bisheriges Passwort',
   )
   gleich(
     (
-      await alsKap('/admin/api/passwort', {
+      await alsKap('/manage/api/passwort', {
         method: 'PATCH',
         body: JSON.stringify({ alt: konto.passwort, neu: 'kurz' }),
       })
@@ -1873,7 +2095,28 @@ await pruefe('T19', 'Jeder ändert sein eigenes Passwort, aber nur mit dem bishe
   )
   gleich(
     (
-      await alsKap('/admin/api/passwort', {
+      await alsKap('/manage/api/passwort', {
+        method: 'PATCH',
+        body: JSON.stringify({ alt: konto.passwort, neu: 'elfzeichen' + '1' }),
+      })
+    ).status,
+    400,
+    'elf Zeichen sind zu wenig (Abschnitt 12)',
+  )
+  gleich(
+    (
+      await alsKap('/manage/api/passwort', {
+        method: 'PATCH',
+        // Der eigene Adressteil vor dem @ — das erste, was jemand probiert.
+        body: JSON.stringify({ alt: konto.passwort, neu: `${email.split('@')[0]}!` }),
+      })
+    ).status,
+    400,
+    'Passwort mit dem eigenen Anmeldenamen',
+  )
+  gleich(
+    (
+      await alsKap('/manage/api/passwort', {
         method: 'PATCH',
         body: JSON.stringify({ alt: konto.passwort, neu: 'NeuesPasswort123' }),
       })
@@ -1886,10 +2129,93 @@ await pruefe('T19', 'Jeder ändert sein eigenes Passwort, aber nur mit dem bishe
   gleich((await anmelden2('NeuesPasswort123')).status, 200, 'neues Passwort gilt')
 })
 
+await pruefe('T9b', 'Der Admin sieht Sperren und kann sie aufheben (R7)', async () => {
+  // Die Sperre selbst lässt sich hier nicht auslösen: Der Zähler pro IP schlägt schon nach fünf
+  // Versuchen zu, der pro Konto erst nach zehn Fehlversuchen. Bis dahin bräuchte es mehrere
+  // Adressen — genau der Fall, für den er da ist, und genau der, den ein Testlauf von einem
+  // Rechner aus nicht herstellen kann. Bleibt zu prüfen, was von hier aus prüfbar ist: dass die
+  // Auskunft mitkommt und der Weg zum Aufheben steht.
+  const jar = await adminSitzung()
+  const ruf = alsKapitaen(jar)
+
+  const konten = await (await ruf('/admin/api/verwalter')).json()
+  for (const k of konten.items) {
+    if (typeof k.gesperrt !== 'number') throw new Error(`${k.email}: keine Auskunft über Sperren`)
+  }
+
+  const eines = konten.items[0]
+  gleich((await ruf(`/admin/api/verwalter/${eines.id}/entsperren`, { method: 'POST' })).status, 200, 'aufheben')
+
+  // Und ein Kapitän kommt an diesen Weg nicht heran (R6).
+  const email = `test-t9b-${randomBytes(4).toString('hex')}@example.org`
+  const konto = await (
+    await ruf('/admin/api/verwalter', {
+      method: 'POST',
+      body: JSON.stringify({ email, rolle: 'kapitaen', team: await testTeam() }),
+    })
+  ).json()
+  aufraeumen.push(['verwalter', konto.id])
+
+  const alsKap = alsKapitaen(
+    kekse(
+      await roh('/manage/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: konto.passwort }),
+      }),
+    ).jar,
+  )
+  gleich(
+    (await alsKap(`/admin/api/verwalter/${eines.id}/entsperren`, { method: 'POST' })).status,
+    404,
+    'als Kapitän',
+  )
+})
+
+await pruefe('A15', 'Der Kapitän wechselt ohne Token in seine eigene Spieleransicht (Abschnitt 12)', async () => {
+  const jar = await adminSitzung()
+  const ruf = alsKapitaen(jar)
+  const team = await testTeam()
+
+  // Ein Kapitän, der mitspielt: Konto und Spielereintrag sind verbunden.
+  const { satz: spieler } = await testMitglied('t-a15')
+  const email = `test-a15-${randomBytes(4).toString('hex')}@example.org`
+  const konto = await (
+    await ruf('/admin/api/verwalter', {
+      method: 'POST',
+      body: JSON.stringify({ email, rolle: 'kapitaen', team, mitglied: spieler.id }),
+    })
+  ).json()
+  aufraeumen.push(['verwalter', konto.id])
+
+  const angemeldet = await roh('/manage/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password: konto.passwort }),
+  })
+  const kapJar = kekse(angemeldet).jar
+
+  const gewechselt = await alsKapitaen(kapJar)('/manage/api/spieleransicht', { method: 'POST' })
+  gleich(gewechselt.status, 200, 'Wechsel')
+
+  // Was zurückkommt, ist eine MITGLIEDERsitzung — und sie zeigt den Aushang seiner Mannschaft.
+  const mitgliedJar = kekse(gewechselt).jar
+  if (!mitgliedJar.dz_sid) throw new Error('keine Mitgliedersitzung ausgestellt')
+  const board = await (await roh('/api/board', { headers: { Cookie: `dz_sid=${mitgliedJar.dz_sid}` } })).json()
+  gleich(board.me, spieler.id, 'Wer der Aushang zu sein glaubt')
+  gleich(board.verwalter, true, 'Der Aushang zeigt den Weg zurück in die Verwaltung')
+
+  // Der Admin selbst spielt nicht — für ihn gibt es diese Route nicht (R6).
+  gleich((await ruf('/manage/api/spieleransicht', { method: 'POST' })).status, 404, 'als Admin')
+})
+
 await pruefe('T9', '6× falsches Passwort → gesperrt, auch für das richtige', async () => {
   let letzter = null
   for (let i = 0; i < 6; i++) letzter = (await adminAnmelden('immer-falsch')).antwort
-  gleich(letzter.status, 429, 'Status nach dem sechsten Versuch')
+  // Der sechste Fehlgriff ist der, der die Sperre auslöst — beantwortet wird er noch mit 401.
+  // Gezählt werden seit R13e Fehlversuche und nicht Anfragen: Acht Kapitäne im selben WLAN
+  // sollen sich nicht gegenseitig aussperren, nur weil sie sich alle richtig anmelden.
+  gleich(letzter.status, 401, 'Status beim sechsten Fehlversuch')
 
   // Der entscheidende Teil: mit dem RICHTIGEN Passwort kommt man jetzt auch nicht mehr rein.
   // Eine Sperre, die sich durch einen Treffer aufheben ließe, wäre keine.

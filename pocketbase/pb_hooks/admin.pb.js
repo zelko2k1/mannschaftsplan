@@ -7,6 +7,15 @@
 // `if (isAdmin)` — genau dort entstehen die Fehler, bei denen ein Mitglied versehentlich
 // Adminrechte bekommt.
 //
+// R13e · ZWEI PRÄFIXE, und der Präfix ist die Markierung. Was ein Kapitän braucht, liegt unter
+// `/manage/api` und ist von außen erreichbar. Was nur die Rolle `admin` darf — Konten,
+// Mannschaften anlegen und löschen, Einstellungen, Sicherungen —, liegt unter `/admin/api` und
+// damit hinter dem Tor aus R13b.
+//
+// Die Rollenprüfung im Handler bleibt trotzdem stehen, jede einzelne. Der Präfix ist eine
+// Aussage über den Proxy, und ein Proxy kann falsch konfiguriert sein; die Prüfung im Code kann
+// es nicht. Wer eine Route verschiebt, verschiebt deshalb beides oder nichts.
+//
 // R13 · Angemeldet wird gegen PocketBases eigene `_superusers`-Collection. Kein selbstgebautes
 // Passwort-Handling, kein eigener Hash, kein eigener Vergleich. Vor diesen Code gehört zusätzlich
 // ein Tor in der Reverse-Proxy-Konfiguration (R13b, deploy/Caddyfile): IP-Allowlist oder eine
@@ -25,21 +34,51 @@
 // Alle Hilfen kommen aus adminauth.js und werden INNERHALB der Handler geholt. Funktionen im
 // Modul-Scope stehen den Handlern nicht zur Verfügung — sie laufen in isolierten Laufzeiten.
 
-// ── POST /admin/api/login ───────────────────────────────────────────────────────────────────
-routerAdd('POST', '/admin/api/login', (e) => {
+// ── POST /manage/api/login ──────────────────────────────────────────────────────────────────
+routerAdd('POST', '/manage/api/login', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const u = require(`${__hooks}/utils.js`)
   const limit = require(`${__hooks}/ratelimit.js`)
 
-  // R7 · 5 Versuche pro Minute und IP, danach 15 Minuten Sperre.
-  const takt = limit.pruefen(e.app, `login:${e.realIP()}`, 5, 60, 900)
-  if (!takt.ok) {
-    return e.json(429, { message: `Zu viele Versuche. Warte ${takt.wartenSekunden} Sekunden.` })
+  // R7 · Zwei Zähler, seit dieser Login ohne Tor im Netz steht (R13e), und beide zählen
+  // FEHLVERSUCHE — nicht Anfragen.
+  //
+  // Pro IP: 5 Fehlversuche pro Minute, danach 15 Minuten Sperre. Bremst den einzelnen Anschluss.
+  //
+  // Pro Konto: 10 Fehlversuche in einer Viertelstunde. Ohne diesen Zähler wäre die IP-Grenze
+  // wirkungslos, sobald jemand über viele Adressen anfragt — jede einzelne bliebe darunter, das
+  // Konto bekäme trotzdem beliebig viele Versuche.
+  //
+  // **Anfragen zu zählen wäre hier derselbe Fehler wie beim Einlösen der Einladungslinks** (R7):
+  // Acht Kapitäne im WLAN des Vereinsheims sind acht Anmeldungen von EINER öffentlichen Adresse.
+  // Wer Anfragen zählt, sperrt die letzten drei aus, obwohl alle das richtige Passwort haben.
+  //
+  // Beim Zähler pro Konto kommt ein zweiter Grund dazu: Er lässt sich von außen füttern — wer die
+  // Adresse eines Kapitäns kennt, könnte ihn sonst absichtlich aussperren. Zehn statt fünf hält
+  // den ehrlichen Nutzer heraus; ein Tippfehler zu viel ist schnell passiert, zehn nicht.
+  // Aufheben lässt sich eine Sperre durch Warten, durch den Admin (bei fremden Konten) oder
+  // durch einen Neustart; sie liegt im Arbeitsspeicher.
+  const ipSchluessel = `login:${e.realIP()}`
+  const ipTakt = limit.istGesperrt(e.app, ipSchluessel)
+  if (ipTakt.gesperrt) {
+    return e.json(429, { message: `Zu viele Versuche. Warte ${ipTakt.wartenSekunden} Sekunden.` })
   }
 
   const koerper = e.requestInfo().body || {}
   const email = String(koerper.email || '')
   const passwort = String(koerper.password || '')
+  const kontoSchluessel = `login:konto:${email.trim().toLowerCase()}`
+
+  const kontoTakt = limit.istGesperrt(e.app, kontoSchluessel)
+  if (kontoTakt.gesperrt) {
+    return e.json(429, { message: `Zu viele Versuche. Warte ${kontoTakt.wartenSekunden} Sekunden.` })
+  }
+
+  /** Ein Fehlversuch zählt auf beide Konten — auf die Adresse und auf den Anschluss. */
+  const danebenGegriffen = () => {
+    limit.pruefen(e.app, ipSchluessel, 5, 60, 900)
+    limit.pruefen(e.app, kontoSchluessel, 10, 900, 900)
+  }
 
   // Abschnitt 12 · Zwei Quellen, in dieser Reihenfolge: die Verwalterkonten der Kapitäne, dann
   // der Superuser. Beide Male prüft PocketBase das Passwort selbst (R13) — nur die Tabelle ist
@@ -70,6 +109,7 @@ routerAdd('POST', '/admin/api/login', (e) => {
   // vorgeschalteten Tor aus R13b ist das der Punkt, an dem sich weiterer Aufwand nicht mehr
   // lohnt; ohne dieses Tor wäre es das nicht.
   if (!konto || !konto.validatePassword(passwort)) {
+    danebenGegriffen()
     return e.json(401, { message: 'Anmeldung fehlgeschlagen.' })
   }
 
@@ -107,63 +147,67 @@ routerAdd('POST', '/admin/api/login', (e) => {
       Math.floor(Date.now() / 1000),
       totpSatz.getInt('last_step'),
     )
-    if (!schritt) {
-      return e.json(401, { mfa: true, message: 'Der Code stimmt nicht.' })
-    }
 
-    // Verbrauchen, damit derselbe Code kein zweites Mal gilt.
-    try {
-      totpSatz.set('last_step', schritt)
+    if (schritt) {
+      // Verbrauchen, damit derselbe Code kein zweites Mal gilt.
+      try {
+        totpSatz.set('last_step', schritt)
+        e.app.save(totpSatz)
+      } catch {
+        /* nicht schlimm genug, um die Anmeldung scheitern zu lassen */
+      }
+    } else {
+      // Kein gültiger Zeitcode — vielleicht ein Wiederherstellungscode. Das Handy ist weg, der
+      // Zettel ist da. Beides wird an derselben Stelle eingegeben: Wer in dieser Lage ist, soll
+      // nicht erst einen anderen Knopf suchen müssen.
+      const uebrig = totp.codeEinloesen(totpSatz.getString('codes'), code)
+      if (uebrig === null) {
+        danebenGegriffen()
+        return e.json(401, { mfa: true, message: 'Der Code stimmt nicht.' })
+      }
+      totpSatz.set('codes', uebrig)
       e.app.save(totpSatz)
-    } catch {
-      /* nicht schlimm genug, um die Anmeldung scheitern zu lassen */
+      u.protokollieren(e.app, `admin:${email}`, 'admin.totp.recovery', '', '', `${uebrig.length} übrig`)
     }
   }
 
   // Erst JETZT zurücksetzen. Stünde das oben hinter dem Passwort, könnte jemand mit dem
   // richtigen Passwort beliebig viele Codes durchprobieren, ohne je an die Sperre zu stoßen.
-  limit.zuruecksetzen(e.app, `login:${e.realIP()}`)
+  limit.zuruecksetzen(e.app, ipSchluessel)
+  limit.zuruecksetzen(e.app, kontoSchluessel)
 
-  // Eigene Sitzung, eigener Cookie-Name, eigener Pfad. Der PocketBase-Token landet NICHT im
+  // Eigene Sitzung, eigener Cookie-Name, eigene Pfade. Der PocketBase-Token landet NICHT im
   // Browser — weder im Cookie noch in localStorage (R13).
+  //
+  // „Angemeldet bleiben" entscheidet der Nutzer pro Gerät. Die Laufzeit steht an der Sitzung,
+  // nicht nur am Cookie: gälte sie nur dort, wäre ein abgegriffener Wert unbegrenzt gültig.
+  //
+  // ABER: die 90 Tage gibt es NUR mit zweitem Faktor. Ohne ihn bleibt es bei 12 Stunden, auch
+  // wenn der Haken gesetzt war. Der Grund ist eine Abwägung, keine Schikane: Ein Gerät, das drei
+  // Monate lang angemeldet bleibt, ist ein Passwort, das drei Monate lang niemand mehr eingibt —
+  // wer es findet, ist drin. Mit einem zweiten Faktor ist wenigstens die Anmeldung selbst nicht
+  // allein mit dem Passwort zu haben. Damit bleibt TOTP freiwillig, aber wer es einschaltet,
+  // bekommt etwas dafür. Das ist der ehrlichere Weg als eine Pflicht: Bequemlichkeit als Anreiz
+  // statt einer Vorschrift, die die Leute umgehen.
+  const dauer = koerper.bleiben === true && totpSatz ? a.ADMIN_DAUER_LANG : a.ADMIN_DAUER
   const sid = $security.randomStringWithAlphabet(43, a.B64URL)
   const satz = new Record(e.app.findCollectionByNameOrId('admin_sessions'))
   satz.set('sid_hash', $security.sha256(sid))
   satz.set('email', email)
+  satz.set('dauer', dauer)
   satz.set('last_seen', new DateTime())
   e.app.save(satz)
 
-  e.setCookie(
-    new Cookie({
-      name: a.ADMIN_COOKIE,
-      // Path=/admin: dieser Cookie wird bei Mitglieder-Anfragen gar nicht erst mitgeschickt.
-      value: sid,
-      path: '/admin',
-      maxAge: a.ADMIN_DAUER,
-      secure: true,
-      httpOnly: true,
-      sameSite: 2, // Lax
-    }),
-  )
-  // R11 · Muss lesbar sein, damit der Client den Wert als Kopfzeile zurückschicken kann.
-  e.setCookie(
-    new Cookie({
-      name: a.ADMIN_CSRF_COOKIE,
-      value: $security.randomStringWithAlphabet(43, a.B64URL),
-      path: '/admin',
-      maxAge: a.ADMIN_DAUER,
-      secure: true,
-      httpOnly: false,
-      sameSite: 2,
-    }),
-  )
+  a.cookiesSetzen(e, sid, dauer)
 
-  u.protokollieren(e.app, `admin:${email}`, 'admin.login', '', '', '')
-  return e.json(200, { ok: true, email })
+  u.protokollieren(e.app, `admin:${email}`, 'admin.login', '', dauer === a.ADMIN_DAUER_LANG ? 'angemeldet bleiben' : '', '')
+  // `bleiben` sagt dem Client, was er BEKOMMEN hat, nicht was er wollte. Wer den Haken ohne
+  // zweiten Faktor setzt, soll erfahren, warum er trotzdem wieder herausfliegt.
+  return e.json(200, { ok: true, email, bleiben: dauer === a.ADMIN_DAUER_LANG })
 })
 
-// ── POST /admin/api/logout ──────────────────────────────────────────────────────────────────
-routerAdd('POST', '/admin/api/logout', (e) => {
+// ── POST /manage/api/logout ─────────────────────────────────────────────────────────────────
+routerAdd('POST', '/manage/api/logout', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const satz = a.sitzung(e)
   if (satz) {
@@ -173,14 +217,12 @@ routerAdd('POST', '/admin/api/logout', (e) => {
       /* schon weg */
     }
   }
-  for (const name of [a.ADMIN_COOKIE, a.ADMIN_CSRF_COOKIE]) {
-    e.setCookie(new Cookie({ name, value: '', path: '/admin', maxAge: -1, secure: true, sameSite: 2 }))
-  }
+  a.cookiesLoeschen(e)
   return e.json(200, { ok: true })
 })
 
-// ── GET /admin/api/me ───────────────────────────────────────────────────────────────────────
-routerAdd('GET', '/admin/api/me', (e) => {
+// ── GET /manage/api/me ──────────────────────────────────────────────────────────────────────
+routerAdd('GET', '/manage/api/me', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const kontext = a.kontext(e)
   if (!kontext) return e.json(404, { message: 'Nicht gefunden.' })
@@ -207,12 +249,55 @@ routerAdd('GET', '/admin/api/me', (e) => {
   })
 })
 
-// ── Spieltage ───────────────────────────────────────────────────────────────────────────────
-routerAdd('GET', '/admin/api/fixtures', (e) => {
+// ── POST /manage/api/spieleransicht · Als Spieler weitermachen (Abschnitt 12) ───────────────
+// Der Kapitän spielt meistens selbst mit. Für „wie steht es" und die eigene Zu- oder Absage
+// braucht er die Kapitänsansicht gar nicht — dafür hat er, wie jeder andere, seinen
+// persönlichen Einladungslink.
+//
+// Nur: Diesen Link kann ihm niemand zeigen. In `members` steht ausschließlich der HASH des
+// Tokens (R1), der Klartext existiert nach dem Ausstellen nirgends mehr. Ein Knopf „hier ist
+// dein Link" wäre also nur um den Preis zu haben, das Token wieder auszustellen — und damit den
+// alten Link auf allen anderen Geräten des Kapitäns zu entwerten.
+//
+// Deshalb dieser Weg: Wer angemeldet ist und einen Spielereintrag hat, bekommt hier eine
+// MITGLIEDER-Sitzung für genau diesen Eintrag. Kein Token wandert dabei durch die Gegend.
+//
+// R5, und warum das hier keine Verletzung ist: Die beiden Bereiche bleiben getrennt — getrennte
+// Tabellen, getrennte Cookies, getrennte Prüfung. Hier wird nichts vermischt, sondern eine
+// zweite Sitzung ausgestellt, und zwar nur für den Eintrag, der am eigenen Konto hängt. Die
+// Rechte werden dabei ausschließlich KLEINER: Wer die Spieltage seiner Mannschaft ändern darf,
+// darf erst recht seine eigene Rückmeldung setzen. Die Kapitänssitzung bleibt bestehen, der Weg
+// zurück ist also ein Klick.
+routerAdd('POST', '/manage/api/spieleransicht', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const u = require(`${__hooks}/utils.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
+
+  const mitgliedId = vor.kontext.mitglied
+  // Kein Spielerbezug: Das ist der Admin oder ein Kapitän, der nur organisiert. R6 — für ihn
+  // gibt es diese Route schlicht nicht.
+  if (!mitgliedId) return e.json(404, { message: 'Nicht gefunden.' })
+
+  let mitglied
+  try {
+    mitglied = e.app.findRecordById('members', mitgliedId)
+  } catch {
+    return e.json(404, { message: 'Nicht gefunden.' })
+  }
+  if (!mitglied || !mitglied.getBool('active')) return e.json(404, { message: 'Nicht gefunden.' })
+
+  u.sessionStarten(e, mitglied)
+  a.protokoll(e, 'admin.spieleransicht', mitglied.id, '', mitglied.getString('name'))
+  return e.json(200, { ok: true })
+})
+
+// ── Spieltage ───────────────────────────────────────────────────────────────────────────────
+routerAdd('GET', '/manage/api/fixtures', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const u = require(`${__hooks}/utils.js`)
+  const vor = a.pruefen(e)
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
 
   // Abschnitt 12 · Ein Kapitän sieht nur seine Mannschaft, der Gesamt-Admin die gewählte oder
@@ -294,10 +379,10 @@ routerAdd('GET', '/admin/api/fixtures', (e) => {
   })
 })
 
-routerAdd('POST', '/admin/api/fixtures', (e) => {
+routerAdd('POST', '/manage/api/fixtures', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
 
   const koerper = e.requestInfo().body || {}
@@ -346,10 +431,10 @@ routerAdd('POST', '/admin/api/fixtures', (e) => {
   return e.json(200, { id: satz.id })
 })
 
-routerAdd('PATCH', '/admin/api/fixtures/{id}', (e) => {
+routerAdd('PATCH', '/manage/api/fixtures/{id}', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
 
   let satz
@@ -371,10 +456,10 @@ routerAdd('PATCH', '/admin/api/fixtures/{id}', (e) => {
   return e.json(200, { ok: true })
 })
 
-routerAdd('DELETE', '/admin/api/fixtures/{id}', (e) => {
+routerAdd('DELETE', '/manage/api/fixtures/{id}', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
 
   let satz
@@ -394,10 +479,10 @@ routerAdd('DELETE', '/admin/api/fixtures/{id}', (e) => {
 })
 
 // ── Mitglieder ──────────────────────────────────────────────────────────────────────────────
-routerAdd('GET', '/admin/api/members', (e) => {
+routerAdd('GET', '/manage/api/members', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
 
   const team = a.teamFuer(kontext, (e.requestInfo().query || {}).team)
@@ -424,10 +509,10 @@ routerAdd('GET', '/admin/api/members', (e) => {
   })
 })
 
-routerAdd('POST', '/admin/api/members', (e) => {
+routerAdd('POST', '/manage/api/members', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
 
   const koerper = e.requestInfo().body || {}
@@ -469,10 +554,10 @@ routerAdd('POST', '/admin/api/members', (e) => {
   return e.json(200, { id: satz.id })
 })
 
-routerAdd('PATCH', '/admin/api/members/{id}', (e) => {
+routerAdd('PATCH', '/manage/api/members/{id}', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
 
   let satz
@@ -515,11 +600,11 @@ routerAdd('PATCH', '/admin/api/members/{id}', (e) => {
 })
 
 // ── R12 · Neues Token ───────────────────────────────────────────────────────────────────────
-routerAdd('POST', '/admin/api/members/{id}/rotate-token', (e) => {
+routerAdd('POST', '/manage/api/members/{id}/rotate-token', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const u = require(`${__hooks}/utils.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
 
   let satz
@@ -558,11 +643,11 @@ routerAdd('POST', '/admin/api/members/{id}/rotate-token', (e) => {
 })
 
 // ── Korrektur einer Rückmeldung durch den Kapitän ───────────────────────────────────────────
-routerAdd('PUT', '/admin/api/response/{fixtureId}/{memberId}', (e) => {
+routerAdd('PUT', '/manage/api/response/{fixtureId}/{memberId}', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const u = require(`${__hooks}/utils.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
 
   const spieltagId = e.request.pathValue('fixtureId')
@@ -622,11 +707,11 @@ routerAdd('PUT', '/admin/api/response/{fixtureId}/{memberId}', (e) => {
 // ── Einstellungen ───────────────────────────────────────────────────────────────────────────
 // Genau ein Datensatz, angelegt von der Migration. Gelesen wird er auch von der
 // Einladungsseite — deshalb liegt das Holen in utils.js und nicht hier.
-routerAdd('GET', '/admin/api/settings', (e) => {
+routerAdd('GET', '/manage/api/settings', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const u = require(`${__hooks}/utils.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
 
   return e.json(200, u.einstellungen(e.app))
@@ -636,12 +721,14 @@ routerAdd('PATCH', '/admin/api/settings', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const u = require(`${__hooks}/utils.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
 
   // Zentral (Abschnitt 12): Das geht alle Mannschaften an, also nur den Gesamt-Admin. Antwort
   // wie überall 404 statt 403 — ein Kapitän soll nicht einmal erfahren, dass es hier etwas gibt.
   if (kontext.rolle !== 'admin') return e.json(404, { message: 'Nicht gefunden.' })
+  const ohneFaktor = a.faktorFehlt(e)
+  if (ohneFaktor) return e.json(ohneFaktor.status, ohneFaktor.koerper)
 
   const koerper = e.requestInfo().body || {}
 
@@ -705,10 +792,10 @@ routerAdd('PATCH', '/admin/api/settings', (e) => {
 })
 
 // ── Protokoll ───────────────────────────────────────────────────────────────────────────────
-routerAdd('GET', '/admin/api/audit', (e) => {
+routerAdd('GET', '/manage/api/audit', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
 
   const gewuenscht = Number((e.requestInfo().query || {}).limit) || 100
@@ -823,12 +910,14 @@ routerAdd('GET', '/admin/api/audit', (e) => {
 routerAdd('POST', '/admin/api/backup', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
 
   // Zentral (Abschnitt 12): Das geht alle Mannschaften an, also nur den Gesamt-Admin. Antwort
   // wie überall 404 statt 403 — ein Kapitän soll nicht einmal erfahren, dass es hier etwas gibt.
   if (kontext.rolle !== 'admin') return e.json(404, { message: 'Nicht gefunden.' })
+  const ohneFaktor = a.faktorFehlt(e)
+  if (ohneFaktor) return e.json(ohneFaktor.status, ohneFaktor.koerper)
 
   const name = `pb_backup_manuell_${a.backupZeitstempel()}.zip`
 
@@ -847,12 +936,14 @@ routerAdd('POST', '/admin/api/backup', (e) => {
 routerAdd('GET', '/admin/api/backups', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
 
   // Zentral (Abschnitt 12): Das geht alle Mannschaften an, also nur den Gesamt-Admin. Antwort
   // wie überall 404 statt 403 — ein Kapitän soll nicht einmal erfahren, dass es hier etwas gibt.
   if (kontext.rolle !== 'admin') return e.json(404, { message: 'Nicht gefunden.' })
+  const ohneFaktor = a.faktorFehlt(e)
+  if (ohneFaktor) return e.json(ohneFaktor.status, ohneFaktor.koerper)
 
   let eintraege = []
   try {
@@ -876,12 +967,14 @@ routerAdd('GET', '/admin/api/backups', (e) => {
 routerAdd('GET', '/admin/api/backup/{name}', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
 
   // Zentral (Abschnitt 12): Das geht alle Mannschaften an, also nur den Gesamt-Admin. Antwort
   // wie überall 404 statt 403 — ein Kapitän soll nicht einmal erfahren, dass es hier etwas gibt.
   if (kontext.rolle !== 'admin') return e.json(404, { message: 'Nicht gefunden.' })
+  const ohneFaktor = a.faktorFehlt(e)
+  if (ohneFaktor) return e.json(ohneFaktor.status, ohneFaktor.koerper)
 
   const name = e.request.pathValue('name')
   if (!a.backupNameOk(name)) return e.json(404, { message: 'Nicht gefunden.' })
@@ -903,12 +996,14 @@ routerAdd('GET', '/admin/api/backup/{name}', (e) => {
 routerAdd('POST', '/admin/api/backup/upload', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
 
   // Zentral (Abschnitt 12): Das geht alle Mannschaften an, also nur den Gesamt-Admin. Antwort
   // wie überall 404 statt 403 — ein Kapitän soll nicht einmal erfahren, dass es hier etwas gibt.
   if (kontext.rolle !== 'admin') return e.json(404, { message: 'Nicht gefunden.' })
+  const ohneFaktor = a.faktorFehlt(e)
+  if (ohneFaktor) return e.json(ohneFaktor.status, ohneFaktor.koerper)
 
   let datei
   try {
@@ -940,12 +1035,14 @@ routerAdd('POST', '/admin/api/backup/upload', (e) => {
 routerAdd('DELETE', '/admin/api/backup/{name}', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
 
   // Zentral (Abschnitt 12): Das geht alle Mannschaften an, also nur den Gesamt-Admin. Antwort
   // wie überall 404 statt 403 — ein Kapitän soll nicht einmal erfahren, dass es hier etwas gibt.
   if (kontext.rolle !== 'admin') return e.json(404, { message: 'Nicht gefunden.' })
+  const ohneFaktor = a.faktorFehlt(e)
+  if (ohneFaktor) return e.json(ohneFaktor.status, ohneFaktor.koerper)
 
   const name = e.request.pathValue('name')
   if (!a.backupNameOk(name)) return e.json(404, { message: 'Nicht gefunden.' })
@@ -985,12 +1082,14 @@ routerAdd('DELETE', '/admin/api/backup/{name}', (e) => {
 routerAdd('POST', '/admin/api/backup/{name}/restore', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
 
   // Zentral (Abschnitt 12): Das geht alle Mannschaften an, also nur den Gesamt-Admin. Antwort
   // wie überall 404 statt 403 — ein Kapitän soll nicht einmal erfahren, dass es hier etwas gibt.
   if (kontext.rolle !== 'admin') return e.json(404, { message: 'Nicht gefunden.' })
+  const ohneFaktor = a.faktorFehlt(e)
+  if (ohneFaktor) return e.json(ohneFaktor.status, ohneFaktor.koerper)
 
   const name = e.request.pathValue('name')
   if (!a.backupNameOk(name)) return e.json(404, { message: 'Nicht gefunden.' })
@@ -1037,11 +1136,11 @@ routerAdd('POST', '/admin/api/backup/{name}/restore', (e) => {
 // falsch einrichtet oder das Fenster zu früh schließt, hätte einen zweiten Faktor, den er nicht
 // erzeugen kann — und käme an die Ansicht, die ihn abschalten würde, nicht mehr heran.
 
-// ── GET /admin/api/totp · Was ist eingerichtet ──────────────────────────────────────────────
-routerAdd('GET', '/admin/api/totp', (e) => {
+// ── GET /manage/api/totp · Was ist eingerichtet ─────────────────────────────────────────────
+routerAdd('GET', '/manage/api/totp', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
 
   const email = a.sitzung(e).getString('email')
@@ -1056,14 +1155,15 @@ routerAdd('GET', '/admin/api/totp', (e) => {
   return e.json(200, {
     aktiv: !!satz && satz.getBool('confirmed'),
     ausstehend: !!satz && !satz.getBool('confirmed'),
+    codes_uebrig: satz ? require(`${__hooks}/totp.js`).codesLesen(satz.getString('codes')).length : 0,
   })
 })
 
-// ── POST /admin/api/totp · Einrichtung beginnen ─────────────────────────────────────────────
-routerAdd('POST', '/admin/api/totp', (e) => {
+// ── POST /manage/api/totp · Einrichtung beginnen ────────────────────────────────────────────
+routerAdd('POST', '/manage/api/totp', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
 
   const totp = require(`${__hooks}/totp.js`)
@@ -1098,11 +1198,11 @@ routerAdd('POST', '/admin/api/totp', (e) => {
   })
 })
 
-// ── POST /admin/api/totp/confirm · Scharf schalten ──────────────────────────────────────────
-routerAdd('POST', '/admin/api/totp/confirm', (e) => {
+// ── POST /manage/api/totp/confirm · Scharf schalten ─────────────────────────────────────────
+routerAdd('POST', '/manage/api/totp/confirm', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
 
   const totp = require(`${__hooks}/totp.js`)
@@ -1126,24 +1226,74 @@ routerAdd('POST', '/admin/api/totp/confirm', (e) => {
   )
   if (!schritt) return e.json(400, { message: 'Der Code stimmt nicht.' })
 
+  // Die Codes entstehen GENAU HIER, zusammen mit dem scharfen zweiten Faktor. Sie später auf
+  // Knopfdruck nachzureichen hieße, dass es einen Zustand „eingeschaltet, aber ohne Ausweg"
+  // gibt — und in dem steckt man genau dann, wenn man ihn nicht mehr verlassen kann.
+  const codes = totp.wiederherstellungscodes()
+
   satz.set('confirmed', true)
   satz.set('last_step', schritt)
+  satz.set('codes', codes.hashes.join(' '))
   e.app.save(satz)
 
   a.protokoll(e, 'admin.totp.on', '', '', '')
-  return e.json(200, { aktiv: true })
+  // Das einzige Mal, dass die Codes im Klartext den Server verlassen (R1).
+  return e.json(200, { aktiv: true, codes: codes.klartext })
 })
 
-// ── DELETE /admin/api/totp · Wieder abschalten ──────────────────────────────────────────────
+// ── POST /manage/api/totp/codes · Neue Wiederherstellungscodes ──────────────────────────────
+// Für den, der seinen Zettel verlegt hat oder Codes verbraucht hat. Die alten gelten danach
+// nicht mehr — sonst sammelten sich mit der Zeit Zettel an, von denen keiner mehr weiß, welche
+// noch gültig sind.
+//
+// Ein gültiger Code aus der App ist Voraussetzung: Wer nur eine übernommene Sitzung hat, soll
+// sich damit keinen Dauerzugang ausstellen können.
+routerAdd('POST', '/manage/api/totp/codes', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const vor = a.pruefen(e)
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
+
+  const totp = require(`${__hooks}/totp.js`)
+  const email = a.sitzung(e).getString('email')
+
+  let satz = null
+  try {
+    satz = e.app.findFirstRecordByFilter('admin_totp', 'email = {:m} && confirmed = true', {
+      m: email,
+    })
+  } catch {
+    satz = null
+  }
+  if (!satz) return e.json(400, { message: 'Es ist kein zweiter Faktor eingerichtet.' })
+
+  const koerper = e.requestInfo().body || {}
+  const schritt = totp.pruefen(
+    satz.getString('secret'),
+    String(koerper.code || ''),
+    Math.floor(Date.now() / 1000),
+    satz.getInt('last_step'),
+  )
+  if (!schritt) return e.json(400, { message: 'Der Code stimmt nicht.' })
+
+  const codes = totp.wiederherstellungscodes()
+  satz.set('last_step', schritt)
+  satz.set('codes', codes.hashes.join(' '))
+  e.app.save(satz)
+
+  a.protokoll(e, 'admin.totp.codes', '', '', '10 neue Codes')
+  return e.json(200, { codes: codes.klartext })
+})
+
+// ── DELETE /manage/api/totp · Wieder abschalten ─────────────────────────────────────────────
 // Auch dafür ein gültiger Code. Eine übernommene Sitzung soll den zweiten Faktor nicht mit
 // einem Klick loswerden können — sonst schützte er nur, bis jemand drin ist.
 //
 // Wer sein Gerät verloren hat, kommt hier nicht weiter. Für diesen Fall gibt es den Weg über
 // die Kommandozeile auf dem Server, und er steht in der README.
-routerAdd('DELETE', '/admin/api/totp', (e) => {
+routerAdd('DELETE', '/manage/api/totp', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
 
   const totp = require(`${__hooks}/totp.js`)
@@ -1176,27 +1326,39 @@ routerAdd('DELETE', '/admin/api/totp', (e) => {
 })
 
 
-// ── PATCH /admin/api/passwort · Das eigene Passwort ändern (Abschnitt 12) ───────────────────
+// ── PATCH /manage/api/passwort · Das eigene Passwort ändern (Abschnitt 12) ──────────────────
 // Kapitäne bekommen ein erzeugtes Passwort und sollen es durch ein eigenes ersetzen können,
 // ohne dafür jemanden zu fragen. Das alte muss mit — sonst genügte eine übernommene Sitzung,
 // um jemanden dauerhaft auszusperren.
 //
 // Funktioniert für beide Quellen: Verwalterkonten und den Superuser. Gehasht wird in beiden
 // Fällen von PocketBase (R13).
-routerAdd('PATCH', '/admin/api/passwort', (e) => {
+routerAdd('PATCH', '/manage/api/passwort', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
 
   const koerper = e.requestInfo().body || {}
   const altes = String(koerper.alt || '')
   const neues = String(koerper.neu || '')
 
-  // Zehn Zeichen, nicht acht: Das erzeugte Passwort hat sechzehn, und wer es ersetzt, soll
+  // Zwölf Zeichen, nicht acht: Das erzeugte Passwort hat sechzehn, und wer es ersetzt, soll
   // dabei nicht schlechter dastehen als vorher.
-  if (neues.length < 10) {
-    return e.json(400, { message: 'Das neue Passwort braucht mindestens zehn Zeichen.' })
+  //
+  // Hier hängt mehr dran als eine Zahl. Die Rechnung, mit der der zweite Faktor freiwillig
+  // bleiben kann, lautet „Passwörter werden erzeugt, nicht gewählt" (Abschnitt 12) — und sie
+  // gilt nur bis zur ersten Änderung. Genau ab hier.
+  if (neues.length < 12) {
+    return e.json(400, { message: 'Das neue Passwort braucht mindestens zwölf Zeichen.' })
+  }
+
+  // Der eigene Adressteil vor dem @ ist das erste, was jemand probiert. Mehr Regeln gibt es
+  // bewusst nicht: Wer zu Sonderzeichen und Ziffern gezwungen wird, landet bei „Sommer2026!"
+  // und schreibt es auf einen Zettel am Bildschirm.
+  const name = String(kontext.email || '').split('@')[0].toLowerCase()
+  if (name && neues.toLowerCase().indexOf(name) !== -1) {
+    return e.json(400, { message: 'Das Passwort darf nicht deinen Anmeldenamen enthalten.' })
   }
 
   let konto = null
@@ -1240,10 +1402,10 @@ routerAdd('PATCH', '/admin/api/passwort', (e) => {
 // SEINER Mannschaft ändern — das ist die „Einstellung der Mannschaft", von der sonst überall
 // die Rede ist.
 
-routerAdd('GET', '/admin/api/teams', (e) => {
+routerAdd('GET', '/manage/api/teams', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
 
   const filter = kontext.rolle === 'kapitaen' ? 'id = {:t}' : "id != ''"
@@ -1262,9 +1424,11 @@ routerAdd('GET', '/admin/api/teams', (e) => {
 routerAdd('POST', '/admin/api/teams', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
   if (kontext.rolle !== 'admin') return e.json(404, { message: 'Nicht gefunden.' })
+  const ohneFaktor = a.faktorFehlt(e)
+  if (ohneFaktor) return e.json(ohneFaktor.status, ohneFaktor.koerper)
 
   const koerper = e.requestInfo().body || {}
   const name = String(koerper.name || '').trim()
@@ -1285,10 +1449,10 @@ routerAdd('POST', '/admin/api/teams', (e) => {
   return e.json(200, { id: satz.id })
 })
 
-routerAdd('PATCH', '/admin/api/teams/{id}', (e) => {
+routerAdd('PATCH', '/manage/api/teams/{id}', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
 
   let satz
@@ -1325,9 +1489,11 @@ routerAdd('PATCH', '/admin/api/teams/{id}', (e) => {
 routerAdd('DELETE', '/admin/api/teams/{id}', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
   if (kontext.rolle !== 'admin') return e.json(404, { message: 'Nicht gefunden.' })
+  const ohneFaktor = a.faktorFehlt(e)
+  if (ohneFaktor) return e.json(ohneFaktor.status, ohneFaktor.koerper)
 
   const id = e.request.pathValue('id')
   let satz
@@ -1368,8 +1534,10 @@ routerAdd('DELETE', '/admin/api/teams/{id}', (e) => {
 routerAdd('GET', '/admin/api/verwalter', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   if (vor.kontext.rolle !== 'admin') return e.json(404, { message: 'Nicht gefunden.' })
+  const ohneFaktor = a.faktorFehlt(e)
+  if (ohneFaktor) return e.json(ohneFaktor.status, ohneFaktor.koerper)
 
   const alle = e.app.findRecordsByFilter('verwalter', "id != ''", 'email', 100, 0)
 
@@ -1384,23 +1552,64 @@ routerAdd('GET', '/admin/api/verwalter', (e) => {
     /* noch keine Tabelle */
   }
 
+  // Läuft gerade eine Sperre? Der Kapitän am Telefon sagt „ich komme nicht rein" — dann soll
+  // hier stehen, ob das an der Sperre liegt und wie lange sie noch dauert.
+  const limit = require(`${__hooks}/ratelimit.js`)
+
   return e.json(200, {
-    items: alle.map((v) => ({
-      id: v.id,
-      email: v.getString('email'),
-      rolle: v.getString('rolle'),
-      team: v.getString('team'),
-      mitglied: v.getString('mitglied'),
-      totp: !!mitFaktor[v.getString('email')],
-    })),
+    items: alle.map((v) => {
+      const email = v.getString('email')
+      const sperre = limit.istGesperrt(e.app, `login:konto:${email.trim().toLowerCase()}`)
+      return {
+        id: v.id,
+        email: email,
+        rolle: v.getString('rolle'),
+        team: v.getString('team'),
+        mitglied: v.getString('mitglied'),
+        totp: !!mitFaktor[email],
+        gesperrt: sperre.gesperrt ? sperre.wartenSekunden : 0,
+      }
+    }),
   })
+})
+
+// ── POST /admin/api/verwalter/{id}/entsperren · Sperre vorzeitig aufheben ───────────────────
+// Eine Sperre löst sich nach einer Viertelstunde von selbst — das ist der Normalfall und
+// braucht niemanden. Diese Route ist für den anderen: Ein Kapitän hat sich vertippt, steht vor
+// dem Spieltag und will jetzt hinein.
+//
+// Was sie NICHT kann: die eigene Sperre des Admins aufheben. Wer ausgesperrt ist, kommt nicht
+// herein, um sich zu entsperren. Dafür bleibt Warten oder ein Neustart des Containers — die
+// Zähler liegen im Arbeitsspeicher und sind danach weg.
+routerAdd('POST', '/admin/api/verwalter/{id}/entsperren', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const vor = a.pruefen(e)
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
+  if (vor.kontext.rolle !== 'admin') return e.json(404, { message: 'Nicht gefunden.' })
+  const ohneFaktor = a.faktorFehlt(e)
+  if (ohneFaktor) return e.json(ohneFaktor.status, ohneFaktor.koerper)
+
+  let satz
+  try {
+    satz = e.app.findRecordById('verwalter', e.request.pathValue('id'))
+  } catch {
+    return e.json(404, { message: 'Nicht gefunden.' })
+  }
+  if (!satz) return e.json(404, { message: 'Nicht gefunden.' })
+
+  const email = satz.getString('email').trim().toLowerCase()
+  require(`${__hooks}/ratelimit.js`).zuruecksetzen(e.app, `login:konto:${email}`)
+  a.protokoll(e, 'verwalter.entsperrt', satz.id, '', email)
+  return e.json(200, { ok: true })
 })
 
 routerAdd('POST', '/admin/api/verwalter', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   if (vor.kontext.rolle !== 'admin') return e.json(404, { message: 'Nicht gefunden.' })
+  const ohneFaktor = a.faktorFehlt(e)
+  if (ohneFaktor) return e.json(ohneFaktor.status, ohneFaktor.koerper)
 
   const koerper = e.requestInfo().body || {}
   const email = String(koerper.email || '').trim().toLowerCase()
@@ -1456,9 +1665,11 @@ routerAdd('POST', '/admin/api/verwalter', (e) => {
 routerAdd('PATCH', '/admin/api/verwalter/{id}', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
   if (kontext.rolle !== 'admin') return e.json(404, { message: 'Nicht gefunden.' })
+  const ohneFaktor = a.faktorFehlt(e)
+  if (ohneFaktor) return e.json(ohneFaktor.status, ohneFaktor.koerper)
 
   let satz
   try {
@@ -1510,8 +1721,10 @@ routerAdd('PATCH', '/admin/api/verwalter/{id}', (e) => {
 routerAdd('DELETE', '/admin/api/verwalter/{id}/totp', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   if (vor.kontext.rolle !== 'admin') return e.json(404, { message: 'Nicht gefunden.' })
+  const ohneFaktor = a.faktorFehlt(e)
+  if (ohneFaktor) return e.json(ohneFaktor.status, ohneFaktor.koerper)
 
   let satz
   try {
@@ -1540,9 +1753,11 @@ routerAdd('DELETE', '/admin/api/verwalter/{id}/totp', (e) => {
 routerAdd('DELETE', '/admin/api/verwalter/{id}', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
-  if (vor.fehler) return vor.fehler
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
   if (kontext.rolle !== 'admin') return e.json(404, { message: 'Nicht gefunden.' })
+  const ohneFaktor = a.faktorFehlt(e)
+  if (ohneFaktor) return e.json(ohneFaktor.status, ohneFaktor.koerper)
 
   let satz
   try {

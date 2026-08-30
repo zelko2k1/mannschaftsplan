@@ -1,5 +1,13 @@
-// Zugriff auf /admin/api. Bewusst getrennt von api.ts — die beiden Bereiche teilen sich weder
-// Cookie noch Prüflogik (R5), und das soll man auch im Frontend sehen.
+// Zugriff auf die Verwaltungs-API. Bewusst getrennt von api.ts — die beiden Bereiche teilen sich
+// weder Cookie noch Prüflogik (R5), und das soll man auch im Frontend sehen.
+//
+// ZWEI PRÄFIXE (R13e). Was ein Kapitän braucht, liegt unter /manage/api und ist von außen
+// erreichbar. Was nur die Rolle `admin` darf — Konten, Mannschaften anlegen und löschen,
+// Einstellungen ändern, Sicherungen —, liegt unter /admin/api und damit hinter dem Tor aus R13b.
+//
+// Praktisch heißt das: `rufAdmin()` kann ein Browser-Anmeldefenster auslösen, `ruf()` nie. Wer
+// eine Funktion von einem Präfix auf das andere schiebt, verschiebt sie im Backend mit — sonst
+// antwortet der Server mit 404 und das Frontend meldet „bitte anmelden", obwohl man es ist.
 
 export type AdminSpieltag = {
   id: string
@@ -90,9 +98,11 @@ export type Verwalterkonto = {
   mitglied: string
   /** Ob dieses Konto einen zweiten Faktor eingerichtet hat. Nie das Geheimnis selbst. */
   totp: boolean
+  /** Sekunden, die eine laufende Anmelde-Sperre noch dauert. 0 = nicht gesperrt (R7). */
+  gesperrt: number
 }
 
-/** Wer angemeldet ist und was er darf. Kommt aus `/admin/api/me`. */
+/** Wer angemeldet ist und was er darf. Kommt aus `/manage/api/me`. */
 export type Wer = {
   email: string
   rolle: 'admin' | 'kapitaen'
@@ -133,8 +143,11 @@ function csrfToken(): string {
   return treffer ? decodeURIComponent(treffer[1]) : ''
 }
 
-async function ruf<T>(pfad: string, optionen: RequestInit = {}): Promise<T> {
-  const antwort = await fetch(`/admin/api${pfad}`, {
+const MANAGE = '/manage/api'
+const ADMIN = '/admin/api'
+
+async function rufen<T>(basis: string, pfad: string, optionen: RequestInit = {}): Promise<T> {
+  const antwort = await fetch(`${basis}${pfad}`, {
     ...optionen,
     headers: {
       'Content-Type': 'application/json',
@@ -158,16 +171,26 @@ async function ruf<T>(pfad: string, optionen: RequestInit = {}): Promise<T> {
   return antwort.json() as Promise<T>
 }
 
+/** Alles, was auch ein Kapitän darf. */
+const ruf = <T>(pfad: string, optionen: RequestInit = {}) => rufen<T>(MANAGE, pfad, optionen)
+/** Nur für die Rolle `admin` — liegt hinter dem Tor aus R13b. */
+const rufAdmin = <T>(pfad: string, optionen: RequestInit = {}) => rufen<T>(ADMIN, pfad, optionen)
+
 export const adminApi = {
   werBinIch: () => ruf<Wer>('/me'),
 
-  anmelden: async (email: string, password: string, code?: string) => {
+  /**
+   * `bleiben` ist ein Wunsch, keine Zusage: Die langen 90 Tage gibt es nur mit zweitem Faktor.
+   * Was daraus geworden ist, steht in der Antwort — ohne TOTP kommt `bleiben: false` zurück,
+   * und die Maske sagt, woran es lag.
+   */
+  anmelden: async (email: string, password: string, code?: string, bleiben = false) => {
     // Nicht über ruf(): der Login hat naturgemäß noch kein CSRF-Cookie, und ein 404 wäre hier
     // eine echte Fehlermeldung statt „bitte anmelden".
-    const antwort = await fetch('/admin/api/login', {
+    const antwort = await fetch(`${MANAGE}/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, ...(code ? { code } : {}) }),
+      body: JSON.stringify({ email, password, bleiben, ...(code ? { code } : {}) }),
     })
     if (!antwort.ok) {
       const koerper = await antwort.json().catch(() => null)
@@ -175,7 +198,7 @@ export const adminApi = {
       if (koerper?.mfa) throw new ZweiterFaktorNoetig(meldung)
       throw new Error(meldung)
     }
-    return antwort.json() as Promise<{ email: string }>
+    return antwort.json() as Promise<{ email: string; bleiben: boolean }>
   },
 
   /** Das eigene Passwort ändern. Das bisherige muss mit — sonst genügte eine übernommene Sitzung. */
@@ -185,15 +208,33 @@ export const adminApi = {
       body: JSON.stringify({ alt, neu }),
     }),
 
-  zweiterFaktor: () => ruf<{ aktiv: boolean; ausstehend: boolean }>('/totp'),
+  zweiterFaktor: () =>
+    ruf<{ aktiv: boolean; ausstehend: boolean; codes_uebrig: number }>('/totp'),
   /** Legt ein noch nicht geltendes Geheimnis an. Es verlässt den Server genau hier, ein Mal. */
   zweiterFaktorBeginnen: () => ruf<{ geheimnis: string; uri: string }>('/totp', { method: 'POST' }),
+  /**
+   * Schaltet scharf — und gibt dabei die zehn Wiederherstellungscodes aus. Sie kommen genau
+   * einmal, hier, im Klartext; danach steht in der Datenbank nur noch ihr Hash (R1).
+   */
   zweiterFaktorBestaetigen: (code: string) =>
-    ruf<{ aktiv: boolean }>('/totp/confirm', { method: 'POST', body: JSON.stringify({ code }) }),
+    ruf<{ aktiv: boolean; codes: string[] }>('/totp/confirm', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+  /** Zehn neue Codes; die alten gelten danach nicht mehr. Braucht einen gültigen Code aus der App. */
+  wiederherstellungscodesNeu: (code: string) =>
+    ruf<{ codes: string[] }>('/totp/codes', { method: 'POST', body: JSON.stringify({ code }) }),
   zweiterFaktorAus: (code: string) =>
     ruf<{ aktiv: boolean }>('/totp', { method: 'DELETE', body: JSON.stringify({ code }) }),
 
   abmelden: () => ruf<unknown>('/logout', { method: 'POST' }),
+
+  /**
+   * Stellt eine Mitgliedersitzung für den eigenen Spielereintrag aus (Abschnitt 12). Danach
+   * führt der Weg auf den Aushang, so wie ihn jeder andere Spieler auch sieht. Die
+   * Kapitänssitzung bleibt bestehen — zurück geht es über „Verwaltung" im Kopf.
+   */
+  spieleransicht: () => ruf<{ ok: true }>('/spieleransicht', { method: 'POST' }),
 
   // Die Mannschaft hängt an jeder Liste. Für einen Kapitän ist sie am Server ohnehin gesetzt —
   // der Wert hier ändert daran nichts, er spart nur eine Antwort, die er wegwerfen müsste.
@@ -230,7 +271,7 @@ export const adminApi = {
 
   einstellungen: () => ruf<Einstellungen>('/settings'),
   einstellungenAendern: (daten: Partial<Einstellungen>) =>
-    ruf<Einstellungen>('/settings', { method: 'PATCH', body: JSON.stringify(daten) }),
+    rufAdmin<Einstellungen>('/settings', { method: 'PATCH', body: JSON.stringify(daten) }),
 
   /**
    * Ohne Mannschaft sieht der Gesamt-Admin alles — auch die zentralen Ereignisse wie Anmeldungen
@@ -242,12 +283,12 @@ export const adminApi = {
 
   mannschaften: () => ruf<{ items: Mannschaft[] }>('/teams'),
   mannschaftAnlegen: (name: string) =>
-    ruf<{ id: string }>('/teams', { method: 'POST', body: JSON.stringify({ name }) }),
+    rufAdmin<{ id: string }>('/teams', { method: 'POST', body: JSON.stringify({ name }) }),
   mannschaftAendern: (id: string, daten: Partial<Mannschaft>) =>
     ruf<{ id: string }>(`/teams/${id}`, { method: 'PATCH', body: JSON.stringify(daten) }),
-  mannschaftLoeschen: (id: string) => ruf<unknown>(`/teams/${id}`, { method: 'DELETE' }),
+  mannschaftLoeschen: (id: string) => rufAdmin<unknown>(`/teams/${id}`, { method: 'DELETE' }),
 
-  verwalter: () => ruf<{ items: Verwalterkonto[] }>('/verwalter'),
+  verwalter: () => rufAdmin<{ items: Verwalterkonto[] }>('/verwalter'),
   /** Das Passwort kommt genau einmal zurück — wie der Einladungslink eines Mitglieds (R1). */
   verwalterAnlegen: (
     email: string,
@@ -255,7 +296,7 @@ export const adminApi = {
     team: string,
     mitglied = '',
   ) =>
-    ruf<{ id: string; email: string; passwort: string }>('/verwalter', {
+    rufAdmin<{ id: string; email: string; passwort: string }>('/verwalter', {
       method: 'POST',
       body: JSON.stringify({ email, rolle, team, mitglied }),
     }),
@@ -263,21 +304,28 @@ export const adminApi = {
     id: string,
     daten: { rolle?: string; team?: string; mitglied?: string; neues_passwort?: boolean },
   ) =>
-    ruf<{ id: string; passwort: string | null }>(`/verwalter/${id}`, {
+    rufAdmin<{ id: string; passwort: string | null }>(`/verwalter/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(daten),
     }),
-  verwalterLoeschen: (id: string) => ruf<unknown>(`/verwalter/${id}`, { method: 'DELETE' }),
+  verwalterLoeschen: (id: string) => rufAdmin<unknown>(`/verwalter/${id}`, { method: 'DELETE' }),
   /**
    * Den zweiten Faktor eines Kapitäns abschalten — der Ausweg bei verlorenem Handy. Einrichten
    * kann ihn nur der Kapitän selbst: Ein Geheimnis, das über einen fremden Bildschirm liefe,
    * wäre keines mehr.
    */
   verwalterZweiterFaktorAus: (id: string) =>
-    ruf<{ totp: boolean }>(`/verwalter/${id}/totp`, { method: 'DELETE' }),
+    rufAdmin<{ totp: boolean }>(`/verwalter/${id}/totp`, { method: 'DELETE' }),
 
-  sicherungen: () => ruf<{ items: Sicherung[] }>('/backups'),
-  sicherungErstellen: () => ruf<{ name: string }>('/backup', { method: 'POST' }),
+  /**
+   * Eine Anmelde-Sperre vorzeitig aufheben. Sie löst sich nach einer Viertelstunde ohnehin —
+   * das hier ist für den Kapitän, der vor dem Spieltag steht und nicht warten kann.
+   */
+  verwalterEntsperren: (id: string) =>
+    rufAdmin<{ ok: true }>(`/verwalter/${id}/entsperren`, { method: 'POST' }),
+
+  sicherungen: () => rufAdmin<{ items: Sicherung[] }>('/backups'),
+  sicherungErstellen: () => rufAdmin<{ name: string }>('/backup', { method: 'POST' }),
 
   /**
    * Nicht über ruf(): Der Rumpf ist multipart, und ein gesetztes `Content-Type:
@@ -287,7 +335,7 @@ export const adminApi = {
   sicherungHochladen: async (datei: File) => {
     const formular = new FormData()
     formular.append('datei', datei)
-    const antwort = await fetch('/admin/api/backup/upload', {
+    const antwort = await fetch(`${ADMIN}/backup/upload`, {
       method: 'POST',
       headers: { 'X-CSRF-Token': csrfToken() },
       body: formular,
@@ -301,7 +349,7 @@ export const adminApi = {
   },
 
   sicherungLoeschen: (name: string) =>
-    ruf<unknown>(`/backup/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+    rufAdmin<unknown>(`/backup/${encodeURIComponent(name)}`, { method: 'DELETE' }),
 
   /**
    * Sonderfall, und ein unangenehmer: Gelingt das Zurückspielen, verschwindet PocketBase noch im
@@ -322,7 +370,7 @@ export const adminApi = {
   sicherungZurueckspielen: async (name: string) => {
     let antwort: Response
     try {
-      antwort = await fetch(`/admin/api/backup/${encodeURIComponent(name)}/restore`, {
+      antwort = await fetch(`${ADMIN}/backup/${encodeURIComponent(name)}/restore`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
         body: JSON.stringify({ bestaetigung: name }),
@@ -340,5 +388,5 @@ export const adminApi = {
   },
 
   /** Gewöhnlicher Link — der Browser legt die Datei in den Download-Ordner. */
-  sicherungUrl: (name: string) => `/admin/api/backup/${encodeURIComponent(name)}`,
+  sicherungUrl: (name: string) => `${ADMIN}/backup/${encodeURIComponent(name)}`,
 }

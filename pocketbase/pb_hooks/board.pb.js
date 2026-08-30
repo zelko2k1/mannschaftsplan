@@ -107,6 +107,19 @@ routerAdd('GET', '/api/board', (e) => {
     impressum: !!einst.impressum,
     datenschutz: !!einst.datenschutz,
     me: sitzung.mitglied.id,
+    // Abschnitt 12 · Gehört zu diesem Spieler ein Verwalterkonto? Dann blendet der Aushang den
+    // Einstieg in die Verwaltung ein. Das ist KEINE Sicherheitsmaßnahme — /manage steht ohnehin
+    // offen (R13e) —, sondern eine Frage der Ruhe: Die übrigen Spieler sollen einen Knopf, den
+    // sie nie brauchen, gar nicht erst sehen.
+    verwalter: (() => {
+      try {
+        return !!e.app.findFirstRecordByFilter('verwalter', 'mitglied = {:m}', {
+          m: sitzung.mitglied.id,
+        })
+      } catch {
+        return false
+      }
+    })(),
     members: mitglieder.map((m) => ({ id: m.id, name: m.getString('name') })),
     fixtures: ausgabe,
   })

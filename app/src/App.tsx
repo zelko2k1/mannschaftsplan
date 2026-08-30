@@ -35,7 +35,12 @@ function LinkUngueltig() {
 export default function App() {
   // Die Kapitänsansicht ist eine eigene Route mit eigenem Router, eigener Sitzungstabelle und
   // eigenem Cookie (R5). Ein Router wäre für zwei Seiten übertrieben — der Pfad genügt.
-  if (window.location.pathname.startsWith('/admin')) {
+  //
+  // Zwei Pfade führen hinein (R13e): `/manage` steht offen, `/admin` liegt hinter dem Tor aus
+  // R13b. Dieselbe Oberfläche, derselbe Cookie — was jemand darf, entscheidet in beiden Fällen
+  // der Server anhand der Rolle, nicht der Pfad, über den er gekommen ist.
+  const pfad = window.location.pathname
+  if (pfad.startsWith('/manage') || pfad.startsWith('/admin')) {
     return (
       // Derselbe Satz, den die Kapitänsansicht danach selbst zeigt, während sie prüft, wer da
       // ist — nur ohne ihren Rahmen: Deren Stilangaben stecken im nachgeladenen Teil und sind in
@@ -262,6 +267,17 @@ function Abfahrtsplan() {
         <h1 className="kopf__titel">Spieltage</h1>
         <span className="kopf__wer">
           {ich?.name ?? ''}
+          {/* Abschnitt 12 · Für den Kapitän, der mitspielt: Er sieht hier denselben Aushang wie
+              alle anderen und braucht dafür keine Anmeldung. Nur wenn er wirklich verwalten
+              will, geht es hier hinüber. */}
+          {board.verwalter && (
+            <>
+              {' · '}
+              <a className="kopf__abmelden" href="/manage">
+                Verwaltung
+              </a>
+            </>
+          )}
           {' · '}
           <button
             type="button"

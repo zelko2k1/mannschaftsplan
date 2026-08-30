@@ -223,6 +223,55 @@ module.exports = {
   },
 
   /** Die Zeile, die eine Authenticator-App als QR-Code oder zum Abtippen erwartet. */
+  /**
+   * Zehn Wiederherstellungscodes erzeugen. Zurück kommt beides: der Klartext für den Nutzer und
+   * die Hashes für die Datenbank. Der Klartext existiert danach nirgends mehr (R1).
+   *
+   * Form `abcd-efgh`: zwei Gruppen zu vier Zeichen aus einem Alphabet ohne die
+   * Verwechslungspaare 0/O und 1/l/I — diese Codes werden abgeschrieben, oft von einem Zettel
+   * im Geldbeutel, und meistens in dem Moment, in dem gerade nichts anderes mehr geht.
+   */
+  wiederherstellungscodes() {
+    const ALPHABET = 'abcdefghijkmnopqrstuvwxyz23456789'
+    const klartext = []
+    for (let i = 0; i < 10; i++) {
+      const teil = () => $security.randomStringWithAlphabet(4, ALPHABET)
+      klartext.push(`${teil()}-${teil()}`)
+    }
+    return { klartext, hashes: klartext.map((c) => $security.sha256(c)) }
+  },
+
+  /**
+   * Die gespeicherten Hashes als Liste. Sie liegen als eine Zeile, durch Leerzeichen getrennt.
+   *
+   * Warum kein JSON-Feld: PocketBase gibt so eines im JSVM als `types.JSONRaw` zurück, und das
+   * ist ein BYTE-Puffer. `Array.isArray()` sagt darauf `true`, und wer sich darauf verlässt,
+   * zählt am Ende 671 Wiederherstellungscodes statt zehn. Genau so ist diese Zeile entstanden.
+   */
+  codesLesen(roh) {
+    return String(roh || '')
+      .split(/\s+/)
+      .filter((x) => x.length > 0)
+  },
+
+  /**
+   * Einen Wiederherstellungscode einlösen.
+   *
+   * @param roh die gespeicherte Zeile
+   * @param eingabe was der Nutzer getippt hat — Groß-/Kleinschreibung und Leerzeichen egal
+   * @returns null wenn er nicht passt, sonst die Zeile OHNE diesen Code (er ist verbraucht)
+   */
+  codeEinloesen(roh, eingabe) {
+    const hashes = this.codesLesen(roh)
+    if (hashes.length === 0) return null
+    const sauber = String(eingabe || '').trim().toLowerCase().replace(/\s+/g, '')
+    if (!/^[a-z0-9]{4}-[a-z0-9]{4}$/.test(sauber)) return null
+    const gesucht = $security.sha256(sauber)
+    if (hashes.indexOf(gesucht) === -1) return null
+    // Bewusst ein String, kein Array: Was hier herauskommt, geht direkt ins Textfeld zurück.
+    return hashes.filter((h) => h !== gesucht).join(' ')
+  },
+
   otpauthUri(geheimnisBase32, konto, herausgeber) {
     const e = (s) => encodeURIComponent(String(s))
     return (

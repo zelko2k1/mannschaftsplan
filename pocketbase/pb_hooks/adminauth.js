@@ -9,7 +9,14 @@
 
 const ADMIN_COOKIE = 'dz_admin'
 const ADMIN_CSRF_COOKIE = 'dz_admin_csrf'
-const ADMIN_DAUER = 12 * 3600 // 12 Stunden (R13)
+const ADMIN_DAUER = 12 * 3600 // 12 Stunden — die Voreinstellung (R13)
+const ADMIN_DAUER_LANG = 90 * 24 * 3600 // 90 Tage — nur mit „angemeldet bleiben" (R13)
+
+// Seit R13e gibt es zwei Wege in dieselbe Ansicht: /manage ohne Tor, /admin dahinter. Ein
+// Cookie kennt aber nur EINEN Pfad. Also wird derselbe Wert zweimal gesetzt, einmal je Pfad —
+// unschön, aber die Alternative wäre `Path=/`, und dann liefe der Kapitäns-Cookie auch bei jeder
+// Mitglieder-Anfrage mit. Getrennt bleibt getrennt (R5).
+const COOKIE_PFADE = ['/manage', '/admin']
 const B64URL = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
 
 const SPIELTAG_FELDER = [
@@ -31,7 +38,55 @@ module.exports = {
   ADMIN_COOKIE,
   ADMIN_CSRF_COOKIE,
   ADMIN_DAUER,
+  ADMIN_DAUER_LANG,
+  COOKIE_PFADE,
   B64URL,
+
+  /**
+   * Die beiden Sitzungscookies setzen — für jeden Pfad aus COOKIE_PFADE einmal.
+   *
+   * @param sid der Klartext der Sitzungs-ID (nur hier, in der Datenbank steht der Hash)
+   * @param dauer Laufzeit in Sekunden
+   * @returns der CSRF-Wert, damit der Aufrufer ihn nicht selbst erzeugen muss
+   */
+  cookiesSetzen(e, sid, dauer) {
+    const csrf = $security.randomStringWithAlphabet(43, B64URL)
+    for (const pfad of COOKIE_PFADE) {
+      e.setCookie(
+        new Cookie({
+          name: ADMIN_COOKIE,
+          value: sid,
+          path: pfad,
+          maxAge: dauer,
+          secure: true,
+          httpOnly: true,
+          sameSite: 2, // Lax
+        }),
+      )
+      // R11 · Muss lesbar sein, damit der Client den Wert als Kopfzeile zurückschicken kann.
+      e.setCookie(
+        new Cookie({
+          name: ADMIN_CSRF_COOKIE,
+          value: csrf,
+          path: pfad,
+          maxAge: dauer,
+          secure: true,
+          httpOnly: false,
+          sameSite: 2,
+        }),
+      )
+    }
+    return csrf
+  },
+
+  /** Beide Cookies auf beiden Pfaden löschen. Einer übrig heißt: halb abgemeldet. */
+  cookiesLoeschen(e) {
+    for (const pfad of COOKIE_PFADE) {
+      for (const name of [ADMIN_COOKIE, ADMIN_CSRF_COOKIE]) {
+        e.setCookie(new Cookie({ name, value: '', path: pfad, maxAge: -1, secure: true, sameSite: 2 }))
+      }
+    }
+  },
 
   /**
    * Liest die Kapitänssitzung aus `admin_sessions` — einer eigenen Tabelle (R5). Eine
@@ -55,15 +110,25 @@ module.exports = {
     }
     if (!satz) return null
 
-    // Die 12 Stunden aus R13 werden hier durchgesetzt, nicht nur über die Cookie-Lebensdauer:
-    // ein abgegriffener Cookie-Wert wäre sonst serverseitig unbegrenzt gültig.
+    // Die Laufzeit aus R13 wird hier durchgesetzt, nicht nur über die Cookie-Lebensdauer: ein
+    // abgegriffener Cookie-Wert wäre sonst serverseitig unbegrenzt gültig. Welche der beiden
+    // gilt, steht an der Sitzung — 0 ist die kurze Voreinstellung, damit Sitzungen aus der Zeit
+    // vor dem Feld unverändert weiterlaufen.
+    let dauer = ADMIN_DAUER
+    try {
+      const gewaehlt = satz.getInt('dauer')
+      if (gewaehlt === ADMIN_DAUER_LANG) dauer = ADMIN_DAUER_LANG
+    } catch {
+      dauer = ADMIN_DAUER
+    }
+
     let angelegt = null
     try {
       angelegt = new Date(satz.getDateTime('created').string().replace(' ', 'T'))
     } catch {
       angelegt = null
     }
-    if (!angelegt || isNaN(angelegt.getTime()) || Date.now() - angelegt.getTime() > ADMIN_DAUER * 1000) {
+    if (!angelegt || isNaN(angelegt.getTime()) || Date.now() - angelegt.getTime() > dauer * 1000) {
       try {
         e.app.delete(satz)
       } catch {
@@ -99,12 +164,27 @@ module.exports = {
   /**
    * R6 · 404 statt 403 — kein Hinweis darauf, dass es hier überhaupt etwas gibt.
    * Bei schreibenden Anfragen zusätzlich die CSRF-Prüfung.
-   * @returns die fertige Fehlerantwort, oder null wenn alles in Ordnung ist
+   *
+   * ACHTUNG, hier steckte ein Fehler, der zwei Monate unbemerkt blieb: Diese Funktion gab
+   * früher `e.json(...)` zurück, und der Aufrufer schrieb `if (raus) return { fehler: raus }`.
+   * **`e.json()` liefert im JSVM aber `undefined`** — es SCHREIBT die Antwort und gibt nichts
+   * zurück. Damit war die Bedingung falsch, der Handler lief weiter und arbeitete die Anfrage
+   * ab. Nach außen sah alles richtig aus, weil die erste Schreiboperation den Statuscode
+   * festlegt: 403, und im Rumpf standen zwei JSON-Objekte hintereinander.
+   *
+   * Bei lesenden Routen lief der Handler danach in einen TypeError (kein `kontext`) und blieb
+   * folgenlos. Bei SCHREIBENDEN Routen mit gültiger Sitzung aber fehlender CSRF-Kopfzeile wurde
+   * geschrieben — R11 war für diesen Router wirkungslos. Die Mitgliederseite war nie betroffen,
+   * sie gibt seit jeher Daten zurück und ruft `e.json()` in der Route auf (utils.js).
+   *
+   * Deshalb gibt es hier jetzt DATEN, keine Antwort. Geschrieben wird in der Route.
+   *
+   * @returns null wenn alles in Ordnung ist, sonst { status, koerper }
    */
   abweisen(e) {
-    if (!this.sitzung(e)) return e.json(404, { message: 'Nicht gefunden.' })
+    if (!this.sitzung(e)) return { status: 404, koerper: { message: 'Nicht gefunden.' } }
     if (e.request.method !== 'GET' && !this.csrfOk(e)) {
-      return e.json(403, { message: 'Ungültige Anfrage.' })
+      return { status: 403, koerper: { message: 'Ungültige Anfrage.' } }
     }
     return null
   },
@@ -140,6 +220,48 @@ module.exports = {
     // beim Verteilen der Rollen vergreift — etwa das eigene Konto zum Kapitän macht —, kommt
     // über den Superuser wieder herein und kann es geradeziehen.
     return { email, rolle: 'admin', team: '', mitglied: '', konto: '' }
+  },
+
+  /**
+   * Für Admin-Konten ist der zweite Faktor Pflicht (R13). Diese Prüfung steht in jeder Route,
+   * die nur `admin` darf — direkt hinter der Rollenprüfung.
+   *
+   * Warum hier und nicht beim Anmelden: Wer sich nicht mehr anmelden könnte, käme auch nicht an
+   * die Einrichtung heran. So kommt er herein, sieht seine Mannschaften und richtet den Faktor
+   * ein; verschlossen ist nur, was ALLE Mannschaften betrifft — Konten, Sicherungen, zentrale
+   * Einstellungen.
+   *
+   * Und deshalb hier 403 mit Klartext statt 404 wie sonst: Wer bis hierher gekommen ist, ist
+   * angemeldet. Vor ihm etwas zu verstecken, das er selbst aufschließen soll, hilft niemandem.
+   *
+   * @returns null wenn alles in Ordnung ist, sonst { status, koerper } — siehe abweisen()
+   */
+  faktorFehlt(e) {
+    let email = ''
+    try {
+      email = this.sitzung(e).getString('email')
+    } catch {
+      return { status: 404, koerper: { message: 'Nicht gefunden.' } }
+    }
+
+    let satz = null
+    try {
+      satz = e.app.findFirstRecordByFilter('admin_totp', 'email = {:m} && confirmed = true', {
+        m: email,
+      })
+    } catch {
+      satz = null
+    }
+    if (satz) return null
+
+    return {
+      status: 403,
+      koerper: {
+        totp_pflicht: true,
+        message:
+          'Für Admin-Konten ist der zweite Faktor Pflicht. Richte ihn unter deinem Konto ein — danach geht es hier weiter.',
+      },
+    }
   },
 
   /**
