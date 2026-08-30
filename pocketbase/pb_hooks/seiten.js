@@ -22,22 +22,54 @@ const GRUNDGERUEST = (name, inhalt, fuss = '') => `<!doctype html>
 <meta property="og:description" content="Termine und Fahrdienst der Mannschaft.">
 <meta property="og:type" content="website">
 <style>
+  /* Dieselbe Schrift wie in der App. Die Dateien liegen unter FESTEN Namen in /schrift — die
+     Kopien aus dem Bundle tragen einen Hash im Namen, der sich bei jedem Bau ändert, und eine
+     Zeile hier wäre nach dem nächsten Bau des Frontends tot. Quelle: app/public/schrift, von
+     dort kopiert Vite sie unverändert.
+
+     (Und keine Backticks in diesem Kommentar: Er steht in einem Template-String, ein einzelner
+     würde ihn mitten im HTML beenden.)
+
+     font-display: swap — erst der Systemersatz, dann die richtige Schrift. Diese Seiten haben
+     einen einzigen Satz und einen Knopf — sie sollen sofort dastehen und nicht auf einen
+     Download warten. Wer sie sieht, hat oft gerade auf einen Link im Messenger getippt und
+     hängt am Mobilfunk.
+
+     Nur der Latin-Ausschnitt, drei Dateien, zusammen rund 65 kB. Ein Vereinsname in kyrillischen
+     oder griechischen Buchstaben fiele auf die Systemschrift zurück — dafür lädt hier niemand
+     das Doppelte. */
+  @font-face {
+    font-family: 'Barlow'; src: url('/schrift/barlow-400.woff2') format('woff2');
+    font-weight: 400; font-style: normal; font-display: swap;
+  }
+  @font-face {
+    font-family: 'Barlow Condensed'; src: url('/schrift/barlow-condensed-600.woff2') format('woff2');
+    font-weight: 600; font-style: normal; font-display: swap;
+  }
+  @font-face {
+    font-family: 'Barlow Condensed'; src: url('/schrift/barlow-condensed-700.woff2') format('woff2');
+    font-weight: 700; font-style: normal; font-display: swap;
+  }
+
   :root { color-scheme: light }
   body {
     margin: 0; min-height: 100vh;
     display: flex; align-items: center; justify-content: center;
     background: #fbf8f0; color: #17150f;
-    font: 16px/1.5 system-ui, sans-serif;
+    font: 16px/1.5 'Barlow', system-ui, sans-serif;
   }
   main { max-width: 26rem; padding: 2rem 1.5rem; text-align: center }
+  /* Wie .leer__titel in der App: derselbe Kasten, dieselbe schmale Schrift, dasselbe Gewicht. */
   h1 {
     margin: 0 0 1rem; padding: .5rem 1rem;
     background: #f5b800; border: 2px solid #17150f;
+    font-family: 'Barlow Condensed', system-ui, sans-serif; font-weight: 700;
     font-size: 1.4rem; letter-spacing: .04em; text-transform: uppercase;
   }
   p { margin: 0 0 1.5rem; color: #6e6a5e }
   button {
-    font: inherit; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+    font: inherit; font-family: 'Barlow Condensed', system-ui, sans-serif;
+    font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
     min-height: 44px; padding: .6rem 1.6rem;
     background: #17150f; color: #fbf8f0; border: 2px solid #17150f; border-radius: 0;
     cursor: pointer;

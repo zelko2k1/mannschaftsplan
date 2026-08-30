@@ -59,6 +59,12 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   niemandem seine Mannschaft umbenannt werden.
 
 ### Behoben
+- **Die servergelieferten Seiten laufen jetzt auch auf Barlow.** Einladungsseite, „Link ungültig",
+  Impressum und Datenschutz standen in der Systemschrift — ausgerechnet das Erste, was ein neues
+  Mitglied sieht, sah damit anders aus als die App dahinter. Die drei nötigen Schnitte liegen
+  unter festen Namen in `/schrift` (rund 65 kB), weil die Kopien aus dem Bundle einen Hash im
+  Namen tragen, der sich bei jedem Bau ändert. Mit `font-display: swap`: Die Seite steht sofort
+  da, die Schrift kommt nach.
 - **Hervorhebungen wurden vom Browser nachgeahmt statt gesetzt.** Von Barlow sind die Schnitte
   400, 500 und 600 geladen; ein `<strong>` verlangt aber 700, und den rechnete sich der Browser
   aus, indem er die 400 künstlich verdickte. Neben einem echten 600 im selben Absatz sah das
