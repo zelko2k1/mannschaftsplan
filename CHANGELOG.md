@@ -7,6 +7,8 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+## [0.2.0] – 2026-08-31
+
 ### Hinzugefügt
 - **Dependabot und CodeQL.** Abhängigkeiten werden wöchentlich auf Aktualität geprüft
   (Entwicklungswerkzeuge gesammelt in einem Vorschlag, GitHub-Actions monatlich), und GitHubs
