@@ -36,7 +36,7 @@ export default function App() {
   // Die Kapitänsansicht ist eine eigene Route mit eigenem Router, eigener Sitzungstabelle und
   // eigenem Cookie (R5). Ein Router wäre für zwei Seiten übertrieben — der Pfad genügt.
   //
-  // Zwei Pfade führen hinein (R13e): `/manage` steht offen, `/admin` liegt hinter der Vortür aus
+  // Zwei Pfade führen hinein (R13e): `/manage` steht offen, `/admin` liegt hinter dem Gate aus
   // R13b. Dieselbe Oberfläche, derselbe Cookie — was jemand darf, entscheidet in beiden Fällen
   // der Server anhand der Rolle, nicht der Pfad, über den er gekommen ist.
   const pfad = window.location.pathname

@@ -713,7 +713,7 @@ await pruefe('F4', 'Fahrt zurückziehen nimmt die Mitfahrer mit', async () => {
 // ohne Kapitänssitzung antwortet /manage/api mit 404, nicht mit 401 oder 403 (R6).
 
 // Beide Präfixe, denn beide müssen ohne Sitzung mit 404 antworten (R6). Der Unterschied ist der
-// Proxy davor, nicht die Anwendung: /manage steht offen (R13e), /admin liegt hinter dem Tor.
+// Proxy davor, nicht die Anwendung: /manage steht offen (R13e), /admin liegt hinter dem Gate.
 const ADMIN_ROUTEN = [
   '/manage/api/me',
   '/manage/api/fixtures',

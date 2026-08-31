@@ -78,7 +78,7 @@ curl -s -o /dev/null -w '%{http_code}\n' https://dart.mein-verein.de/_/
 etwas gibt (R6). Kommt eine Anmeldemaske, ist der Block im Caddyfile nicht aktiv, und du hast
 PocketBases Verwaltungsoberfläche im Internet stehen. Dann sofort abschalten.
 
-### T8c · Vor `/admin` steht ein Tor
+### T8c · Vor `/admin` steht ein Gate
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' https://dart.mein-verein.de/admin
@@ -88,7 +88,7 @@ curl -s -o /dev/null -w '%{http_code}\n' https://dart.mein-verein.de/admin
 Admin-Code überhaupt erreicht. Das ist der Sinn von R13b: Ein Fehler in diesem Code soll von außen
 nicht ansprechbar sein.
 
-Kommt `200` und du siehst die Anmeldemaske der App, fehlt das Tor.
+Kommt `200` und du siehst die Anmeldemaske der App, fehlt das Gate.
 
 > Hast du statt der Proxy-Anmeldung die IP-Allowlist gewählt, lautet die Erwartung `404` — und du
 > musst von einer Adresse außerhalb deines Bereichs prüfen. Dafür ist das Handy im Mobilnetz da.
