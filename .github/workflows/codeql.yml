@@ -42,7 +42,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: CodeQL vorbereiten
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.sprache }}
           # `security-extended` findet mehr als die Standardauswahl, um den Preis einiger
@@ -51,6 +51,6 @@ jobs:
           queries: security-extended
 
       - name: Analysieren
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: /language:${{ matrix.sprache }}
