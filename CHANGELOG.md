@@ -8,6 +8,10 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 ## [Unveröffentlicht]
 
 ### Hinzugefügt
+- **Anleitung zum Aktualisieren.** Wie ein neuer Stand auf den Server kommt (`git pull` und ein
+  Neubau), was dabei mit den Daten passiert, wie man auf einen älteren Stand zurückgeht und
+  warum `--build` nicht optional ist. Das fehlte bisher ganz — dabei ist es der Handgriff, den
+  ein Betreiber am häufigsten braucht.
 - **Warnung, wenn eine Mannschaft zu groß wird.** Verwaltung und Aushang zeigen je Mannschaft
   höchstens 200 Spieler — das stand nirgends und meldete sich nie: Der 201. wurde angelegt und
   tauchte einfach nicht auf, auch nicht in den Rückmeldungen. Die Spielerliste sagt jetzt, wie
@@ -77,6 +81,13 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   aussperrt.
 
 ### Behoben
+- **Die Anleitung sagte an zwei Stellen das Falsche über das Tor-Passwort.** Einrichtungsschritt 4
+  und die Sicherheitsübersicht behaupteten, es stehe vor der *Kapitänsseite*. Seit dem
+  Login-Umbau steht es nur vor `/admin`; die Kapitäne kommen ohne herein. Der Abschnitt „Zwei
+  Wege hinein" sagte es bereits richtig — die Anleitung widersprach sich also selbst, und zwar
+  an der Stelle, an der ein Betreiber sein Modell der App baut.
+- **Der Reiter heißt „Verein", nicht „Einstellungen".** Die Anleitung nannte ihn durchgehend beim
+  alten Namen; dazu ein Absatz, der im Markdown in einem Zitatblock steckengeblieben war.
 - **Keine echten Namen mehr in Beispielen.** Der Beispiel-Anmeldename in der Kontenmaske und in
   der README trug einen Vornamen; in den Tests, Kommentaren und im Umsetzungsplan standen echte
   Vereins-, Lokal- und Liganamen aus einem Verbands-Export. Alles ersetzt durch ein

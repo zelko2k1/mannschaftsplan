@@ -99,11 +99,16 @@ cd mannschaftsplan
 cp .env.example .env
 ```
 
-**4 · Ein Passwort für die Kapitänsseite festlegen**
+**4 · Ein Passwort für dein Admin-Gebiet festlegen**
 
-Bevor überhaupt jemand die Kapitänsseite zu sehen bekommt, fragt der Webserver nach einem
-Passwort. Das ist eine zusätzliche Tür vor der eigentlichen Anmeldung — sie sorgt dafür, dass
-Fremde die Verwaltung gar nicht erst zu Gesicht bekommen.
+Vor `/admin` — deinem Bereich mit Konten, Mannschaften und Sicherungen — fragt der Webserver
+nach einem Passwort, bevor die App überhaupt antwortet. Eine zusätzliche Tür vor der eigentlichen
+Anmeldung.
+
+> **Deine Kapitäne brauchen dieses Passwort nicht.** Sie kommen über `/manage` herein, und davor
+> steht keine Tür — nur die Anmeldung in der App. Das ist Absicht: Ein Passwort, das sich acht
+> Leute teilen, lässt sich weder widerrufen noch einer einzelnen Person entziehen. Mehr dazu
+> unter [Zwei Wege hinein](#zwei-wege-hinein-manage-und-admin).
 
 Dieses Passwort wird nicht im Klartext gespeichert, sondern als unlesbare Prüfsumme. Die lässt du
 dir ausrechnen:
@@ -185,11 +190,12 @@ persönlichen Link für dieses Mitglied.
 > Zugänge vor. Kopiere ihn also gleich in den Einzelchat des Mitglieds. Ist er weg, drückst du
 > einfach noch einmal auf „Neues Token".
 
-Danach die Spieltage eintragen — Datum, Anwurfzeit, Gegner, Ort, Entfernung. Fertig.
+Danach die Spieltage eintragen — Datum, Anwurfzeit, Gegner, Ort, Entfernung. Bei einem ganzen
+Spielplan musst du das nicht abtippen: siehe [Spielplan einlesen](#spielplan-einlesen).
 
-**10 · Einstellungen anpassen** *(freiwillig, aber lohnend)*
+**10 · Den Verein einrichten** *(freiwillig, aber lohnend)*
 
-Der Reiter **Einstellungen** hat vier Dinge:
+Im Reiter **Verein** steht, was für alle Mannschaften gilt. Vier Einstellungen sind es:
 
 **Name des Vereins.** Er steht dort, wo es um die Anwendung als Ganzes geht: über Impressum und
 Datenschutzhinweis, auf der Seite „Link ungültig", und als Herausgeber in der Authenticator-App.
@@ -223,6 +229,9 @@ annehmen, sonst ändert jemand hinterher seine Zusage. Trägst du hier eine Stun
 erledigt das die App; bei **0** bleibt es bei deinem Handgriff nach dem Spiel. Geprüft wird
 stündlich, ein Spieltag schließt also bis zu eine Stunde nach Ablauf der Frist.
 
+Darunter im selben Reiter, jeweils als eigener Abschnitt: die **Liste der Mannschaften**,
+**Spielplan einlesen**, die **Sicherungen** und **Saison abschließen**.
+
 **Impressum und Datenschutzhinweis.** Zwei Textfelder, aus denen je eine eigene Seite wird —
 verlinkt im Fuß des Aushangs und auf der Einladungsseite, erreichbar auch ohne Anmeldung. Bleibt
 ein Feld leer, gibt es die Seite nicht und es wird auch nicht darauf verlinkt; ein leeres
@@ -237,8 +246,14 @@ HTML wird angezeigt statt ausgewertet.
 > Größe. Dazu gehören ein Auftragsverarbeitungsvertrag mit deinem Server-Anbieter (Hetzner und
 > IONOS stellen ihn fertig ins Kundenkonto) und die Information der Mitglieder darüber, was wozu
 > und wie lange gespeichert wird. Beim Löschen hilft die App: Spieltage verschwinden nach einem
-> Jahr, das Protokoll nach 90 Tagen, Sitzungen nach einem halben Jahr. Im Zweifel jemanden fragen,
+> Jahr, das Protokoll nach 90 Tagen, Sitzungen nach einem halben Jahr — und wer nicht warten
+> will, räumt unter *Verein → Saison abschließen* selbst auf. Im Zweifel jemanden fragen,
 > der beraten darf — viele Landessportbünde tun das für ihre Vereine kostenlos.
+
+**Damit läuft die App.** Zwei Dinge lohnt es sich gleich anzusehen: den
+[Spielplan einlesen](#spielplan-einlesen), statt jeden Spieltag zu tippen — und
+[Aktualisieren](#aktualisieren), damit du weißt, wie ein neuer Stand auf den Server kommt, bevor
+du ihn das erste Mal brauchst.
 
 ### Spielplan einlesen
 
@@ -324,11 +339,13 @@ ist damit sofort tot, und alle Geräte, auf denen dieses Mitglied angemeldet war
 Mitglied — das ist der Preis dafür, dass sich niemand anmelden muss. Deshalb: Links immer im
 Einzelchat verschicken, nie in der Mannschaftsgruppe, und keine Bildschirmfotos davon herumzeigen.
 
-**Jemand verlässt die Mannschaft.** Das Mitglied auf inaktiv setzen. Es verschwindet aus den
-Listen und ist sofort von allen Geräten abgemeldet.
+**Jemand verlässt die Mannschaft.** Das Mitglied auf **inaktiv** setzen. Es verschwindet aus
+den Listen und ist sofort von allen Geräten abgemeldet — seine Rückmeldungen zu vergangenen
+Spieltagen bleiben aber stimmig. Das ist der Normalfall. *Löschen* gibt es auch, es gehört aber
+zum [Aufräumen nach der Saison](#nach-der-saison-aufräumen).
 
 **Ein Spieltag ist gelaufen.** Auf „gesperrt" setzen — dann kann niemand mehr nachträglich seine
-Zusage ändern. Wenn du unter Einstellungen eine Frist hinterlegt hast, passiert das von selbst;
+Zusage ändern. Wenn du unter *Verein* eine Frist hinterlegt hast, passiert das von selbst;
 im Protokoll steht die Zeile dann mit dem Vermerk „(automatisch)".
 
 ### Wie groß darf eine Mannschaft sein?
@@ -383,8 +400,11 @@ und zeigt auch, welche Mannschaft noch keinen Kapitän hat.
 
 > **Ein Konto zu löschen nimmt den Spieler nicht mit.** Weg sind das Konto, seine offenen
 > Sitzungen und sein zweiter Faktor. Der Spielereintrag bleibt, mitsamt Einladungslink,
-> Rückmeldungen und Mannschaft: Wer aufhört, Kapitän zu sein, spielt weiter. *Verein* trägt, was für alle gilt: Vereinsname, Sperrfrist, Rechtstexte, die Liste
-der Mannschaften und die Sicherungen.
+> Rückmeldungen und Mannschaft: Wer aufhört, Kapitän zu sein, spielt weiter.
+
+*Verein* trägt, was für alle Mannschaften gilt: Vereinsname, Sperrfrist, Rechtstexte, die Liste
+der Mannschaften, das Einlesen eines Spielplans, die Sicherungen und das Aufräumen nach der
+Saison.
 
 Beide erreichen über ihren Namen im Kopf **Mein Konto** — zweiter Faktor und eigenes Passwort.
 Das gehört zur Person und zu keiner Mannschaft, deshalb steht es nicht in der Reiterleiste.
@@ -480,7 +500,7 @@ und daneben **Sperre aufheben**.
 
 ### Zweiter Faktor
 
-Unter **Einstellungen → Zweiter Faktor** lässt sich zusätzlich zum Passwort ein sechsstelliger
+Unter **Mein Konto → Zweiter Faktor** lässt sich zusätzlich zum Passwort ein sechsstelliger
 Code aus einer Authenticator-App verlangen. Wer dein Passwort erfährt, kommt damit trotzdem nicht
 in die Verwaltung.
 
@@ -505,7 +525,7 @@ braucht, bis zum nächsten Wechsel warten — höchstens eine halbe Minute.
 **Die zehn Wiederherstellungscodes**, die beim Einschalten erscheinen, sind der Zettel für den
 Notfall. Sie erscheinen **genau einmal** — abschreiben, ins Portemonnaie oder in den
 Passwortmanager. Beim Anmelden tippst du einen davon statt des Codes aus der App; jeder gilt
-einmal. Wie viele noch übrig sind, steht bei den Einstellungen, und über **Neue Codes** gibt es
+einmal. Wie viele noch übrig sind, steht unter *Mein Konto*, und über **Neue Codes** gibt es
 zehn frische (die alten gelten dann nicht mehr).
 
 > **Was er schützt.** Die Verwaltung unter `/manage` und `/admin`. Damit er nicht zu umgehen ist,
@@ -540,11 +560,60 @@ curl -X DELETE "https://dart.mein-verein.de/api/collections/admin_totp/records/$
 
 Danach genügt wieder das Passwort, und du kannst neu einrichten.
 
+### Aktualisieren
+
+Ein neuer Stand kommt aus dem Repo, gebaut wird er auf deinem Server. Drei Befehle:
+
+```bash
+cd mannschaftsplan
+git pull
+docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml up -d --build
+```
+
+**Vorher eine Sicherung ziehen** — in der App unter *Verein → Sicherungen*, ein Klick. Das ist
+der einzige Rückweg, falls etwas nicht passt.
+
+Der Bau dauert ein paar Minuten. Danach läuft die neue Fassung; **deine Daten bleiben**, sie
+liegen in einem eigenen Docker-Volume und nicht im Container. Nötige Änderungen an der Datenbank
+führt die App beim Start selbst aus.
+
+> **`--build` ist nicht optional.** Ohne dieses Wort startet Docker denselben alten Stand wieder,
+> ohne Fehlermeldung — du hättest den neuen Code geholt und trotzdem die alte App laufen. Und
+> `docker compose restart` genügt hier nie: Es startet die vorhandenen Container neu, statt neue
+> aus dem neuen Stand zu erzeugen.
+
+**Was du dabei sehen solltest:** Am Ende steht eine Zeile mit `Started` oder `Running`. Bleibt
+etwas hängen, hilft `docker compose logs -f mannschaftsplan` — die letzten Zeilen sagen, woran es
+liegt. Melden sich deine Kapitäne mit „geht nicht", ist der häufigste Grund, dass der Bau noch
+läuft; währenddessen antwortet die alte Fassung weiter.
+
+**Zurück auf einen älteren Stand,** falls eine neue Fassung Ärger macht:
+
+```bash
+git log --oneline -5          # zeigt die letzten Stände
+git checkout <version-oder-commit>
+docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml up -d --build
+```
+
+Danach die Sicherung von vorhin einspielen — unter *Verein → Sicherungen*, wenn du hineinkommst,
+sonst über die Datei. Später wieder nach vorn: `git checkout main && git pull`.
+
+**Aufräumen.** Jeder Bau lässt das alte Abbild liegen. Ein-, zweimal im Jahr:
+
+```bash
+docker image prune -f
+```
+
+Das löscht nur, was kein Container mehr benutzt — deine Daten sind davon nie betroffen.
+
+> **Wenn du Werte in der `.env` geändert hast**, gilt dasselbe wie bei der Einrichtung: Erst
+> `… up -d` (mit oder ohne `--build`) macht sie wirksam, ein `restart` nicht.
+
 ### Sicherungen
 
 Es gibt zwei Wege, und du brauchst beide.
 
-**Von Hand, in der Kapitänsansicht.** Unter **Einstellungen → Sicherungen** liegen vier Knöpfe:
+**Von Hand, in der Kapitänsansicht.** Unter **Verein → Sicherungen** liegen vier Knöpfe:
 erstellen, herunterladen, zurückgeben, löschen. Dafür brauchst du weder SSH noch einen Dateipfad
 — die Datei landet in deinem Download-Ordner wie jeder andere Download auch. Nimm sie **vom
 Server weg**: Eine Kopie, die neben dem Original liegt, ist im Ernstfall genauso verloren wie das
@@ -676,7 +745,7 @@ nicht eingetragen ist — siehe „Nur aus dem eigenen Netz erreichbar machen". 
 „Zu viele Versuche", hat er sich vertippt; unter **Konten** kannst du die Sperre aufheben.
 
 **„Bei mir steht: Für Admin-Konten ist der zweite Faktor Pflicht."** Stimmt — richte ihn unter
-**Einstellungen → Zweiter Faktor** ein, dann geht es weiter. Bis dahin kommst du an alles heran,
+**Mein Konto → Zweiter Faktor** ein, dann geht es weiter. Bis dahin kommst du an alles heran,
 was deine Mannschaften betrifft, nur nicht an Konten, Sicherungen und Vereinseinstellungen.
 
 **„Ich habe mein Kapitäns-Passwort vergessen."** Schritt 7 noch einmal ausführen; `upsert`
@@ -716,8 +785,10 @@ Damit du weißt, worauf du dich verlässt — und worauf nicht:
 - **Die Links stehen in keinem Protokoll.** Der Webserver schreibt genau diese Adressen nicht mit.
 - **Die Verwaltungsoberfläche der Datenbank ist von außen gar nicht erreichbar** — nicht
   eingeschränkt, sondern abgeschaltet. Für den Alltag brauchst du sie nie.
-- **Vor der Kapitänsseite steht eine zusätzliche Tür**, unabhängig von der Anmeldung in der App.
-  Deshalb die zwei Passwörter.
+- **Vor deinem Admin-Gebiet steht eine zusätzliche Tür** (`/admin`, die Datenbank-API und die
+  Datenbankoberfläche), unabhängig von der Anmeldung in der App. Deshalb fragt dich der Browser
+  dort nach einem zweiten Passwort. Vor `/manage`, wo die Kapitäne arbeiten, steht sie nicht —
+  dafür ist dort der zweite Faktor der Weg zu längeren Sitzungen.
 - **Falsche Zugangsdaten verraten nichts** — ob eine Adresse existiert oder nicht, sieht von außen
   gleich aus.
 
