@@ -1,0 +1,56 @@
+# CodeQL — GitHubs Codeanalyse, die nach Mustern bekannter Schwachstellen sucht.
+#
+# **Sie läuft erst, wenn das Repo öffentlich ist.** Codeanalyse ist für öffentliche Repositorys
+# kostenlos; für private verlangt GitHub „Advanced Security", und der Bericht ließe sich gar
+# nicht hochladen. Statt bis dahin bei jedem Push ein rotes Kreuz zu erzeugen, prüft der Job
+# selbst, ob das Repo noch privat ist, und überspringt sich dann. Am Tag der Veröffentlichung
+# fängt er von allein an zu arbeiten — ohne dass jemand daran denken muss.
+#
+# Was CodeQL NICHT ist: ein Ersatz für die Testfälle in `scripts/api-tests.mjs`. Es findet
+# Muster (eingeschleuste Befehle, ungeprüfte Umleitungen, unsichere Zufallszahlen), nicht die
+# Fragen, um die es hier geht — etwa ob ein Kapitän die Daten einer fremden Mannschaft sieht.
+# Das prüfen weiterhin die eigenen Regeln R1–R14 und die Suite.
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Einmal wöchentlich, damit auch neu bekannt gewordene Muster auf altem Code anschlagen.
+    - cron: '17 4 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analysieren:
+    name: CodeQL
+    runs-on: ubuntu-latest
+    # Solange privat: überspringen. Siehe Kopf der Datei.
+    if: github.event.repository.private == false
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # Deckt TypeScript, JavaScript und die PocketBase-Hooks in einem Durchgang ab.
+        sprache: [javascript-typescript]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: CodeQL vorbereiten
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.sprache }}
+          # `security-extended` findet mehr als die Standardauswahl, um den Preis einiger
+          # Fehlalarme. Bei einem Projekt dieser Größe ist das der bessere Tausch: Ein Fehlalarm
+          # kostet zehn Minuten Lesen, eine übersehene Lücke steht im Internet.
+          queries: security-extended
+
+      - name: Analysieren
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:${{ matrix.sprache }}
