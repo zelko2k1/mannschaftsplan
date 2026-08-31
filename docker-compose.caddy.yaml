@@ -51,9 +51,9 @@ services:
     labels:
       de.mannschaftsplan.gesetzt.domain: "${DOMAIN:?DOMAIN fehlt. .env.example nach .env kopieren und ausfuellen.}"
       de.mannschaftsplan.gesetzt.acme: "${ACME_EMAIL:?ACME_EMAIL fehlt. Adresse fuer die Zertifikats-Benachrichtigungen.}"
-      # R13b · Ohne Tor vor /admin fährt dieser Stack nicht an. Das ist Absicht: die
+      # R13b · Ohne Vortür vor /admin fährt dieser Stack nicht an. Das ist Absicht: die
       # Kapitänsansicht stünde sonst mit nur einem Passwort im Internet.
-      de.mannschaftsplan.gesetzt.admin-user: "${ADMIN_USER:?ADMIN_USER fehlt. R13b verlangt ein Tor vor /admin.}"
+      de.mannschaftsplan.gesetzt.admin-user: "${ADMIN_USER:?ADMIN_USER fehlt. R13b verlangt eine Vortür vor /admin.}"
       de.mannschaftsplan.gesetzt.admin-hash: "${ADMIN_PASSWORD_HASH:?ADMIN_PASSWORD_HASH fehlt. Erzeugen mit: docker run --rm caddy:2.11.4-alpine caddy hash-password --plaintext '<passwort>'}"
 
     volumes:

@@ -88,7 +88,7 @@ Quelle sportlicher Personen, Konten davon getrennt und optional damit verknüpft
   in E-Mail-Form; er ist kein Kontaktweg, und die App hat keinen Mailserver.
 - Einladungslinks werden nur als Prüfsumme gespeichert und tauchen in keinem Protokoll auf.
 - Das PocketBase-Dashboard ist nie öffentlich erreichbar; vor der Kapitänsansicht und der
-  Superuser-Anmeldung steht ein Tor im Reverse Proxy (R13a–c).
+  Superuser-Anmeldung steht eine Vortür im Reverse Proxy (R13a–c).
 
 **Heute nicht gebaut — als Stand, nicht als Schwur:**
 

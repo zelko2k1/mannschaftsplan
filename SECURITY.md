@@ -54,7 +54,7 @@ keine gültigen Einladungslinks** mitschicken — ein selbst angelegtes Testmitg
 
 - **HTTPS ist Pflicht**, nicht Kür: Ohne es setzt der Browser das `Secure`-Cookie nicht,
   und die Anmeldung funktioniert schlicht nicht.
-- **Vor `/admin` gehört ein Tor, das nicht das Kapitäns-Passwort ist** (R13b): eine
+- **Vor `/admin` gehört eine Vortür, die nicht das Kapitäns-Passwort ist** (R13b): eine
   IP-Allowlist im Reverse Proxy oder eine vorgeschaltete Proxy-Anmeldung. Eines von beiden
   genügt, keines ist zu wenig — ein Fehler im Admin-Code soll von außen nicht ansprechbar
   sein. Vorlagen liegen in [`deploy/`](deploy/).

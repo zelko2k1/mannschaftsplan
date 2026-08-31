@@ -10,7 +10,7 @@
 // R13e · ZWEI PRÄFIXE, und der Präfix ist die Markierung. Was ein Kapitän braucht, liegt unter
 // `/manage/api` und ist von außen erreichbar. Was nur die Rolle `admin` darf — Konten,
 // Mannschaften anlegen und löschen, Einstellungen, Sicherungen —, liegt unter `/admin/api` und
-// damit hinter dem Tor aus R13b.
+// damit hinter der Vortür aus R13b.
 //
 // Die Rollenprüfung im Handler bleibt trotzdem stehen, jede einzelne. Der Präfix ist eine
 // Aussage über den Proxy, und ein Proxy kann falsch konfiguriert sein; die Prüfung im Code kann
@@ -18,7 +18,7 @@
 //
 // R13 · Angemeldet wird gegen PocketBases eigene `_superusers`-Collection. Kein selbstgebautes
 // Passwort-Handling, kein eigener Hash, kein eigener Vergleich. Vor diesen Code gehört zusätzlich
-// ein Tor in der Reverse-Proxy-Konfiguration (R13b, deploy/Caddyfile): IP-Allowlist oder eine
+// eine Vortür in der Reverse-Proxy-Konfiguration (R13b, deploy/Caddyfile): IP-Allowlist oder eine
 // vorgeschaltete Proxy-Anmeldung. Das ist die wirksamste Einzelmaßnahme, weil ein Fehler hier
 // dann von außen gar nicht erst ansprechbar ist.
 //
@@ -29,7 +29,7 @@
 // direkt hinter der Passwortprüfung. PocketBases MFA kam nicht in Frage, weil es Einmalcodes per
 // E-Mail verschickt und diese App bewusst keinen Mailserver hat.
 //
-// Das Tor aus R13b bleibt trotzdem die wirksamste Einzelmaßnahme und ersetzt nichts davon.
+// Die Vortür aus R13b bleibt trotzdem die wirksamste Einzelmaßnahme und ersetzt nichts davon.
 //
 // Alle Hilfen kommen aus adminauth.js und werden INNERHALB der Handler geholt. Funktionen im
 // Modul-Scope stehen den Handlern nicht zur Verfügung — sie laufen in isolierten Laufzeiten.
@@ -40,7 +40,7 @@ routerAdd('POST', '/manage/api/login', (e) => {
   const u = require(`${__hooks}/utils.js`)
   const limit = require(`${__hooks}/ratelimit.js`)
 
-  // R7 · Zwei Zähler, seit dieser Login ohne Tor im Netz steht (R13e), und beide zählen
+  // R7 · Zwei Zähler, seit dieser Login ohne Vortür im Netz steht (R13e), und beide zählen
   // FEHLVERSUCHE — nicht Anfragen.
   //
   // Pro IP: 5 Fehlversuche pro Minute, danach 15 Minuten Sperre. Bremst den einzelnen Anschluss.
@@ -106,8 +106,8 @@ routerAdd('POST', '/manage/api/login', (e) => {
   // künstlichen Vergleich mit exakt denselben Kosten nicht schließen. Was sie zumacht, ist die
   // Sperre oben: nach fünf Versuchen ist eine Viertelstunde Ruhe, also höchstens fünf prüfbare
   // Adressen pro Viertelstunde — allerdings pro IP und nur im Arbeitsspeicher. Zusammen mit dem
-  // vorgeschalteten Tor aus R13b ist das der Punkt, an dem sich weiterer Aufwand nicht mehr
-  // lohnt; ohne dieses Tor wäre es das nicht.
+  // vorgeschalteten Vortür aus R13b ist das der Punkt, an dem sich weiterer Aufwand nicht mehr
+  // lohnt; ohne diese Vortür wäre es das nicht.
   if (!konto || !konto.validatePassword(passwort)) {
     danebenGegriffen()
     return e.json(401, { message: 'Anmeldung fehlgeschlagen.' })

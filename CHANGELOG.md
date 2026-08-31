@@ -8,6 +8,17 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 ## [Unveröffentlicht]
 
 ### Geändert
+- **Aus „Tor" wird „Vortür".** Das zusätzliche Passwort vor `/admin` hieß im ganzen Projekt
+  „Tor" — ein Wort, das bei einer Anwendung im Internet unweigerlich an das Tor-Netzwerk denken
+  lässt, mit dem sie nichts zu tun hat. Durchgezogen in Anleitung, `.env.example`, Caddyfiles,
+  SECURITY.md und den Kommentaren im Code.
+- **`ADMIN_USER` im Beispiel hieß `kapitaen`** — ausgerechnet der Name derer, die dieses Passwort
+  gerade *nicht* brauchen. Jetzt ein Wert, der sagt, wozu das Feld da ist, samt Kasten: Es ist
+  kein Konto in der App, sondern nur der Name für das Browser-Fenster.
+- **Einrichtungsschritt 7 hieß „Deinen Kapitänszugang anlegen"** und legte in Wahrheit den
+  Superuser der Datenbank an — also den **Admin**. Jetzt richtig benannt, mit einer kleinen
+  Tabelle gegen die drei Verwechslungen: dieser Zugang, die Vortür aus Schritt 4, und die Konten
+  der Kapitäne, die später in der App entstehen.
 - **Die Anleitung sagt, wer dahintersteckt.** Ein Kasten ganz oben: Vereins-Admin, kein
   ausgebildeter Entwickler, mit KI-Unterstützung gebaut — samt dem, was das für einen Betreiber
   bedeutet (begrenzter Support, keine Gewähr, Code-Reviews willkommen) und dem Hinweis auf die
@@ -16,7 +27,13 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   Leuten" — dabei trägt eine Installation längst alle Mannschaften eines Vereins. Das war das
   Erste, was ein Besucher las. Auch der Kopf des Umsetzungsplans ist nachgezogen.
 - **Abzeichen im README** (Version, Lizenz, React, PocketBase) — bei einem privaten Repo blieben
-  sie leer, jetzt zeigen sie etwas.
+  sie leer, jetzt zeigen sie etwas. Dazu Sinnbilder an den Überschriften und ein Abschnitt
+  **„Was die App kann"**, der vorher fehlte: Ein Besucher musste sich bisher durch die
+  Einrichtungsanleitung lesen, um zu erfahren, was das Ding überhaupt tut.
+- **Die App ist nicht auf Darts festgelegt.** Der Kopf sagt das jetzt: Die Beispiele kommen aus
+  dem Dartsport, im Datenmodell steht keine Sportart. Wer kegelt, Tischtennis oder Handball
+  spielt und dieselbe Frage hat — wer kommt, wer fährt wen —, kann sie genauso benutzen. Der
+  Verweis auf DartsZentrale ist vom bloßen „nicht verwechseln" zu einem Wegweiser geworden.
 
 ## [0.2.0] – 2026-08-31
 

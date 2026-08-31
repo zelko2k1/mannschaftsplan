@@ -3,7 +3,7 @@
 //
 // ZWEI PRÄFIXE (R13e). Was ein Kapitän braucht, liegt unter /manage/api und ist von außen
 // erreichbar. Was nur die Rolle `admin` darf — Konten, Mannschaften anlegen und löschen,
-// Einstellungen ändern, Sicherungen —, liegt unter /admin/api und damit hinter dem Tor aus R13b.
+// Einstellungen ändern, Sicherungen —, liegt unter /admin/api und damit hinter der Vortür aus R13b.
 //
 // Praktisch heißt das: `rufAdmin()` kann ein Browser-Anmeldefenster auslösen, `ruf()` nie. Wer
 // eine Funktion von einem Präfix auf das andere schiebt, verschiebt sie im Backend mit — sonst
@@ -193,7 +193,7 @@ async function rufen<T>(basis: string, pfad: string, optionen: RequestInit = {})
 
 /** Alles, was auch ein Kapitän darf. */
 const ruf = <T>(pfad: string, optionen: RequestInit = {}) => rufen<T>(MANAGE, pfad, optionen)
-/** Nur für die Rolle `admin` — liegt hinter dem Tor aus R13b. */
+/** Nur für die Rolle `admin` — liegt hinter der Vortür aus R13b. */
 const rufAdmin = <T>(pfad: string, optionen: RequestInit = {}) => rufen<T>(ADMIN, pfad, optionen)
 
 export const adminApi = {

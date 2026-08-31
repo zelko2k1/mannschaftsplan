@@ -6,13 +6,23 @@
 ![PocketBase](https://img.shields.io/badge/Backend-PocketBase-b8dbe4)
 ![Selbst gehostet](https://img.shields.io/badge/selbst-gehostet-success)
 
-Wer fährt, wer kommt mit, wer sagt ab — für die Mannschaften eines Dartvereins. Der Spielplan
-sieht aus wie ein Fahrplanaushang am Bahnsteig: eine Zeile pro Spieltag, mit Abfahrtszeit,
-Gegner und der Frage, ob noch ein Platz im Auto frei ist.
+**Wer fährt, wer kommt mit, wer sagt ab?** Diese Frage geht im Gruppenchat zwischen vierzig
+Nachrichten unter. Der Mannschaftsplan holt sie dort heraus.
+
+Der Spielplan sieht aus wie ein **Fahrplanaushang am Bahnsteig**: eine Zeile pro Spieltag, mit
+Abfahrtszeit, Gegner und der Frage, ob noch ein Platz im Auto frei ist.
 
 Eine Installation trägt **alle Mannschaften des Vereins**. Jede sieht nur ihre eigenen Spieltage
 und Rückmeldungen, jede hat ihren eigenen Kapitän — einmal einrichten, einmal sichern, einmal
 aktualisieren.
+
+> ### 🎯 Gebaut für Darts — brauchbar für jede Mannschaft, die auswärts spielt
+>
+> Die Beispiele hier kommen aus dem Dartsport: Spieltag, Anwurf, Liga, Spiellokal. **Festgelegt
+> ist die App darauf nicht.** Wer kegelt, Tischtennis, Schach, Handball oder Fußball spielt und
+> vor derselben Frage steht — wer kommt, und wer fährt wen —, kann sie genauso benutzen. Es gibt
+> keine Ergebnisse, keine Tabelle, keine Sportart im Datenmodell; es gibt Termine, Zusagen und
+> Autos.
 
 **Die Mannschaft muss sich nirgends anmelden.** Jedes Mitglied bekommt einen persönlichen Link,
 den es sich einmal aufs Handy legt. Kein Konto, kein Passwort, keine App aus dem Store. Nur der
@@ -21,9 +31,15 @@ Kapitän meldet sich an.
 Die App läuft auf deinem eigenen Server. Keine Werbung, keine Statistik-Dienste, keine Daten bei
 Dritten.
 
-> **Nicht zu verwechseln** mit [DartsZentrale](https://github.com/zelko2k1/dartszentrale) — das ist
-> die große Vereins-App mit Counter, Ligen und Statistik. Diese hier kann nur eines: Termine und
-> Fahrdienst. Sie kennt keine Ergebnisse.
+> ### 🔗 Spielt ihr Darts?
+>
+> Dann gibt es daneben das größere Werkzeug: **[DartsZentrale](https://github.com/zelko2k1/dartszentrale)**
+> — Spielstände zählen am Board, Trainingsspiele, Ligen mit automatischer Tabelle, Statistik,
+> Kiosk-Betrieb. Vom selben Autor, ebenfalls selbst gehostet.
+>
+> Die beiden sind **nicht dasselbe und brauchen einander nicht.** Der Mannschaftsplan kann genau
+> eines: Termine und Fahrdienst. Er kennt keine Ergebnisse — und ist deshalb auch für Vereine
+> brauchbar, die mit Darts nichts zu tun haben.
 
 > ### Ehrlich gesagt: Wer steckt dahinter?
 >
@@ -45,14 +61,44 @@ Dritten.
 
 ---
 
-## Für Betreiber
+## ✨ Was die App kann
+### 📋 Für die Mannschaft — ohne Anmeldung
+
+- **Ein Link, ein Blick.** Alle Spieltage untereinander, der nächste oben, mit Abfahrtszeit.
+- **Drei Knöpfe je Spieltag:** dabei · unsicher · kann nicht.
+- **Fahrdienst:** Wer fährt, sagt es und nennt die freien Plätze. Wer mitfährt, sucht sich ein
+  Auto aus. Beides mit einem Antippen, beides jederzeit widerrufbar.
+- **Die Abfahrtszeit rechnet die App** — Entfernung, Tempo, Rüstzeit, rückwärts vom Anwurf.
+
+### 🗂️ Für den Kapitän
+
+- **Spieltage pflegen**, Rückmeldungen auch telefonisch nachtragen, Spieltage nach dem Spiel
+  schließen (auf Wunsch von selbst).
+- **Spielplan einlesen** statt tippen: die CSV-Datei eines Verbands — oder eine mitgelieferte
+  **Vorlage**, die man selbst ausfüllt.
+- **Auf einen Blick:** wer noch fehlt, ob genug Autos da sind, wo Ort oder Kilometer fehlen.
+
+### 🏛️ Für den Verein
+
+- **Alle Mannschaften unter einem Dach**, sauber getrennt: Jeder Kapitän sieht nur seine.
+- **Sicherungen** erstellen, herunterladen und zurückspielen — ohne SSH, in der Oberfläche.
+- **Saison abschließen:** alte Spieltage, Spieler und Mannschaften geordnet loswerden.
+- **Zweiter Faktor** für die Verwaltung, Wiederherstellungscodes inklusive.
+
+### 🔒 Und was NICHT passiert
+
+Keine Cloud, keine Werbung, keine Statistik-Dienste, keine App aus dem Store, keine
+E-Mail-Adressen der Mitglieder. Die Daten liegen auf deinem Server und sonst nirgends.
+
+---
+
+## 🧭 Für Betreiber
 
 Dieser Teil richtet sich an den, der die App aufsetzt und betreut — Kapitän, Schriftführer oder
 wer im Verein sich damit befasst. Programmierkenntnisse braucht es nicht. Wer die App
 weiterentwickeln will, findet alles Weitere unter [Für Entwickler](#für-entwickler).
 
-### Was du brauchst
-
+### 📦 Was du brauchst
 | | |
 |---|---|
 | **Einen kleinen Server** | Bei einem Anbieter deiner Wahl. Das kleinste Angebot reicht — die App ist für zehn Leute gedacht, nicht für zehntausend. Darauf muss **Docker** installiert sein, mit **Compose 2.24 oder neuer** (`docker compose version`). Jede halbwegs aktuelle Docker-Installation bringt das mit. |
@@ -64,8 +110,7 @@ Warum ein Server im Internet und nicht der Rechner zu Hause: Die Mannschaft tipp
 unterwegs an, aus dem Mobilnetz. Was nur im heimischen WLAN erreichbar ist, hilft am Spieltag
 niemandem.
 
-### Einrichten
-
+### 🚀 Einrichten
 **1 · Den Namen auf den Server zeigen lassen**
 
 Bei deinem Domain-Anbieter einen sogenannten A-Record anlegen: `dart.mein-verein.de` → die
@@ -154,12 +199,17 @@ Die Datei `.env` öffnen (`nano .env`) und ausfüllen:
 ```
 DOMAIN=dart.mein-verein.de
 ACME_EMAIL=du@mein-verein.de
-ADMIN_USER=kapitaen
+ADMIN_USER=vortuer
 ADMIN_PASSWORD_HASH=$2a$14$…die Zeile von eben…
 ```
 
 Mehr ist es nicht. In der Datei stehen keine Vorgaben, die du übernehmen könntest — jeder Wert ist
 deiner.
+
+> **`ADMIN_USER` ist kein Konto in der App.** Es ist nur der Benutzername, den der Browser beim
+> Vortür-Fenster abfragt, zusammen mit dem Passwort von eben. Du darfst dort hineinschreiben, was
+> du willst — `vortuer`, `verwaltung`, dein Vorname. Mit den Kapitänen, ihren Anmeldenamen und
+> überhaupt mit irgendetwas in der App hat dieser Name nichts zu tun.
 
 > Wenn du später einen dieser Werte korrigierst: Die Änderung wirkt erst, wenn die Container **neu
 > erstellt** werden. `docker compose restart` genügt dafür **nicht** — es startet dieselben
@@ -178,16 +228,28 @@ sie sich danach selbst; du musst dich darum nie kümmern, auch nicht um die Verl
 Fehlt einer der vier Werte, startet nichts und du bekommst gesagt, welcher fehlt. Das ist Absicht:
 lieber gar nicht starten als halb eingerichtet im Internet stehen.
 
-**7 · Deinen Kapitänszugang anlegen**
+**7 · Deinen Admin-Zugang anlegen**
 
 ```bash
 docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml exec mannschaftsplan \
   /usr/local/bin/pocketbase superuser upsert deine@adresse.de dein-passwort --dir=/pb_data
 ```
 
-Das ist die Anmeldung für die Kapitänsseite — eine andere als die aus Schritt 4. Die Adresse muss
-wie eine echte E-Mail-Adresse aussehen. Das Passwort steht danach in der Befehls-Historie deiner
-Shell; wenn dich das stört, lösche sie mit `history -c`.
+Das legt den **Superuser der Datenbank** an — und wer sich damit anmeldet, ist in der App
+**Admin**: Er sieht alle Mannschaften, legt Konten und Mannschaften an, pflegt die Rechtstexte
+und zieht die Sicherungen.
+
+Drei Dinge, die hier gern verwechselt werden:
+
+| | |
+|---|---|
+| **Das hier** | dein eigener Zugang zur Verwaltung, Rolle *Admin* |
+| **Schritt 4** | nur die Vortür des Webservers, ein anderes Passwort und kein Konto |
+| **Deine Kapitäne** | bekommen später eigene Konten in der App, unter *Konten* — **nicht** über diesen Befehl |
+
+Die Adresse muss wie eine echte E-Mail-Adresse aussehen, es wird aber nie etwas dorthin
+geschickt. Das Passwort steht danach in der Befehls-Historie deiner Shell; wenn dich das stört,
+lösche sie mit `history -c`.
 
 **8 · Deinen zweiten Faktor einrichten**
 
@@ -358,8 +420,7 @@ jede Verlegung einen zweiten Spieltag anlegen. Spielt ihr dieselbe Paarung mehrf
 Seite, trag in der Spalte **`Kennung`** etwas Eindeutiges ein (z. B. `hinrunde` und `rückrunde`);
 sonst hängt die Wiedererkennung an der Reihenfolge in der Datei, und die Vorschau warnt davor.
 
-### Der Alltag
-
+### 📆 Der Alltag
 **Ein Mitglied hat seinen Link verloren.** In der Kapitänsansicht auf „Neues Token". Der alte Link
 ist damit sofort tot, und alle Geräte, auf denen dieses Mitglied angemeldet war, fliegen raus.
 
@@ -376,8 +437,7 @@ zum [Aufräumen nach der Saison](#nach-der-saison-aufräumen).
 Zusage ändern. Wenn du unter *Verein* eine Frist hinterlegt hast, passiert das von selbst;
 im Protokoll steht die Zeile dann mit dem Vermerk „(automatisch)".
 
-### Wie groß darf eine Mannschaft sein?
-
+### 👥 Wie groß darf eine Mannschaft sein?
 Es gibt keine eingestellte Obergrenze — aber eine technische: **200 Spieler je Mannschaft**
 zeigen Verwaltung und Aushang an. Wird sie überschritten, sagt die Spielerliste es dir; bis
 dahin merkst du nichts davon. Für eine Dartmannschaft mit acht bis sechzehn Leuten ist das weit
@@ -410,8 +470,7 @@ Kapitänskonto.
 > Rückmeldungen zu vergangenen Spieltagen bleiben stimmig. *Gelöscht* wird, was wirklich weg
 > soll. Hängt an einem Spieler ein Kapitänskonto, musst du dort zuerst die Verknüpfung lösen.
 
-### Mehrere Mannschaften
-
+### 🧩 Mehrere Mannschaften
 Ein Verein mit sieben Mannschaften braucht keine sieben Instanzen. Eine reicht, und darin gibt es
 zwei Rollen:
 
@@ -481,10 +540,10 @@ Protokoll.
 > gelesen — er bekommt seine eigene, so wie ein Mitglied im Aushang immer sich selbst ändert und
 > nie jemand anderen.
 
-**Das Tor aus Schritt 4 brauchen die Kapitäne nicht.** Sie arbeiten unter `/manage` und melden
+**Die Vortür aus Schritt 4 brauchen die Kapitäne nicht.** Sie arbeiten unter `/manage` und melden
 sich dort nur in der App an — mit einem eigenen Passwort, das der Server erzeugt und das du
-jederzeit für eine einzelne Person zurücksetzen kannst. Ein geteiltes Tor-Passwort könnte das
-nicht: Es ist nicht widerrufbar, kennt kein Abmelden, und wer ausscheidet, nimmt es mit. Das Tor
+jederzeit für eine einzelne Person zurücksetzen kannst. Ein geteiltes Vortür-Passwort könnte das
+nicht: Es ist nicht widerrufbar, kennt kein Abmelden, und wer ausscheidet, nimmt es mit. Die Vortür
 steht deshalb nur noch vor dem, was alle Mannschaften betrifft — siehe „Zwei Wege hinein".
 
 **Eine Mannschaft auflösen** geht erst, wenn sie leer ist — keine Mitglieder, keine Spieltage,
@@ -497,14 +556,14 @@ Die Verwaltung ist dieselbe Oberfläche, aber sie hat zwei Eingänge:
 | Adresse | Für wen | Davor steht |
 |---|---|---|
 | `https://dart.mein-verein.de/manage` | die Kapitäne — Spieltage, Spieler, Rückmeldungen | nichts. Nur die Anmeldung in der App |
-| `https://dart.mein-verein.de/admin` | dich — Konten, Mannschaften, Verein, Sicherungen | zusätzlich das Tor aus Einrichtungsschritt 4 |
+| `https://dart.mein-verein.de/admin` | dich — Konten, Mannschaften, Verein, Sicherungen | zusätzlich die Vortür aus Einrichtungsschritt 4 |
 
 **Den Kapitänen gibst du `/manage`.** Sie sehen dort nur ihre eigene Mannschaft und brauchen kein
-Tor-Passwort — eines, das sich acht Leute teilen, ist ohnehin nicht widerrufbar und landet im
+Vortür-Passwort — eines, das sich acht Leute teilen, ist ohnehin nicht widerrufbar und landet im
 Zweifel in der Mannschaftsgruppe. Wer sein Passwort verliert, bekommt von dir ein neues; wer sich
 vertippt hat, wartet eine Viertelstunde (siehe unten).
 
-**Du selbst gehst über `/admin`.** Dort fragt der Browser zuerst nach dem Tor-Passwort und danach
+**Du selbst gehst über `/admin`.** Dort fragt der Browser zuerst nach dem Vortür-Passwort und danach
 die App nach deinem eigenen. Zweimal, ja — das ist gewollt: Hinter `/admin` hängt der Zugriff auf
 *alle* Mannschaften und auf die Datenbankdatei.
 
@@ -513,8 +572,7 @@ gar keine Anmeldung: Er hat wie jeder andere seinen persönlichen Einladungslink
 sein Konto unter **Konten** mit seinem Spielereintrag — dann steht auf dem Aushang oben ein
 „Verwaltung" und in der Verwaltung ein „Als Spieler", und er kommt mit einem Lesezeichen aus.
 
-### Wenn sich jemand vertippt hat
-
+### ⏳ Wenn sich jemand vertippt hat
 Nach fünf Fehlversuchen in einer Minute ist die Anmeldung von dieser Internetverbindung aus für
 **15 Minuten** gesperrt, nach zehn Fehlversuchen in einer Viertelstunde zusätzlich für dieses
 **Konto**. Beides löst sich von selbst wieder auf — meistens ist Warten die Antwort.
@@ -526,8 +584,7 @@ und daneben **Sperre aufheben**.
 > Da hilft nur Warten oder ein Neustart (`docker compose restart mannschaftsplan`); die Zähler
 > liegen im Arbeitsspeicher und sind danach weg.
 
-### Zweiter Faktor
-
+### 🔐 Zweiter Faktor
 Unter **Mein Konto → Zweiter Faktor** lässt sich zusätzlich zum Passwort ein sechsstelliger
 Code aus einer Authenticator-App verlangen. Wer dein Passwort erfährt, kommt damit trotzdem nicht
 in die Verwaltung.
@@ -557,7 +614,7 @@ einmal. Wie viele noch übrig sind, steht unter *Mein Konto*, und über **Neue C
 zehn frische (die alten gelten dann nicht mehr).
 
 > **Was er schützt.** Die Verwaltung unter `/manage` und `/admin`. Damit er nicht zu umgehen ist,
-> liegt seit R13c auch die **Superuser-Anmeldung** der API hinter dem Tor aus
+> liegt seit R13c auch die **Superuser-Anmeldung** der API hinter der Vortür aus
 > Einrichtungsschritt 4 — sonst holte sich jemand mit Adresse und Passwort über
 > `/api/collections/_superusers/auth-with-password` einen Token, käme an die ganze Datenbank,
 > ohne `/admin` je zu berühren, und könnte dort auch den zweiten Faktor löschen.
@@ -571,10 +628,10 @@ Für einen **Kapitän** ist der kürzeste Weg ohnehin ein anderer: Du schaltest 
 den zweiten Faktor ab, er richtet ihn neu ein.
 
 **Handy weg und Zettel weg, und zwar bei deinem eigenen Admin-Konto?** Dann führt der Ausweg über
-die API — mit deinem Superuser-Passwort **und** den Zugangsdaten des Tors aus Schritt 4 (`-u`):
+die API — mit deinem Superuser-Passwort **und** den Zugangsdaten der Vortür aus Schritt 4 (`-u`):
 
 ```bash
-TOKEN=$(curl -s -u kapitaen:tor-passwort \
+TOKEN=$(curl -s -u vortuer:dein-vortuer-passwort \
   https://dart.mein-verein.de/api/collections/_superusers/auth-with-password \
   -H 'Content-Type: application/json' \
   -d '{"identity":"deine@adresse.de","password":"dein-passwort"}' \
@@ -637,8 +694,7 @@ Das löscht nur, was kein Container mehr benutzt — deine Daten sind davon nie 
 > **Wenn du Werte in der `.env` geändert hast**, gilt dasselbe wie bei der Einrichtung: Erst
 > `… up -d` (mit oder ohne `--build`) macht sie wirksam, ein `restart` nicht.
 
-### Sicherungen
-
+### 💾 Sicherungen
 Es gibt zwei Wege, und du brauchst beide.
 
 **Von Hand, in der Kapitänsansicht.** Unter **Verein → Sicherungen** liegen vier Knöpfe:
@@ -665,7 +721,7 @@ PB_URL=https://dart.mein-verein.de \
 
 > **Zwei Angaben, die leicht fehlen.** Ohne **`PB_URL`** versucht das Skript
 > `http://127.0.0.1:8090` — also den Rechner, auf dem es gerade läuft — und bricht mit „Could not
-> connect to server" ab. Und **`ADMIN_USER`/`ADMIN_PASSWORD`** sind die Zugangsdaten des Tors aus
+> connect to server" ab. Und **`ADMIN_USER`/`ADMIN_PASSWORD`** sind die Zugangsdaten der Vortür aus
 > Schritt 4 (das Passwort im Klartext, nicht der Hash): Seit R13c liegt die Superuser-Anmeldung
 > dahinter. Fehlen sie, sagt dir das Skript genau das, statt dich ein falsches
 > Superuser-Passwort suchen zu lassen.
@@ -685,8 +741,7 @@ startet die App neu und ist ein paar Sekunden nicht erreichbar.
 > dafür ein Wegwerf-Mitglied an, spiel eine ältere Sicherung ein und sieh nach, ob es verschwindet
 > — sonst weißt du hinterher nicht, ob überhaupt etwas passiert ist.
 
-### Nur aus dem eigenen Netz erreichbar machen
-
+### 🏠 Nur aus dem eigenen Netz erreichbar machen
 Standardmäßig sind `/manage` und `/admin` von überall erreichbar — vom Handy im Mobilnetz, aus
 dem Urlaub, von unterwegs. Für die meisten Vereine ist das genau richtig.
 
@@ -722,8 +777,7 @@ Deine aktuelle Adresse findest du mit `curl -s https://api.ipify.org`. Ein einze
 der `.env` auskommentieren, Stack neu starten. Einen anderen Weg gibt es nicht — deshalb steht
 diese Einstellung nicht in der Oberfläche.
 
-### Wenn schon ein Reverse Proxy läuft
-
+### 🔀 Wenn schon ein Reverse Proxy läuft
 Läuft auf dem Server bereits ein Webserver, der andere Dienste ausliefert — Caddy, nginx,
 Traefik —, dann lässt du den zweiten Teil des Startbefehls weg:
 
@@ -831,8 +885,7 @@ Issue — siehe [`SECURITY.md`](SECURITY.md).
 
 ## Für Entwickler
 
-### Lokal starten, ohne Docker
-
+### 💻 Lokal starten, ohne Docker
 Zwei Terminals:
 
 ```bash
@@ -857,8 +910,7 @@ Produktionsnaher Schnelltest ohne Docker — alles same-origin auf `:8090`:
 cd app && npm run build      # baut nach ../pocketbase/pb_public/
 ```
 
-### Aufbau
-
+### 🧱 Aufbau
 Ein Container: PocketBase liefert das gebaute Frontend aus `pb_public` gleich mit, Migrationen und
 Hooks liegen fest im Image. Eine Origin, damit die Cookies aus R2/R11 ohne CORS auskommen.
 Persistent ist genau ein Volume, `pb_data`.
@@ -873,8 +925,7 @@ editiert**; alles Veränderliche kommt aus der `.env`.
 Ausgeliefert wird in zwei Varianten, geschnitten danach, ob der Stack seinen eigenen Proxy
 mitbringt — Einzelheiten in Abschnitt 7.1 des Umsetzungsplans.
 
-### Tests
-
+### ✅ Tests
 ```bash
 cp .env.example .env         # Adresse und Passwort des Superusers eintragen
 set -a && . ./.env && set +a
@@ -891,30 +942,28 @@ T8c, T8d, T10, T11 und T12 (Tür vor `/admin`, Dashboard von außen, Access-Log,
 Rücksicherung) lassen sich nicht sinnvoll automatisieren und stehen als Handprüfung in Abschnitt 11
 des Umsetzungsplans. Sie brauchen einen öffentlich erreichbaren Server.
 
-### Sicherheitsregeln
-
+### 🛡️ Sicherheitsregeln
 Verbindlich, nicht verhandelbar, vollständig in Abschnitt 4 des Umsetzungsplans. Die beiden, die
 den Betrieb am stärksten prägen:
 
 - **R13a** — `/_/` ist nie öffentlich erreichbar. Keine Allowlist, kein Schalter. Zugang über einen
   SSH-Tunnel auf einen an `127.0.0.1` gebundenen Port, siehe die Kommentare in
   [`docker-compose.yaml`](docker-compose.yaml).
-- **R13b** — vor `/admin` steht ein Tor, das nicht das Passwort aus der App ist: IP-Allowlist oder
+- **R13b** — vor `/admin` steht eine Vortür, das nicht das Passwort aus der App ist: IP-Allowlist oder
   vorgeschaltete Proxy-Anmeldung. Ohne eines von beiden bleibt `/admin` zu.
-- **R13e** — `/manage` steht dagegen offen: Ein Tor-Passwort, das sich alle Kapitäne teilen, ist
+- **R13e** — `/manage` steht dagegen offen: Ein Vortür-Passwort, das sich alle Kapitäne teilen, ist
   nicht widerrufbar und kennt kein Abmelden. An seine Stelle treten erzeugte Passwörter, eine
   Sperre pro Konto und enge Rechte. Wer trotzdem einschränken will, setzt `MANAGE_ALLOW`.
-- **R13c** — dasselbe Tor steht vor `/api/collections/_superusers/*`. Dort wird der
+- **R13c** — dieselbe Vortür steht vor `/api/collections/_superusers/*`. Dort wird der
   Superuser-Token ausgegeben, und mit ihm steht die ganze Datenbank offen; auf den Collections
-  liegen keine Regeln. Ein Tor nur vor der Kapitänsansicht wäre eines mit offener Hintertür.
+  liegen keine Regeln. Eine Vortür nur vor der Kapitänsansicht wäre eines mit offener Hintertür.
 
 Der Kapitäns-Login prüft in [`admin.pb.js`](pocketbase/pb_hooks/admin.pb.js) das Passwort direkt
 und geht damit weiterhin an PocketBases eigenem MFA vorbei — er bringt seit Abschnitt 9 aber
 seinen **eigenen** zweiten Faktor mit (TOTP, siehe oben). PocketBases MFA schied aus, weil es
 Einmalcodes per E-Mail verschickt und diese App bewusst keinen Mailserver hat.
 
-### Token per Skript neu ausstellen
-
+### 🔑 Token per Skript neu ausstellen
 Denselben Knopf gibt es in der Kapitänsansicht — das Skript bleibt als Rettungsanker:
 
 ```bash
@@ -923,8 +972,7 @@ node pocketbase/rotate-token.mjs "<Name des Mitglieds>"
 
 Macht den alten Link tot, meldet alle Geräte des Mitglieds ab und schreibt einen Protokolleintrag.
 
-### Was wo liegt
-
+### 🗺️ Was wo liegt
 | Datei | Inhalt |
 |---|---|
 | [`docs/umsetzungsplan.md`](docs/umsetzungsplan.md) | Die verbindliche Vorgabe: Datenmodell, Sicherheitsregeln R1–R14, API, Design-Tokens, Testfälle. |
@@ -938,8 +986,7 @@ Macht den alten Link tot, meldet alle Geräte des Mitglieds ab und schreibt eine
 | [`SECURITY.md`](SECURITY.md) | Sicherheitslücken vertraulich melden. |
 | [`LICENSE`](LICENSE) | MIT — frei nutzbar. |
 
-### Veröffentlichen
-
+### 🏷️ Veröffentlichen
 Eine neue Version entsteht ohne Terminal: **Actions → „Release starten" → „Run workflow"**,
 Versionsnummer eingeben. Der Workflow prüft den Stand, zählt die Version hoch, stempelt den
 Abschnitt „Unveröffentlicht" im Changelog, setzt Commit und Tag und legt das GitHub-Release an.
@@ -949,8 +996,7 @@ Container-Image. Der Tag sagt, welcher Stand läuft.
 
 ---
 
-## Mitmachen
-
+## 🤝 Mitmachen
 Fehler, Ideen und Doku-Korrekturen sind willkommen — auch ohne eine Zeile Code. Am besten über
 [Issues](../../issues/new/choose); Ablauf, Entwicklungsumgebung und Commit-Stil stehen in
 [`CONTRIBUTING.md`](CONTRIBUTING.md).
@@ -962,6 +1008,5 @@ tiefgehenden Themen nur begrenzt antworten kann.
 Für Berichte aus dem Betrieb gilt: **keine echten Namen und keine gültigen Einladungslinks**
 mitschicken. Ein Link auf einem Bildschirmfoto ist ein gültiger Zugang.
 
-## Lizenz
-
+## 📄 Lizenz
 [MIT](LICENSE) — benutz es, ändere es, gib es weiter.
