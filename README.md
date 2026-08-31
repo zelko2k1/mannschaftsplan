@@ -331,6 +331,28 @@ Listen und ist sofort von allen Geräten abgemeldet.
 Zusage ändern. Wenn du unter Einstellungen eine Frist hinterlegt hast, passiert das von selbst;
 im Protokoll steht die Zeile dann mit dem Vermerk „(automatisch)".
 
+### Nach der Saison aufräumen
+
+Von selbst passiert das auch: Spieltage älter als zwölf Monate verschwinden nachts, das Protokoll
+nach 90 Tagen. Wer nicht so lange warten will — weil die Saison vorbei ist oder weil eine
+Testmannschaft weg soll —, findet unter **Verein → Saison abschließen** den Griff dazu.
+
+1. **Erst eine Sicherung erstellen.** Der Abschnitt darüber macht das in einem Klick. Was hier
+   verschwindet, holt kein zweiter Klick zurück.
+2. Mannschaft wählen (oder *alle*) und einen **Stichtag**. Vorgabe ist heute — dann bleibt alles
+   Kommende stehen. Darüber steht, wie viele Spieltage betroffen sind.
+3. **Spieltage löschen.** Rückmeldungen, Fahrten und Mitfahrer gehen mit.
+
+Danach greift eine Kette: Ein **Spieler** lässt sich unter *Mannschaft* löschen, sobald keine
+Rückmeldung und keine Fahrt mehr an ihm hängt — vorher sagt der Server, was im Weg ist. Und eine
+**Mannschaft** lässt sich löschen, sobald sie leer ist: keine Spieler, keine Spieltage, kein
+Kapitänskonto.
+
+> **Löschen ist nicht dasselbe wie „Deaktivieren".** Wer den Verein verlässt, wird
+> *deaktiviert* — er verschwindet aus allen Listen, ist von allen Geräten abgemeldet, und seine
+> Rückmeldungen zu vergangenen Spieltagen bleiben stimmig. *Gelöscht* wird, was wirklich weg
+> soll. Hängt an einem Spieler ein Kapitänskonto, musst du dort zuerst die Verknüpfung lösen.
+
 ### Mehrere Mannschaften
 
 Ein Verein mit sieben Mannschaften braucht keine sieben Instanzen. Eine reicht, und darin gibt es

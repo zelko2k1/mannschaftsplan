@@ -8,6 +8,15 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 ## [Unveröffentlicht]
 
 ### Hinzugefügt
+- **Saison abschließen.** Unter *Verein* lassen sich Spieltage bis zu einem Stichtag löschen —
+  wahlweise nur die einer Mannschaft —, mitsamt Rückmeldungen, Fahrten und Mitfahrern. Bisher
+  ging das nur automatisch nach zwölf Monaten oder gar nicht. Vor dem Löschen steht, wie viele
+  Spieltage betroffen sind, und daneben der Hinweis auf die Sicherung.
+- **Spieler löschen, nicht nur deaktivieren.** Erlaubt, solange an ihm nichts mehr hängt: keine
+  Rückmeldung, keine Fahrt, kein Kapitänskonto — sonst sagt der Server, was im Weg ist, und
+  nichts passiert. Damit ergibt sich eine Kette: Spieltage aufräumen, dann Spieler löschen, dann
+  ist die Mannschaft leer und lässt sich auflösen. Der Normalfall bleibt *Deaktivieren*: Wer
+  aufhört, hat trotzdem letzten Monat mitgespielt.
 - **Der Spielereintrag eines Kapitäns entsteht auf Wunsch gleich mit.** Unter *Konten → Spielt
   als* gibt es die Zeile „neu anlegen": Name eintippen, und Spielereintrag und Konto entstehen
   zusammen. Bisher waren das zwei Wege — erst unter *Mannschaft* den Spieler anlegen, dann

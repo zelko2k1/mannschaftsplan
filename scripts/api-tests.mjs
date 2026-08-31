@@ -2480,6 +2480,111 @@ await pruefe('A16', 'Der Vereinsname ist ohne Anmeldung lesbar — und sonst nic
   gleich(Object.keys(koerper).length, 1, 'Anzahl der Felder')
 })
 
+// ── Saisonende (Spieler löschen, Spieltage aufräumen) ──────────────────────────────────────
+await pruefe('S1', 'Ein Spieler mit Historie lässt sich nicht löschen — ohne schon', async () => {
+  const jar = await adminSitzung()
+  const ruf = alsKapitaen(jar)
+  const team = await testTeam()
+  const { satz: mitglied } = await testMitglied('loeschbar', true, team)
+  const spieltag = await testSpieltag({ team })
+
+  // Eine Rückmeldung an diesem Spieler — genau das, was der Löschjob sonst lautlos mitnähme.
+  await pb('/api/collections/responses/records', {
+    method: 'POST',
+    body: JSON.stringify({ fixture: spieltag.id, member: mitglied.id, status: 'yes' }),
+  })
+
+  const gesperrt = await ruf(`/manage/api/members/${mitglied.id}`, { method: 'DELETE' })
+  gleich(gesperrt.status, 409, 'Status mit Historie')
+  stimmt((await gesperrt.json()).message.includes('Rückmeldung'), 'die Meldung sagt, was im Weg ist')
+  // Und wirklich nichts passiert — geprüft an der Wirkung, nicht am Statuscode.
+  const liste = await (await ruf(`/manage/api/members?team=${team}`)).json()
+  stimmt(liste.items.some((m) => m.id === mitglied.id), 'der Spieler steht noch da')
+
+  // Aufräumen macht ihn löschbar. Das ist die ganze Kette: Spieltage weg → Spieler weg.
+  const heute = new Date().toISOString().slice(0, 10)
+  const geraeumt = await (
+    await ruf('/admin/api/spieltage/aufraeumen', {
+      method: 'POST',
+      body: JSON.stringify({ bis: heute, team }),
+    })
+  ).json()
+  stimmt(geraeumt.spieltage >= 1, 'mindestens der eine Spieltag ging weg')
+
+  gleich((await ruf(`/manage/api/members/${mitglied.id}`, { method: 'DELETE' })).status, 200, 'jetzt')
+  const danach = await (await ruf(`/manage/api/members?team=${team}`)).json()
+  stimmt(!danach.items.some((m) => m.id === mitglied.id), 'der Spieler ist weg')
+
+  // Die Rückmeldung hing am Spieltag und ist mit ihm verschwunden.
+  const reste = await pb(
+    `/api/collections/responses/records?filter=${encodeURIComponent(`member="${mitglied.id}"`)}`,
+  )
+  gleich(reste.items.length, 0, 'keine verwaisten Rückmeldungen')
+})
+
+await pruefe('S2', 'Ein Spieler mit Kapitänskonto bleibt geschützt', async () => {
+  const jar = await adminSitzung()
+  const ruf = alsKapitaen(jar)
+  const team = await testTeam()
+  const { satz: spieler } = await testMitglied('mit-konto', true, team)
+  const email = `test-konto-${randomBytes(4).toString('hex')}@example.invalid`
+
+  const konto = await (
+    await ruf('/admin/api/verwalter', {
+      method: 'POST',
+      body: JSON.stringify({ email, rolle: 'kapitaen', team, mitglied: spieler.id }),
+    })
+  ).json()
+  aufraeumen.push(['verwalter', konto.id])
+
+  const antwort = await ruf(`/manage/api/members/${spieler.id}`, { method: 'DELETE' })
+  gleich(antwort.status, 409, 'Status')
+  stimmt((await antwort.json()).message.includes('Kapitänskonto'), 'die Meldung nennt den Grund')
+})
+
+await pruefe('S3', 'Das Aufräumen hält sich an Stichtag und Mannschaft', async () => {
+  const jar = await adminSitzung()
+  const ruf = alsKapitaen(jar)
+  const team = await testTeam()
+  const andere = (await zweiteMannschaft()).id
+
+  const gestern = new Date(Date.now() - 86400000)
+  const morgen = new Date(Date.now() + 86400000)
+  const alsPb = (d) => d.toISOString().replace('T', ' ').slice(0, 19)
+
+  const alt = await testSpieltag({ team, date: alsPb(gestern), opponent_town: 'test-alt' })
+  const kuenftig = await testSpieltag({ team, date: alsPb(morgen), opponent_town: 'test-kuenftig' })
+  const fremd = await testSpieltag({ team: andere, date: alsPb(gestern), opponent_town: 'test-fremd' })
+
+  const heute = new Date().toISOString().slice(0, 10)
+  const d = await (
+    await ruf('/admin/api/spieltage/aufraeumen', {
+      method: 'POST',
+      body: JSON.stringify({ bis: heute, team }),
+    })
+  ).json()
+  stimmt(d.spieltage >= 1, 'es wurde etwas gelöscht')
+
+  const eigene = await (await ruf(`/manage/api/fixtures?team=${team}`)).json()
+  stimmt(!eigene.items.some((s) => s.id === alt.id), 'der vergangene Spieltag ist weg')
+  stimmt(eigene.items.some((s) => s.id === kuenftig.id), 'der künftige steht noch')
+
+  const fremde = await (await ruf(`/manage/api/fixtures?team=${andere}`)).json()
+  stimmt(fremde.items.some((s) => s.id === fremd.id), 'die andere Mannschaft ist unberührt')
+
+  // Ein unbrauchbares Datum löscht nichts, statt alles zu löschen.
+  gleich(
+    (
+      await ruf('/admin/api/spieltage/aufraeumen', {
+        method: 'POST',
+        body: JSON.stringify({ bis: 'irgendwann', team }),
+      })
+    ).status,
+    400,
+    'unbrauchbares Datum',
+  )
+})
+
 await pruefe('T9', '6× falsches Passwort → gesperrt, auch für das richtige', async () => {
   let letzter = null
   for (let i = 0; i < 6; i++) letzter = (await adminAnmelden('immer-falsch')).antwort

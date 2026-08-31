@@ -308,6 +308,13 @@ export const adminApi = {
     ruf<{ id: string }>('/members', { method: 'POST', body: JSON.stringify({ name, team }) }),
   mitgliedAendern: (id: string, daten: Partial<AdminMitglied>) =>
     ruf<unknown>(`/members/${id}`, { method: 'PATCH', body: JSON.stringify(daten) }),
+  /**
+   * Einen Spieler wirklich entfernen — nicht bloß auf inaktiv setzen.
+   *
+   * Der Server lässt es nur zu, solange nichts mehr an ihm hängt: keine Rückmeldung, keine
+   * Fahrt, kein Kapitänskonto. Was im Weg ist, steht in der Fehlermeldung.
+   */
+  mitgliedLoeschen: (id: string) => ruf<unknown>(`/members/${id}`, { method: 'DELETE' }),
   tokenNeu: (id: string) =>
     ruf<{ token: string; sitzungen_beendet: number }>(`/members/${id}/rotate-token`, {
       method: 'POST',
@@ -331,6 +338,15 @@ export const adminApi = {
   mannschaftAendern: (id: string, daten: Partial<Mannschaft>) =>
     ruf<{ id: string }>(`/teams/${id}`, { method: 'PATCH', body: JSON.stringify(daten) }),
   mannschaftLoeschen: (id: string) => rufAdmin<unknown>(`/teams/${id}`, { method: 'DELETE' }),
+  /**
+   * Saisonende: Spieltage bis einschließlich `bis` (YYYY-MM-DD) löschen, wahlweise nur die einer
+   * Mannschaft. Rückmeldungen und Fahrten gehen mit — deshalb NUR Admin.
+   */
+  spieltageAufraeumen: (bis: string, team = '') =>
+    rufAdmin<{ spieltage: number }>('/spieltage/aufraeumen', {
+      method: 'POST',
+      body: JSON.stringify({ bis, team }),
+    }),
 
   verwalter: () => rufAdmin<{ items: Verwalterkonto[] }>('/verwalter'),
   /** Das Passwort kommt genau einmal zurück — wie der Einladungslink eines Mitglieds (R1). */

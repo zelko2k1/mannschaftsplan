@@ -764,6 +764,126 @@ routerAdd('PATCH', '/manage/api/members/{id}', (e) => {
   return e.json(200, { ok: true })
 })
 
+// ── DELETE /manage/api/members/{id} · Einen Spieler wirklich entfernen ──────────────────────
+// Bis hierher gab es nur „inaktiv“: Der Spieler verschwindet aus den Listen, der Datensatz
+// bleibt. Das ist im Betrieb richtig - wer aufhoert, hat trotzdem letzten Monat mitgespielt, und
+// seine Rückmeldungen gehören zu Spieltagen, die es noch gibt.
+//
+// Nach der Saison stimmt das nicht mehr. Deshalb hier ein echtes Loeschen, aber MIT WACHE:
+// erlaubt nur, wenn an diesem Spieler nichts mehr hängt. Wer Historie hat, wird erst durch das
+// Aufräumen der alten Spieltage löschbar - und dann ist der Verlust auch keiner mehr.
+//
+// Die Wache ist kein Misstrauen gegen den Kapitaen, sondern gegen den Klick: Die Beziehungen
+// hängen an cascadeDelete, ein Loeschen nähme Rückmeldungen, Fahrten und Mitfahrer lautlos
+// mit. Was mitgeht, soll man vorher wissen.
+routerAdd('DELETE', '/manage/api/members/{id}', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const vor = a.pruefen(e)
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
+
+  let satz
+  try {
+    satz = e.app.findRecordById('members', e.request.pathValue('id'))
+  } catch {
+    return e.json(400, { message: 'Ungültige Angabe.' })
+  }
+  if (!a.darfTeam(vor.kontext, satz.getString('team'))) {
+    return e.json(400, { message: 'Ungültige Angabe.' })
+  }
+
+  // Was hängt noch dran? Gezaehlt wird einzeln, damit die Meldung sagen kann, WAS im Weg ist.
+  let rueckmeldungen = 0
+  let fahrten = 0
+  for (const [was, ziel] of [['responses', 'r'], ['rides', 'f'], ['seat_claims', 'f']]) {
+    const treffer = e.app.findRecordsByFilter(was, 'member = {:m}', '', 200, 0, { m: satz.id })
+    if (ziel === 'r') rueckmeldungen += treffer.length
+    else fahrten += treffer.length
+  }
+  if (rueckmeldungen > 0 || fahrten > 0) {
+    const teile = []
+    if (rueckmeldungen > 0) teile.push(`${rueckmeldungen} Rückmeldung(en)`)
+    if (fahrten > 0) teile.push(`${fahrten} Fahrt(en) oder Mitfahrten`)
+    return e.json(409, {
+      message: `An diesem Spieler hängen noch ${teile.join(' und ')}. Erst die Spieltage der alten Saison aufräumen, dann geht es.`,
+    })
+  }
+
+  // Ein Kapitän, der mitspielt, hängt mit seinem KONTO an diesem Eintrag. Die Beziehung hat
+  // ausdruecklich kein cascadeDelete, das Konto überlebte es also - aber lautlos die
+  // Spieleransicht eines Kollegen abzuschalten ist keine Freundlichkeit.
+  const konten = e.app.findRecordsByFilter('verwalter', 'mitglied = {:m}', '', 1, 0, { m: satz.id })
+  if (konten.length) {
+    return e.json(409, {
+      message: 'Zu diesem Spieler gehört ein Kapitänskonto. Erst dort die Verknüpfung lösen.',
+    })
+  }
+
+  const name = satz.getString('name')
+  e.app.delete(satz)
+  a.protokoll(e, 'member.delete', satz.id, name, '')
+  return e.json(200, { ok: true })
+})
+
+// ── POST /admin/api/spieltage/aufraeumen · Saisonende ───────────────────────────────────────
+// Der Löschjob raeumt Spieltage nach zwölf Monaten von selbst weg (Abschnitt 8). Das ist die
+// Untergrenze fuer den Datenschutz, aber kein Werkzeug: Wer nach der Saison Ordnung machen oder
+// eine Testmannschaft loswerden will, wartet nicht ein Jahr.
+//
+// Zwei Regler, weil es zwei Anlässe gibt: ein Datum (alles davor) und wahlweise eine einzelne
+// Mannschaft. Beide zusammen decken „Saison abschließen“ und „Testdaten weg“ ab, ohne dass es
+// zwei Funktionen braucht.
+//
+// Nur der Admin, und nur mit zweitem Faktor: Das hier nimmt Rückmeldungen und Fahrten per
+// Kaskade mit, und die Vorschau in der Oberflaeche sagt vorher, wie viele es sind.
+routerAdd('POST', '/admin/api/spieltage/aufraeumen', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const vor = a.pruefen(e)
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
+  if (vor.kontext.rolle !== 'admin') return e.json(404, { message: 'Nicht gefunden.' })
+  const ohneFaktor = a.faktorFehlt(e)
+  if (ohneFaktor) return e.json(ohneFaktor.status, ohneFaktor.koerper)
+
+  const koerper = e.requestInfo().body || {}
+  const bis = String(koerper.bis || '').trim()
+  // Erwartet wird ein Datum, kein Zeitpunkt: „bis einschließlich diesem Tag“.
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(bis)) return e.json(400, { message: 'Ungültiges Datum.' })
+  // Verglichen wird gegen den ANFANG des Folgetags, nicht gegen 23:59:59 desselben. Sonst
+  // entschiede die letzte Sekunde eines Tages darüber, ob ein Spieltag mitgeht — und die
+  // Vorschau in der Oberfläche, die nur auf das Datum sieht, zählte etwas anderes als der
+  // Server löscht.
+  const tag = new Date(`${bis}T00:00:00Z`)
+  if (isNaN(tag.getTime())) return e.json(400, { message: 'Ungültiges Datum.' })
+  tag.setUTCDate(tag.getUTCDate() + 1)
+  const grenze = tag.toISOString().replace('T', ' ').slice(0, 19)
+
+  const team = String(koerper.team || '').trim()
+  if (team) {
+    try {
+      e.app.findRecordById('teams', team)
+    } catch {
+      return e.json(400, { message: 'Ungültige Angabe.' })
+    }
+  }
+
+  const filter = team ? 'date < {:g} && team = {:t}' : 'date < {:g}'
+  const parameter = team ? { g: grenze, t: team } : { g: grenze }
+
+  let spieltage = 0
+  // In Schüben, damit auch eine lange Historie in einem Aufruf durchlaeuft.
+  for (let runde = 0; runde < 20; runde++) {
+    const treffer = e.app.findRecordsByFilter('fixtures', filter, 'date', 500, 0, parameter)
+    if (!treffer.length) break
+    for (const s of treffer) {
+      // Rückmeldungen, Fahrten und Mitfahrer verschwinden ueber cascadeDelete mit.
+      e.app.delete(s)
+      spieltage += 1
+    }
+  }
+
+  a.protokoll(e, 'fixtures.cleanup', team, bis, `${spieltage} Spieltage`)
+  return e.json(200, { spieltage })
+})
+
 // ── R12 · Neues Token ───────────────────────────────────────────────────────────────────────
 routerAdd('POST', '/manage/api/members/{id}/rotate-token', (e) => {
   const a = require(`${__hooks}/adminauth.js`)

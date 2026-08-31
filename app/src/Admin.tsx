@@ -972,6 +972,28 @@ function Mitglieder({ abgemeldet, team }: { abgemeldet: () => void; team: string
             >
               {m.hat_token ? 'Neues Token' : 'Link erstellen'}
             </button>
+            {/* Erst seit dem Saisonende gibt es das. „Deaktivieren" bleibt der Normalfall: Wer
+                aufhört, hat trotzdem letzten Monat mitgespielt. Gelöscht wird, was wirklich weg
+                soll — und der Server lässt es nur zu, solange nichts mehr daran hängt. */}
+            <button
+              type="button"
+              className="knopf knopf--gefahr"
+              disabled={laeuft === m.id}
+              onClick={() =>
+                setFrage({
+                  id: m.id,
+                  titel: `${m.name} löschen`,
+                  text: 'Der Spielereintrag verschwindet endgültig, samt seinem Einladungslink. Hängen noch Rückmeldungen oder Fahrten daran, sagt der Server es und nichts passiert — dann zuerst unter „Verein" die alte Saison aufräumen.',
+                  knopf: 'Endgültig löschen',
+                  tun: () => {
+                    setFrage(null)
+                    void fangen(m.id, () => adminApi.mitgliedLoeschen(m.id), 'Nicht gelöscht.')
+                  },
+                })
+              }
+            >
+              Löschen
+            </button>
           </div>
 
           <Nachfragekasten
@@ -1302,6 +1324,9 @@ function Verein({
       </>
     )}
     <Sicherungen abgemeldet={abgemeldet} />
+    {/* Ganz unten und hinter den Sicherungen: Wer hierher scrollt, sucht das Aufräumen — und
+        findet direkt darüber den Knopf, der vorher zu drücken ist. */}
+    <Saisonende abgemeldet={abgemeldet} />
     </>
   )
 }
@@ -1608,6 +1633,158 @@ function vorschlagen(ausDatei: string[], vorhanden: Mannschaft[]): Record<string
     ergebnis[name] = treffer.length === 1 ? treffer[0] : NEUE_MANNSCHAFT
   }
   return ergebnis
+}
+
+/**
+ * Saisonende — alte Spieltage wegräumen, damit danach auch Spieler und Mannschaften gehen.
+ *
+ * Der Löschjob räumt Spieltage nach zwölf Monaten von selbst weg (Abschnitt 8). Das ist die
+ * Untergrenze für den Datenschutz, aber kein Werkzeug: Wer nach der Saison Ordnung machen oder
+ * eine Testmannschaft loswerden will, wartet nicht ein Jahr.
+ *
+ * Und es hängt zusammen: Ein Spieler lässt sich nur löschen, solange keine Rückmeldung und keine
+ * Fahrt mehr an ihm hängt, eine Mannschaft nur, wenn sie leer ist. Dieser Abschnitt ist damit
+ * der erste Schritt einer Kette — deshalb steht er hier und nicht in der Mannschaftsansicht.
+ */
+function Saisonende({ abgemeldet }: { abgemeldet: () => void }) {
+  const { items: teams } = useListe<Mannschaft>(adminApi.mannschaften, abgemeldet)
+  const [team, setTeam] = useState('')
+  const {
+    items: spieltage,
+    fehler,
+    setFehler,
+    laden,
+  } = useListe<AdminSpieltag>(() => adminApi.spieltage(team), abgemeldet, team)
+  const [bis, setBis] = useState(alsDatumsfeld(new Date()))
+  const [laeuft, setLaeuft] = useState(false)
+  const [frage, setFrage] = useState<Nachfrage | null>(null)
+  const [ergebnis, setErgebnis] = useState('')
+
+  // Dieselbe Rechnung wie im Server: verglichen wird der Tag, nicht die Uhrzeit. Sonst zählte
+  // die Vorschau etwas anderes, als anschließend verschwindet.
+  const betroffen = (spieltage ?? []).filter((s) => s.date.slice(0, 10) <= bis)
+  const name = teams?.find((t) => t.id === team)?.name
+
+  async function aufraeumen() {
+    setLaeuft(true)
+    setFehler('')
+    setErgebnis('')
+    try {
+      const d = await adminApi.spieltageAufraeumen(bis, team)
+      setErgebnis(
+        d.spieltage === 0
+          ? 'Es war nichts zu löschen.'
+          : `${d.spieltage} Spieltage gelöscht, mitsamt allen Rückmeldungen und Fahrten daran.`,
+      )
+      await laden()
+    } catch (problem) {
+      if (problem instanceof NichtAngemeldet) return abgemeldet()
+      setFehler(problem instanceof Error ? problem.message : 'Nicht gelöscht.')
+    } finally {
+      setLaeuft(false)
+    }
+  }
+
+  return (
+    <section className="satz">
+      <div className="satz__kopf">
+        <h2 className="satz__name">Saison abschließen</h2>
+      </div>
+
+      <Fehler text={fehler} />
+
+      <p className="namen">
+        Spieltage bis zu einem Stichtag löschen — mitsamt allen Rückmeldungen, Fahrten und
+        Mitfahrern daran. Danach lassen sich auch die Spieler löschen, die nur zu dieser Saison
+        gehörten, und leere Mannschaften verschwinden.
+      </p>
+
+      <div className="feldreihe">
+        <label className="feld feld--kurz">
+          <span>Mannschaft</span>
+          <select
+            value={team}
+            onChange={(x) => {
+              setTeam(x.target.value)
+              setErgebnis('')
+            }}
+          >
+            <option value="">alle Mannschaften</option>
+            {(teams ?? []).map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="feld feld--kurz">
+          <span>Bis einschließlich</span>
+          <input
+            type="date"
+            value={bis}
+            onChange={(x) => {
+              setBis(x.target.value)
+              setErgebnis('')
+            }}
+          />
+          <span className="feld__hinweis">
+            Vorgabe ist heute — dann bleibt alles Kommende stehen.
+          </span>
+        </label>
+      </div>
+
+      {spieltage === null ? (
+        <p className="namen">Einen Moment …</p>
+      ) : (
+        <p className="namen">
+          <strong>
+            {betroffen.length} von {spieltage.length} Spieltagen
+          </strong>{' '}
+          {name ? `der Mannschaft ${name} ` : ''}
+          {betroffen.length === 1 ? 'wird' : 'werden'} gelöscht.
+        </p>
+      )}
+
+      {/* Der Griff zur Sicherung gehört daneben, nicht in eine Fußnote: Was hier verschwindet,
+          holt kein zweiter Klick zurück. */}
+      <p className="namen">
+        Vorher eine <strong>Sicherung</strong> erstellen — der Abschnitt darüber macht das in
+        einem Klick.
+      </p>
+
+      <div className="satz__aktionen">
+        <button
+          type="button"
+          className="knopf knopf--gefahr"
+          disabled={laeuft || betroffen.length === 0}
+          onClick={() =>
+            setFrage({
+              id: 'saisonende',
+              titel: `${betroffen.length} Spieltage löschen`,
+              text: `Gelöscht werden alle Spieltage ${name ? `der Mannschaft ${name} ` : ''}bis einschließlich ${bis}, mit allem, was daran hängt: Rückmeldungen, Fahrten, Mitfahrer. Das lässt sich nur über eine Sicherung rückgängig machen.`,
+              knopf: 'Endgültig löschen',
+              tun: () => {
+                setFrage(null)
+                void aufraeumen()
+              },
+            })
+          }
+        >
+          {laeuft ? 'Löscht …' : 'Spieltage löschen'}
+        </button>
+        <span className="satz__zusatz" role="status">
+          {ergebnis}
+        </span>
+      </div>
+
+      <Nachfragekasten frage={frage} abbrechen={() => setFrage(null)} laeuft={laeuft} />
+    </section>
+  )
+}
+
+/** „2026-08-31" — die Schreibweise, die ein `input type="date"` erwartet, in Ortszeit. */
+function alsDatumsfeld(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 /**

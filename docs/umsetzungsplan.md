@@ -599,6 +599,13 @@ GET    /admin/api/fixtures
 POST   /admin/api/fixtures
 PATCH  /admin/api/fixtures/:id
 DELETE /admin/api/fixtures/:id
+DELETE /manage/api/members/:id      // nur ohne Rückmeldung, Fahrt und Kapitänskonto → sonst 409
+       // Bewusst unter /manage: Der Kapitän räumt seine eigene Mannschaft auf. Die Liste hier
+       // führt die Mitglieder-Routen noch unter dem alten Präfix — das ist Altbestand.
+POST   /admin/api/spieltage/aufraeumen  { bis: "YYYY-MM-DD", team? }
+                                    → { spieltage }
+       // Saisonende, NUR Rolle admin. Verglichen wird gegen den Anfang des Folgetags, damit die
+       // Vorschau in der Oberfläche dasselbe zählt, was der Server löscht.
 POST   /admin/api/fixtures/import   { zeilen: [{ quelle, team, date, opponent_club,
                                                 is_home, venue,
                                                 opponent_town?, km? }] }
@@ -918,6 +925,14 @@ Neustart überstehen.
 - Gespeichert werden Name, Verfügbarkeit, Fahrbereitschaft. Sonst nichts.
 - Löschjob: `fixtures` und abhängige Datensätze älter als 12 Monate automatisch entfernen.
 - `audit_log` nach 90 Tagen kürzen.
+- **Von Hand zum Saisonende** (Verein → „Saison abschließen"): Spieltage bis zu einem Stichtag,
+  wahlweise nur die einer Mannschaft. Zwölf Monate sind die datenschutzrechtliche Untergrenze,
+  kein Werkzeug — wer nach der Saison aufräumt oder eine Testmannschaft loswird, wartet nicht so
+  lange. Nur `admin`, weil es alle Mannschaften betrifft.
+- **Spieler löschen** ist erlaubt, solange an ihm nichts mehr hängt: keine Rückmeldung, keine
+  Fahrt, kein Kapitänskonto. Sonst 409 mit der Auskunft, was im Weg ist. Der Normalfall bleibt
+  `active = false` — wer aufhört, hat trotzdem letzten Monat mitgespielt. Damit ergibt sich eine
+  Kette: Spieltage aufräumen → Spieler löschbar → leere Mannschaft löschbar.
 - Der Mannschaft einmal mitteilen, was gespeichert wird und wo der Server steht.
 - Gehört die Mannschaft zu einem eingetragenen Verein, gehört die Anwendung ins
   Verarbeitungsverzeichnis.
@@ -1060,6 +1075,9 @@ nur im Arbeitsspeicher.
 | I4 | Import mit erfundener Mannschaft, leerer Liste, kaputtem Termin, ohne CSRF-Kopfzeile | je 400 bzw. 403 **und nichts geschrieben** — **automatisiert** |
 | I5 | Import mit Ort und Kilometern, danach derselbe Spieltag ohne beides | die Angaben landen am Spieltag und überleben den Nachimport; unsinnige Kilometer → 400 — **automatisiert** |
 | A16 | `GET /api/anzeigename` ohne jede Sitzung | 200 mit dem eingestellten Vereinsnamen, und **nur** diesem einen Feld — **automatisiert** |
+| S1 | Spieler mit Rückmeldung löschen, dann aufräumen, dann nochmal | erst 409 **und der Spieler steht noch da**, nach dem Aufräumen 200; keine verwaisten Rückmeldungen — **automatisiert** |
+| S2 | Spieler löschen, an dem ein Kapitänskonto hängt | 409 mit dem Grund — **automatisiert** |
+| S3 | Aufräumen mit Stichtag und Mannschaft | löscht Vergangenes der gewählten Mannschaft, lässt Künftiges und fremde Mannschaften stehen; unbrauchbares Datum → 400 — **automatisiert** |
 | C2 | Schreiben in der Verwaltung ohne `X-CSRF-Token` | 403 **und der Datensatz ist danach nicht da** — geprüft wird die Wirkung, nicht der Statuscode (R11) — **automatisiert** |
 | T10 | Access-Log nach `/j/`-Aufruf durchsuchen | kein Token im Klartext |
 | T11 | Link in WhatsApp einfügen | Vorschau zeigt den Anzeigename aus `settings`, nichts Personalisiertes |
