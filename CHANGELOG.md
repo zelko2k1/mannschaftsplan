@@ -39,6 +39,20 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   spielt und dieselbe Frage hat — wer kommt, wer fährt wen —, kann sie genauso benutzen. Der
   Verweis auf DartsZentrale ist vom bloßen „nicht verwechseln" zu einem Wegweiser geworden.
 
+### Geändert
+
+- **Ein eigenes Zeichen für die Registerkarte.** Das bisherige Favicon war ein violetter Blitz
+  aus einer Projektvorlage — sechzehn Weichzeichner-Filter, Verläufe, runde Formen: das genaue
+  Gegenteil der Gestaltungsregeln aus Abschnitt 6.2 („Ecken 0 px, keine Schatten, keine
+  Verläufe"), und mit der App hatte er ohnehin nichts zu tun. An seiner Stelle steht jetzt der
+  **Aushang selbst**: gelbes Papier, schwarzer Kopfbalken, darunter zwei Zeilen aus kurzer
+  Uhrzeit und langem Zielort — dieselben zwei Farben, die die App verwendet. Jede Koordinate ist
+  ein Vielfaches von 4, damit bei 16 px jede Kante auf einer Pixelgrenze liegt und das Zeichen
+  in der Registerkarte scharf bleibt.
+- **Die Einladungsseite `/j/:token` zeigt das Zeichen jetzt auch.** Sie band gar kein Favicon
+  ein — ausgerechnet die Seite, auf der die Mitglieder als Erstes landen, blieb beim
+  Standardsymbol des Browsers.
+
 ### Behoben
 
 - **„Bearbeiten" sprang an den Anfang der Liste.** Das Formular für einen Spieltag stand immer
