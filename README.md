@@ -240,6 +240,47 @@ HTML wird angezeigt statt ausgewertet.
 > Jahr, das Protokoll nach 90 Tagen, Sitzungen nach einem halben Jahr. Im Zweifel jemanden fragen,
 > der beraten darf — viele Landessportbünde tun das für ihre Vereine kostenlos.
 
+### Spielplan einlesen
+
+Zum Saisonstart musst du die Spieltage nicht einzeln eintippen. Der Verband liefert sie als
+Datei, und die App liest sie ein — bei einem Verein mit neun Mannschaften sind das rund 130
+Begegnungen auf einen Schlag.
+
+**So geht es:**
+
+1. In **nuLiga** den **Vereinsspielplan** als CSV herunterladen. Die Datei enthält alle
+   Mannschaften des Vereins, du brauchst also nur eine.
+2. In der Verwaltung auf **Verein → Spielplan einlesen**, Datei wählen.
+3. Es erscheint eine **Vorschau**: Saison, Anzahl der Begegnungen und je Mannschaft aus der Datei
+   ein Auswahlfeld mit deinen Mannschaften. Was eindeutig passt, ist schon vorbelegt; den Rest
+   stellst du selbst. „Nicht übernehmen" lässt eine Mannschaft aus.
+4. **Übernehmen.** Erst jetzt verlässt irgendetwas den Browser.
+
+Das darf nur der **Admin** — die Datei umfasst den ganzen Verein, ein Kapitän würde damit in
+fremde Mannschaften schreiben.
+
+**Was danach noch zu tun ist:** Der Verband kennt weder den **Ort des Gegners** noch die
+**Entfernung** noch euren **Treffpunkt**. Diese drei Angaben bleiben leer, und ohne sie gibt es
+keine Abfahrtszeit. Jeder Kapitän sieht in seiner Spieltagsliste oben, wie viele Spieltage noch
+darauf warten, und an jedem einzelnen den Hinweis. Das ist Arbeit für einen Abend, nicht für eine
+Woche.
+
+**Zwei Dinge, die zunächst wie ein Fehler aussehen:**
+
+- **Ein Heimspiel steht als Auswärtsspiel da.** In Ligen mit Turniertagen führt der Verband eure
+  Mannschaft als Heimmannschaft, gespielt wird aber im Lokal eines fremden Vereins — manchmal
+  hundert Kilometer weit. Die App richtet sich nach dem **Spiellokal**, nicht nach der Spalte:
+  Sonst fiele für diese Fahrten der ganze Fahrdienst aus. In der Vorschau steht, wie oft das
+  vorkam.
+- **Umlaute in den Mannschaftsnamen.** Die Datei kommt in einer alten Windows-Kodierung; die App
+  erkennt das und stellt es gerade. Sollte trotzdem etwas seltsam aussehen, liegt es an der Datei
+  selbst — dann in nuLiga neu herunterladen.
+
+**Ein zweiter Import derselben Saison** ist ungefährlich: Verlegte Begegnungen werden am
+vorhandenen Spieltag nachgezogen, statt ein zweites Mal angelegt zu werden. Unberührt bleiben
+dabei alles, was du von Hand angelegt hast, alles, was ihr nachgetragen habt, und jeder bereits
+gesperrte Spieltag.
+
 ### Der Alltag
 
 **Ein Mitglied hat seinen Link verloren.** In der Kapitänsansicht auf „Neues Token". Der alte Link

@@ -118,13 +118,14 @@ Drei Eigenheiten von PocketBase, die beim Anlegen zu beachten sind:
 |---|---|---|
 | `date` | date, required | Datum + Anwurfzeit |
 | `opponent_club` | text | Name des gegnerischen Vereins — steht groß in der Zeile; fehlt er, rückt der Ort nach |
-| `opponent_town` | text, required | Ort des Gegners — steht klein unter dem Vereinsnamen |
+| `opponent_town` | text | Ort des Gegners — steht klein unter dem Vereinsnamen. **Seit Schritt 8 nicht mehr Pflicht:** ein Verbands-Export kennt keinen Ort, sondern nur ein Spiellokal, und ein Lokalname („Vereinsheim") an dieser Stelle hilft niemandem beim Hinfinden. Beim Anlegen von Hand verlangt die Route ihn weiterhin. |
 | `is_home` | bool | |
 | `venue` | text | Spielstätte vor Ort |
 | `km` | number, default 0 | einfache Strecke |
 | `meeting_point` | text | Treffpunkt für die Abfahrt |
 | `needed_players` | number, default 4 | |
 | `locked` | bool, default false | nach dem Spiel: keine Änderungen mehr |
+| `source_key` | text | Herkunft aus einem Verbands-Export, Teilindex `WHERE source_key != ''`. Leer = von Hand angelegt; solche Spieltage fasst der Import nie an. Nach außen geht nur `aus_spielplan: bool` — der Schlüssel selbst ist eine Innerei des Imports. |
 
 ### `responses`
 | Feld | Typ | Anmerkung |
@@ -592,6 +593,13 @@ GET    /admin/api/fixtures
 POST   /admin/api/fixtures
 PATCH  /admin/api/fixtures/:id
 DELETE /admin/api/fixtures/:id
+POST   /admin/api/fixtures/import   { zeilen: [{ quelle, team, date, opponent_club,
+                                                is_home, venue }] }
+                                    → { neu, geaendert, unveraendert, gesperrt }
+       // NUR Rolle admin (R13d): der Export umfasst den ganzen Verein, ein Kapitän
+       // schriebe damit in fremde Mannschaften. Wiedererkannt wird an `source_key`;
+       // gesperrte und von Hand angelegte Spieltage bleiben unberührt. Höchstens
+       // 600 Zeilen je Aufruf.
 GET    /admin/api/members
 POST   /admin/api/members
 PATCH  /admin/api/members/:id
@@ -955,7 +963,31 @@ Login mit MFA, Spieltage und Mitglieder pflegen, „Neues Token", Protokollansic
 Header, Rate Limits, Log-Filter, Backup mit getestetem Restore, Löschjob, Erinnerungs-Cron.
 
 **Schritt 8 — Echtdaten**
-Spielplan-PDF importieren, Tokens erzeugen, per Einzelchat verteilen.
+Spielplan einlesen, Tokens erzeugen, per Einzelchat verteilen.
+
+Der Import ist gebaut (Verwaltung → Verein → „Spielplan einlesen", nur Rolle `admin`). Gelesen
+wird die **nuLiga-Vereinsspielplan-CSV**, nicht ein PDF: der Export umfasst alle Mannschaften
+des Vereins auf einmal — bei einem mittelgroßen Verein rund 130 Begegnungen, die sonst einzeln
+getippt werden müssten. Gelesen und zugeordnet wird die Datei **im Browser**
+(`app/src/spielplan.ts`); zum Server geht erst die bestätigte Liste.
+
+Drei Punkte, die dabei nicht offensichtlich sind und deshalb hier stehen:
+
+- **`is_home` kommt aus dem Spiellokal, nicht aus der Heim-Spalte.** In Ligen mit Turniertagen
+  ist die eigene Mannschaft nominell Heimmannschaft, gespielt wird aber im Lokal eines fremden
+  Vereins — in der ersten echten Datei sechsmal, bis nach Beispielstadt und Musterstadt. Da `is_home` im
+  Aushang den kompletten Fahrdienst ausblendet, hätte die Spaltenlogik die Funktion abgeschaltet,
+  für die es die App gibt. Heimlokal einer Mannschaft ist die häufigste `SpiellokalNr` ihrer
+  nominellen Heimspiele; bei Gleichstand entscheidet das Lokal des Vereins.
+- **Der Quellschlüssel enthält den Termin nicht**, dafür beide Mannschaftsnamen. Verlegungen
+  sollen den Spieltag aktualisieren statt ihn zu verdoppeln, und `BegegnungNr` kommt an einem
+  Turniertag mehrfach vor.
+- **Die Datei ist Windows-1252**, nicht UTF-8. Als UTF-8 gelesen stünde „N<?>rnberg" anschließend
+  in der Datenbank statt nur auf dem Bildschirm.
+
+Was der Export **nicht** kennt: Ort des Gegners, Kilometer, Treffpunkt. Die bleiben leer und
+werden nachgetragen — die Spieltagsliste des Kapitäns weist darauf hin, oben mit einer Zahl und
+an jedem betroffenen Spieltag.
 
 **Schritt 9 — Auslieferbar für Fremde**
 Overlay, `.env`-Konfiguration und die Prüfung der Vorlagen in der CI stehen. Offen bleibt der
@@ -1002,6 +1034,10 @@ nur im Arbeitsspeicher.
 | A13 | Admin-Konto ohne zweiten Faktor ruft `/admin/api` auf | 403 mit `totp_pflicht`, danach mit eingerichtetem Faktor 200 — **automatisiert** |
 | A14 | Anmeldung mit einem Wiederherstellungscode | gilt genau einmal, die übrigen bleiben gültig — **automatisiert** |
 | A15 | Kapitän mit Spielerbezug wechselt in die Spieleransicht | Mitgliedersitzung für den eigenen Eintrag, der Aushang zeigt den Weg zurück; für den Admin 404 — **automatisiert** |
+| I1 | Spielplan einlesen | Spieltage entstehen, `aus_spielplan` ist gesetzt, Ort/km/Treffpunkt bleiben leer, Tempo und Puffer erben — **automatisiert** |
+| I2 | Dieselbe Datei ein zweites Mal, danach eine Verlegung | nichts wird verdoppelt; der geänderte Termin landet am vorhandenen Spieltag — **automatisiert** |
+| I3 | Nachimport über einen gesperrten Spieltag mit nachgetragenem Ort | Spieltag bleibt unberührt, `gesperrt` zählt ihn — **automatisiert** |
+| I4 | Import mit erfundener Mannschaft, leerer Liste, kaputtem Termin, ohne CSRF-Kopfzeile | je 400 bzw. 403 **und nichts geschrieben** — **automatisiert** |
 | C2 | Schreiben in der Verwaltung ohne `X-CSRF-Token` | 403 **und der Datensatz ist danach nicht da** — geprüft wird die Wirkung, nicht der Statuscode (R11) — **automatisiert** |
 | T10 | Access-Log nach `/j/`-Aufruf durchsuchen | kein Token im Klartext |
 | T11 | Link in WhatsApp einfügen | Vorschau zeigt den Anzeigename aus `settings`, nichts Personalisiertes |

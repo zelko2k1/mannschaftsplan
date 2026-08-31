@@ -2214,6 +2214,179 @@ await pruefe('A15', 'Der Kapitän wechselt ohne Token in seine eigene Spielerans
   gleich((await ruf('/manage/api/spieleransicht', { method: 'POST' })).status, 404, 'als Admin')
 })
 
+// ── Spielplan-Import (Schritt 8) ───────────────────────────────────────────────────────────
+// Gelesen wird die Datei im Browser (dafür gibt es Unit-Tests in app/src/spielplan.test.ts).
+// Hier geht es um das, was der Server daraus macht — und vor allem darum, dass ein zweiter
+// Import nichts verdoppelt und nichts überschreibt, was ihm nicht gehört.
+const importSchluessel = randomBytes(4).toString('hex')
+const importZeile = (nr, eigenschaften = {}) => ({
+  quelle: `nuliga|test-${importSchluessel}|Staffel A|${nr}|Wir|Gegner`,
+  date: '2026-09-18 18:00:00.000Z'.replace(' ', 'T'),
+  opponent_club: `test-Gegner-${importSchluessel}`,
+  is_home: false,
+  venue: 'test-Fremdheim',
+  ...eigenschaften,
+})
+
+await pruefe('I1', 'Der Import legt Spieltage an und lässt Ort, km und Treffpunkt leer', async () => {
+  const jar = await adminSitzung()
+  const ruf = alsKapitaen(jar)
+  const team = await testTeam()
+
+  const antwort = await ruf('/admin/api/fixtures/import', {
+    method: 'POST',
+    body: JSON.stringify({
+      zeilen: [
+        importZeile(1, { team, is_home: true, venue: 'test-Vereinsheim' }),
+        importZeile(2, { team, date: '2026-09-25T18:00:00.000Z' }),
+      ],
+    }),
+  })
+  gleich(antwort.status, 200, 'Status')
+  const ergebnis = await antwort.json()
+  gleich(ergebnis.neu, 2, 'neu')
+  gleich(ergebnis.geaendert, 0, 'geändert')
+
+  const liste = await (await ruf(`/manage/api/fixtures?team=${team}`)).json()
+  const meine = liste.items.filter((s) => s.opponent_club === `test-Gegner-${importSchluessel}`)
+  for (const s of meine) aufraeumen.push(['fixtures', s.id])
+  gleich(meine.length, 2, 'angelegte Spieltage')
+
+  // Was im Export steht, steht jetzt am Spieltag.
+  const heim = meine.find((s) => s.is_home)
+  stimmt(!!heim, 'ein Heimspiel dabei')
+  gleich(heim.venue, 'test-Vereinsheim', 'Spiellokal')
+  // Und was NICHT im Export steht, bleibt leer statt geraten — nachzutragen vom Kapitän.
+  gleich(heim.opponent_town, '', 'Ort des Gegners')
+  gleich(heim.meeting_point, '', 'Treffpunkt')
+  gleich(heim.km, 0, 'Kilometer')
+  // Die Werte, die PocketBase mangels Defaultwerten sonst auf 0 setzen würde.
+  gleich(heim.needed_players, 4, 'benötigte Spieler')
+  gleich(heim.tempo_kmh, -1, 'Tempo erbt')
+  gleich(heim.puffer_minuten, -1, 'Puffer erbt')
+
+  // Daran erkennt die Kapitänsansicht, dass hier noch etwas nachzutragen ist. Der Schlüssel
+  // selbst bleibt drinnen — nach außen geht nur die Frage, ob es einen gibt.
+  gleich(heim.aus_spielplan, true, 'aus dem Spielplan')
+  gleich(heim.source_key, undefined, 'der Schlüssel bleibt im Server')
+  const vonHand = await testSpieltag({ team })
+  const nachHand = await (await ruf(`/manage/api/fixtures?team=${team}`)).json()
+  gleich(nachHand.items.find((s) => s.id === vonHand.id).aus_spielplan, false, 'von Hand angelegt')
+})
+
+await pruefe('I2', 'Ein zweiter Import verdoppelt nichts und zieht eine Verlegung nach', async () => {
+  const jar = await adminSitzung()
+  const ruf = alsKapitaen(jar)
+  const team = await testTeam()
+
+  // Genau dieselbe Datei noch einmal: nichts Neues, nichts geändert.
+  const nochmal = await (
+    await ruf('/admin/api/fixtures/import', {
+      method: 'POST',
+      body: JSON.stringify({
+        zeilen: [
+          importZeile(1, { team, is_home: true, venue: 'test-Vereinsheim' }),
+          importZeile(2, { team, date: '2026-09-25T18:00:00.000Z' }),
+        ],
+      }),
+    })
+  ).json()
+  gleich(nochmal.neu, 0, 'neu beim zweiten Mal')
+  gleich(nochmal.unveraendert, 2, 'unverändert')
+
+  // Verlegt: derselbe Schlüssel, anderer Termin. Das ist der Grund, warum der Schlüssel den
+  // Termin nicht enthält — sonst stünde die Begegnung anschließend zweimal im Aushang.
+  const verlegt = await (
+    await ruf('/admin/api/fixtures/import', {
+      method: 'POST',
+      body: JSON.stringify({ zeilen: [importZeile(1, { team, is_home: true, venue: 'test-Vereinsheim', date: '2026-10-02T18:00:00.000Z' })] }),
+    })
+  ).json()
+  gleich(verlegt.neu, 0, 'nichts angelegt')
+  gleich(verlegt.geaendert, 1, 'geändert')
+
+  const liste = await (await ruf(`/manage/api/fixtures?team=${team}`)).json()
+  const meine = liste.items.filter((s) => s.opponent_club === `test-Gegner-${importSchluessel}`)
+  gleich(meine.length, 2, 'immer noch zwei Spieltage')
+  stimmt(
+    meine.some((s) => s.date.startsWith('2026-10-02')),
+    'der verlegte Termin steht am Spieltag',
+  )
+})
+
+await pruefe('I3', 'Gesperrte Spieltage und fremde Ergänzungen bleiben unberührt', async () => {
+  const jar = await adminSitzung()
+  const ruf = alsKapitaen(jar)
+  const team = await testTeam()
+  const liste = await (await ruf(`/manage/api/fixtures?team=${team}`)).json()
+  const meiner = liste.items.find((s) => s.opponent_club === `test-Gegner-${importSchluessel}` && !s.is_home)
+  stimmt(!!meiner, 'der Auswärtsspieltag aus I1 ist da')
+
+  // Der Kapitän trägt nach, was der Export nicht kennt — und sperrt den Spieltag nach dem Spiel.
+  await ruf(`/manage/api/fixtures/${meiner.id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ opponent_town: 'test-Nachgetragen', km: 42, meeting_point: 'test-Treff', locked: true }),
+  })
+
+  const nachimport = await (
+    await ruf('/admin/api/fixtures/import', {
+      method: 'POST',
+      body: JSON.stringify({ zeilen: [importZeile(2, { team, date: '2027-01-01T18:00:00.000Z', venue: 'test-Woanders' })] }),
+    })
+  ).json()
+  gleich(nachimport.gesperrt, 1, 'gesperrt übersprungen')
+  gleich(nachimport.geaendert, 0, 'nichts geändert')
+
+  const danach = await (await ruf(`/manage/api/fixtures?team=${team}`)).json()
+  const wieder = danach.items.find((s) => s.id === meiner.id)
+  gleich(wieder.venue, 'test-Fremdheim', 'das Lokal blieb stehen')
+  gleich(wieder.opponent_town, 'test-Nachgetragen', 'der nachgetragene Ort blieb stehen')
+  gleich(wieder.km, 42, 'die Kilometer blieben stehen')
+})
+
+await pruefe('I4', 'Der Import prüft, was aus dem Browser kommt — und schreibt sonst nichts', async () => {
+  const jar = await adminSitzung()
+  const ruf = alsKapitaen(jar)
+  const team = await testTeam()
+
+  // Eine erfundene Mannschaft. Für den Admin lässt die Rechteprüfung jede zu — dass es sie gibt,
+  // muss deshalb hier geprüft werden, sonst käme roher Datenbanktext zurück.
+  const erfunden = await ruf('/admin/api/fixtures/import', {
+    method: 'POST',
+    body: JSON.stringify({ zeilen: [importZeile(9, { team: 'gibtesnicht000' })] }),
+  })
+  gleich(erfunden.status, 400, 'unbekannte Mannschaft')
+
+  gleich(
+    (await ruf('/admin/api/fixtures/import', { method: 'POST', body: JSON.stringify({ zeilen: [] }) })).status,
+    400,
+    'leere Liste',
+  )
+  gleich(
+    (
+      await ruf('/admin/api/fixtures/import', {
+        method: 'POST',
+        body: JSON.stringify({ zeilen: [importZeile(9, { team, date: 'irgendwann' })] }),
+      })
+    ).status,
+    400,
+    'unbrauchbarer Termin',
+  )
+
+  // R11 · Ohne CSRF-Kopfzeile wird nicht geschrieben. Geprüft wird die WIRKUNG, nicht der Status
+  // — genau der Fehler aus C2.
+  const ohneKopf = await roh('/admin/api/fixtures/import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: alsHeader(jar) },
+    body: JSON.stringify({ zeilen: [importZeile(9, { team, opponent_club: `test-CSRF-${importSchluessel}` })] }),
+  })
+  gleich(ohneKopf.status, 403, 'ohne CSRF-Kopfzeile')
+  const liste = await (await ruf(`/manage/api/fixtures?team=${team}`)).json()
+  if (liste.items.some((s) => s.opponent_club === `test-CSRF-${importSchluessel}`)) {
+    throw new Error('Trotz 403 wurde ein Spieltag angelegt — R11 wirkt nicht')
+  }
+})
+
 await pruefe('T9', '6× falsches Passwort → gesperrt, auch für das richtige', async () => {
   let letzter = null
   for (let i = 0; i < 6; i++) letzter = (await adminAnmelden('immer-falsch')).antwort

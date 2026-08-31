@@ -33,6 +33,12 @@ export type AdminSpieltag = {
   needed_players: number
   locked: boolean
   /**
+   * Kommt dieser Spieltag aus einem eingelesenen Spielplan? Dann fehlen ihm die Angaben, die
+   * kein Verbands-Export kennt — und die Kapitänsansicht sagt das, statt „Auswärts, 0 km" zu
+   * behaupten.
+   */
+  aus_spielplan: boolean
+  /**
    * Der Stand der Mannschaft — dieselbe Gestalt wie im Aushang, damit die Kapitänsansicht
    * denselben Satz rechnet und nicht eine zweite Wahrheit entsteht. Mitglieds-ID → Antwort.
    */
@@ -87,6 +93,15 @@ export type Mannschaft = {
    * die zurückgestellt wurde. Ein leeres Feld ohne Wirkung verwirrt mehr, als die Spalte kostet.
    */
   startort: string
+}
+
+/** Was der Spielplan-Import geschrieben hat — die Rückmeldung nach dem Übernehmen. */
+export type ImportErgebnis = {
+  neu: number
+  geaendert: number
+  unveraendert: number
+  /** Gesperrte Spieltage bleiben unberührt — auch beim Nachimport. */
+  gesperrt: number
 }
 
 export type Verwalterkonto = {
@@ -249,6 +264,24 @@ export const adminApi = {
   spieltagAendern: (id: string, daten: Partial<AdminSpieltag>) =>
     ruf<unknown>(`/fixtures/${id}`, { method: 'PATCH', body: JSON.stringify(daten) }),
   spieltagLoeschen: (id: string) => ruf<unknown>(`/fixtures/${id}`, { method: 'DELETE' }),
+  /**
+   * Spielplan übernehmen — NUR Admin, deshalb `rufAdmin`. Gelesen und zugeordnet wird die Datei
+   * im Browser (`spielplan.ts`); hier gehen fertige Zeilen mit Mannschafts-Kennung hinaus.
+   */
+  spielplanImportieren: (
+    zeilen: {
+      quelle: string
+      team: string
+      date: string
+      opponent_club: string
+      is_home: boolean
+      venue: string
+    }[],
+  ) =>
+    rufAdmin<ImportErgebnis>('/fixtures/import', {
+      method: 'POST',
+      body: JSON.stringify({ zeilen }),
+    }),
 
   /**
    * Eine Rückmeldung für ein Mitglied setzen oder zurücknehmen (`null`).

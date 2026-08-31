@@ -371,6 +371,11 @@ routerAdd('GET', '/manage/api/fixtures', (e) => {
       })(),
       needed_players: s.getInt('needed_players'),
       locked: s.getBool('locked'),
+      // Aus dem Spielplan übernommen? Der Kapitän soll sehen, welche Spieltage noch auf ihn
+      // warten: Ort, Kilometer und Treffpunkt stehen in keinem Verbands-Export. Der Schlüssel
+      // selbst geht bewusst NICHT hinaus — er ist eine Innerei des Imports, und für die
+      // Anzeige genügt die Frage, ob es einen gibt.
+      aus_spielplan: s.getString('source_key') !== '',
       // Dieselbe Gestalt wie im Aushang (board.pb.js), damit die Kapitänsansicht denselben
       // Satz rechnen kann und nicht eine zweite, abweichende Wahrheit entsteht.
       responses: (() => {
@@ -492,6 +497,136 @@ routerAdd('DELETE', '/manage/api/fixtures/{id}', (e) => {
   e.app.delete(satz)
   a.protokoll(e, 'fixture.delete', e.request.pathValue('id'), wohin, '')
   return e.json(200, { ok: true })
+})
+
+// ── POST /admin/api/fixtures/import · Spielplan aus einem Verbands-Export ───────────────────
+// Schritt 8 („Echtdaten“). Gelesen und zugeordnet wird die Datei im Browser
+// (`app/src/spielplan.ts`) - hier kommt eine fertige Liste an. Geprüft wird sie trotzdem noch
+// einmal vollständig: Was aus dem Browser kommt, ist eine Behauptung.
+//
+// **Nur der Admin.** Der nuLiga-Export umfasst den ganzen VEREIN, also alle Mannschaften. Wer
+// ihn einliest, schreibt damit in fremde Mannschaften — für einen Kapitän wäre das die Grenze
+// aus R13d. Ein Kapitän sieht das Ergebnis in seiner Ansicht, einlesen tut es der Admin.
+//
+// Wiedererkannt wird an `source_key`. Daraus folgen die drei Regeln, die diesen Endpunkt von
+// einem gewöhnlichen Anlegen unterscheiden:
+//   • Von Hand angelegte Spieltage haben keinen Schlüssel und werden nie angefasst.
+//   • Ein gesperrter Spieltag bleibt unberührt — „nach dem Spiel keine Änderungen mehr“ gilt
+//     auch für den Import, sonst überschriebe ein Nachimport im Frühjahr die halbe Hinrunde.
+//   • Was der Kapitän ergänzt hat — Ort, Kilometer, Treffpunkt, benötigte Spieler —, bleibt
+//     stehen. Der Import bringt nur mit, was im Export steht.
+routerAdd('POST', '/admin/api/fixtures/import', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const vor = a.pruefen(e)
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
+  if (vor.kontext.rolle !== 'admin') return e.json(404, { message: 'Nicht gefunden.' })
+  const ohneFaktor = a.faktorFehlt(e)
+  if (ohneFaktor) return e.json(ohneFaktor.status, ohneFaktor.koerper)
+
+  const koerper = e.requestInfo().body || {}
+  const zeilen = koerper.zeilen
+  // KEIN Array.isArray: was aus dem Rumpf kommt, ist im JSVM ein Go-Slice, und darauf antwortet
+  // Array.isArray mit false. Gezählt wird deshalb über .length.
+  const anzahl = Number(zeilen && zeilen.length) || 0
+  if (anzahl === 0) return e.json(400, { message: 'Es ist nichts zu übernehmen.' })
+  // Ein Vereinsspielplan hat gut 130 Zeilen. Die Grenze ist großzügig und trotzdem eine
+  // Grenze: ein einzelner Aufruf soll die Datenbank nicht minutenlang beschäftigen.
+  if (anzahl > 600) {
+    return e.json(400, { message: 'Zu viele Begegnungen auf einmal — höchstens 600.' })
+  }
+
+  // Einmal lesen statt einmal je Zeile. Bei 128 Begegnungen ist der Unterschied zwischen einer
+  // Abfrage und 128 spürbar.
+  const vorhanden = {}
+  for (const satz of e.app.findAllRecords('fixtures')) {
+    const schluessel = satz.getString('source_key')
+    if (schluessel) vorhanden[schluessel] = satz
+  }
+  const bekannteTeams = {}
+
+  let neu = 0
+  let geaendert = 0
+  let unveraendert = 0
+  let gesperrt = 0
+
+  for (let i = 0; i < anzahl; i++) {
+    const z = zeilen[i] || {}
+    const schluessel = String(z.quelle || '').trim()
+    const team = String(z.team || '').trim()
+    const datum = String(z.date || '').trim()
+    const gegner = String(z.opponent_club || '').trim()
+    const lokal = String(z.venue || '').trim()
+
+    if (!schluessel || schluessel.length > 120) {
+      return e.json(400, { message: `Zeile ${i + 1}: unbrauchbare Herkunftsangabe.` })
+    }
+    if (!datum || isNaN(new Date(datum.replace(' ', 'T')).getTime())) {
+      return e.json(400, { message: `Zeile ${i + 1}: unbrauchbarer Termin.` })
+    }
+    if (gegner.length > 80 || lokal.length > 120) {
+      return e.json(400, { message: `Zeile ${i + 1}: Angabe zu lang.` })
+    }
+    if (!team) return e.json(400, { message: `Zeile ${i + 1}: keine Mannschaft zugeordnet.` })
+    if (!bekannteTeams[team]) {
+      try {
+        e.app.findRecordById('teams', team)
+        bekannteTeams[team] = true
+      } catch {
+        return e.json(400, { message: `Zeile ${i + 1}: unbekannte Mannschaft.` })
+      }
+    }
+
+    const alt = vorhanden[schluessel]
+    if (alt) {
+      if (alt.getBool('locked')) {
+        gesperrt++
+        continue
+      }
+      const abbild = (satz) =>
+        [
+          satz.getString('team'),
+          satz.getDateTime('date').string(),
+          satz.getString('opponent_club'),
+          satz.getBool('is_home') ? '1' : '0',
+          satz.getString('venue'),
+        ].join(' ')
+      const vorher = abbild(alt)
+      alt.set('team', team)
+      alt.set('date', datum)
+      alt.set('opponent_club', gegner)
+      alt.set('is_home', !!z.is_home)
+      alt.set('venue', lokal)
+      if (abbild(alt) === vorher) {
+        unveraendert++
+        continue
+      }
+      e.app.save(alt)
+      geaendert++
+      continue
+    }
+
+    const satz = new Record(e.app.findCollectionByNameOrId('fixtures'))
+    satz.set('team', team)
+    satz.set('source_key', schluessel)
+    satz.set('date', datum)
+    satz.set('opponent_club', gegner)
+    satz.set('is_home', !!z.is_home)
+    satz.set('venue', lokal)
+    // Der Export kennt sie nicht — und PocketBase kennt keine Defaultwerte. Ohne diese Zeilen
+    // stünde überall 0: ein Tempo von null und ein Spieltag ohne Abfahrtszeit.
+    satz.set('opponent_town', '')
+    satz.set('meeting_point', '')
+    satz.set('tempo_kmh', -1)
+    satz.set('puffer_minuten', -1)
+    satz.set('needed_players', 4)
+    satz.set('km', 0)
+    satz.set('locked', false)
+    e.app.save(satz)
+    neu++
+  }
+
+  a.protokoll(e, 'fixture.import', '', '', `${neu} neu, ${geaendert} geändert, ${gesperrt} gesperrt`)
+  return e.json(200, { neu, geaendert, unveraendert, gesperrt })
 })
 
 // ── Mitglieder ──────────────────────────────────────────────────────────────────────────────

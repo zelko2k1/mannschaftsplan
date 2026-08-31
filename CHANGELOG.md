@@ -8,6 +8,18 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 ## [Unveröffentlicht]
 
 ### Hinzugefügt
+- **Spielplan einlesen statt eintippen.** Der Vereinsspielplan aus nuLiga (CSV) wird unter
+  **Verein → Spielplan einlesen** übernommen — eine Datei für alle Mannschaften, bei einem
+  mittelgroßen Verein rund 130 Begegnungen. Gelesen wird sie im Browser: Vorschau und Zuordnung
+  der Mannschaften stehen vor dem Übernehmen, und erst danach geht etwas zum Server. Nur der
+  Admin, weil die Datei den ganzen Verein umfasst. Ein zweiter Import zieht Verlegungen nach,
+  statt Spieltage zu verdoppeln; von Hand angelegte und gesperrte Spieltage bleiben unberührt.
+  **Heim oder auswärts entscheidet das Spiellokal**, nicht die Heim-Spalte des Verbands — an
+  Turniertagen ist die eigene Mannschaft nominell Heim, spielt aber im Lokal eines fremden
+  Vereins, und der Fahrdienst wird dort gerade gebraucht.
+- **Hinweis auf unvollständige Spieltage.** Ort, Kilometer und Treffpunkt stehen in keinem
+  Verbands-Export. Die Spieltagsliste des Kapitäns sagt jetzt, wie viele Spieltage sie noch
+  brauchen, und markiert sie einzeln — statt „Auswärts, 0 km" zu behaupten.
 - **Wiederherstellungscodes für den zweiten Faktor.** Beim Einschalten erscheinen zehn Codes, jeder
   einmal verwendbar, jeder ein Ersatz für den Code aus der App. Bisher war ein verlorenes Handy ein
   Fall für den Admin — und beim Admin selbst einer für den SSH-Tunnel. Über **Neue Codes** gibt es

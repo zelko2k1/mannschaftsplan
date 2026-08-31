@@ -6,6 +6,7 @@ import {
   type AdminSpieltag,
   type Einstellungen as EinstellungenDaten,
   type Protokollzeile,
+  type ImportErgebnis,
   type Mannschaft,
   type Sicherung,
   type Verwalterkonto,
@@ -20,6 +21,8 @@ import {
   systemDatum,
   systemDatumZeit,
 } from './format'
+import { dekodiere } from './csv'
+import { leseSpielplan, type Spielplan } from './spielplan'
 import { Fehler, Hinweis } from './Meldung'
 import { Nachfragekasten, type Nachfrage } from './Nachfrage'
 import './admin.css'
@@ -399,6 +402,16 @@ const freiePlaetze = (s: AdminSpieltag) =>
   (s.rides ?? []).reduce((summe, f) => summe + (f.seats - f.taken), 0)
 const ohneFahrer = (s: AdminSpieltag) => !s.is_home && (s.rides ?? []).length === 0
 
+/**
+ * Ein eingelesener Auswärtsspieltag, dem noch die Reiseangaben fehlen.
+ *
+ * Der nuLiga-Export kennt Datum, Gegner und Spiellokal — nicht aber den Ort des Gegners, die
+ * Entfernung und den Treffpunkt. Die kann nur jemand nachtragen, der die Fahrt kennt, und ohne
+ * sie rechnet die Abfahrtszeit ins Leere. Deshalb steht es dran, statt still zu bleiben.
+ */
+const nachzutragen = (s: AdminSpieltag) =>
+  s.aus_spielplan && !s.is_home && (!s.opponent_town.trim() || s.km <= 0)
+
 function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string }) {
   const { items, fehler, setFehler, laden } = useListe(
     () => adminApi.spieltage(team),
@@ -493,13 +506,23 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
 
       {items.length === 0 && !entwurf && <p className="namen">Noch keine Termine eingetragen.</p>}
 
+      {/* Der Admin liest den Spielplan ein, die Arbeit danach liegt beim Kapitän — also erfährt
+          er hier davon und nicht erst, wenn jemand nach der Abfahrtszeit fragt. */}
+      {items.filter(nachzutragen).length > 0 && (
+        <p className="satz__warnung">
+          {items.filter(nachzutragen).length} Spieltage kommen aus dem Spielplan und brauchen noch
+          Ort, Kilometer und Treffpunkt — ohne sie gibt es keine Abfahrtszeit.
+        </p>
+      )}
+
       {items.map((s) => (
         <div key={s.id} className={`satz${s.locked ? ' satz--abgeschlossen' : ''}`}>
           <div className="satz__kopf">
             <h2 className="satz__name">{s.opponent_club || s.opponent_town}</h2>
             <span className="satz__zusatz">
-              {systemDatumZeit(s.date)} · {s.opponent_town} ·{' '}
-              {s.is_home ? 'Heim' : `Auswärts, ${s.km} km`}
+              {systemDatumZeit(s.date)}
+              {s.opponent_town ? ` · ${s.opponent_town}` : ''} ·{' '}
+              {s.is_home ? 'Heim' : nachzutragen(s) ? 'Auswärts' : `Auswärts, ${s.km} km`}
               {s.locked ? ' · abgeschlossen' : ''}
             </span>
           </div>
@@ -520,6 +543,12 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
             )}
             {zugesagt(s) >= s.needed_players && <span className="satz__voll">vollzählig</span>}
           </p>
+
+          {nachzutragen(s) && (
+            <p className="satz__warnung">
+              Aus dem Spielplan übernommen — Ort, Kilometer und Treffpunkt fehlen noch.
+            </p>
+          )}
 
           <div className="satz__aktionen">
             <button
@@ -1229,9 +1258,229 @@ function Verein({
     {/* Sonst steht der eine Schritt, der jetzt zählt, unter Vereinsname, Sperrfrist und zwei
         Rechtstexten — und der erste Admin scrollt an ihm vorbei. */}
     {!ohneMannschaft && <Mannschaften abgemeldet={abgemeldet} neuLaden={neuLaden} />}
+    {/* Erst die Mannschaften, dann der Spielplan: ohne Mannschaft gibt es nichts zuzuordnen. */}
+    {!ohneMannschaft && <SpielplanImport abgemeldet={abgemeldet} />}
     <Sicherungen abgemeldet={abgemeldet} />
     </>
   )
+}
+
+/**
+ * Spielplan aus einem Verbands-Export übernehmen — Schritt 8.
+ *
+ * Steht im Reiter „Verein“, weil der nuLiga-Export den ganzen Verein umfasst: eine Datei, alle
+ * Mannschaften. Deshalb auch nur der Admin — ein Kapitän würde damit in fremde Mannschaften
+ * schreiben.
+ *
+ * Gelesen wird die Datei HIER im Browser, nicht auf dem Server. Zwei Gründe: die Zuordnung der
+ * Mannschaftsnamen ist eine Frage an einen Menschen, und was nie hochgeladen wird, kann auch
+ * nicht liegenbleiben. Zum Server geht erst die bestätigte Liste.
+ */
+function SpielplanImport({ abgemeldet }: { abgemeldet: () => void }) {
+  const [mannschaften, setMannschaften] = useState<Mannschaft[] | null>(null)
+  const [plan, setPlan] = useState<Spielplan | null>(null)
+  const [dateiname, setDateiname] = useState('')
+  const [zuordnung, setZuordnung] = useState<Record<string, string>>({})
+  const [fehler, setFehler] = useState('')
+  const [laeuft, setLaeuft] = useState(false)
+  const [ergebnis, setErgebnis] = useState<ImportErgebnis | null>(null)
+
+  useEffect(() => {
+    adminApi
+      .mannschaften()
+      .then((d) => setMannschaften(d.items))
+      .catch((problem) => {
+        if (problem instanceof NichtAngemeldet) return abgemeldet()
+        setFehler(problem instanceof Error ? problem.message : 'Nicht geladen.')
+      })
+  }, [abgemeldet])
+
+  async function dateiLesen(datei: File) {
+    setFehler('')
+    setErgebnis(null)
+    try {
+      const gelesen = leseSpielplan(dekodiere(await datei.arrayBuffer()))
+      setPlan(gelesen)
+      setDateiname(datei.name)
+      setZuordnung(vorschlagen(gelesen.mannschaften, mannschaften ?? []))
+    } catch (problem) {
+      setPlan(null)
+      setFehler(problem instanceof Error ? problem.message : 'Die Datei war nicht lesbar.')
+    }
+  }
+
+  async function übernehmen() {
+    if (!plan) return
+    const zeilen = plan.zeilen
+      .filter((z) => zuordnung[z.mannschaft])
+      .map((z) => ({
+        quelle: z.quelle,
+        team: zuordnung[z.mannschaft],
+        date: z.date,
+        opponent_club: z.opponent_club,
+        is_home: z.is_home,
+        venue: z.venue,
+      }))
+    if (zeilen.length === 0) return
+
+    setLaeuft(true)
+    setFehler('')
+    try {
+      setErgebnis(await adminApi.spielplanImportieren(zeilen))
+      setPlan(null)
+      setDateiname('')
+    } catch (problem) {
+      if (problem instanceof NichtAngemeldet) return abgemeldet()
+      setFehler(problem instanceof Error ? problem.message : 'Nicht übernommen.')
+    } finally {
+      setLaeuft(false)
+    }
+  }
+
+  const ausgewaehlt = plan ? plan.zeilen.filter((z) => zuordnung[z.mannschaft]).length : 0
+
+  return (
+    <section className="satz">
+      <div className="satz__kopf">
+        <h2 className="satz__name">Spielplan einlesen</h2>
+      </div>
+
+      {fehler && <Fehler text={fehler} />}
+
+      {ergebnis && (
+        <div className="token" role="status">
+          <p className="token__hinweis">Übernommen</p>
+          <p className="token__text">
+            {ergebnis.neu} neu, {ergebnis.geaendert} geändert, {ergebnis.unveraendert} unverändert
+            {ergebnis.gesperrt > 0 && `, ${ergebnis.gesperrt} gesperrt und deshalb unberührt`}.{' '}
+            {ergebnis.neu > 0 &&
+              'Ort, Kilometer und Treffpunkt stehen nicht im Export — die trägt jeder Kapitän bei seinen Auswärtsspielen nach.'}
+          </p>
+        </div>
+      )}
+
+      {!plan && (
+        <>
+          <div className="satz__aktionen">
+            <label className="feld feld--zeile">
+              <span>Datei wählen</span>
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                disabled={laeuft || mannschaften === null}
+                onChange={(x) => {
+                  const datei = x.target.files?.[0]
+                  x.target.value = ''
+                  if (datei) void dateiLesen(datei)
+                }}
+              />
+            </label>
+          </div>
+          <div className="token">
+            <p className="token__hinweis">Der Vereinsspielplan aus nuLiga</p>
+            <p className="token__text">
+              In nuLiga unter „Vereinsspielplan“ als CSV herunterladen — die Datei enthält alle
+              Mannschaften des Vereins. Nichts wird hochgeladen, bevor du die Vorschau bestätigt
+              hast. Ein zweiter Import derselben Saison aktualisiert verlegte Begegnungen, statt
+              sie ein zweites Mal anzulegen; von Hand angelegte und bereits gesperrte Spieltage
+              bleiben unberührt.
+            </p>
+          </div>
+        </>
+      )}
+
+      {plan && (
+        <>
+          <p className="namen">
+            <strong>{dateiname}</strong> — Saison {plan.saison}, {plan.zeilen.length} Begegnungen
+            {plan.uebersprungen > 0 && `, ${plan.uebersprungen} übersprungen`}
+          </p>
+
+          {plan.warnungen.map((w) => (
+            <p className="satz__warnung" key={w}>
+              {w}
+            </p>
+          ))}
+
+          {/* Die Zuordnung ist der einzige Schritt, den kein Programm entscheiden kann: nuLiga
+              kennt „SV Beispiel III“, die App kennt die Mannschaft, die IHR so nennt. Der
+              Vorschlag trifft den Normalfall, das letzte Wort hat der Mensch. */}
+          <ul className="namen liste">
+            {plan.mannschaften.map((name) => {
+              const anzahl = plan.zeilen.filter((z) => z.mannschaft === name).length
+              return (
+                <li className="eintrag" key={name}>
+                  <label className="feld feld--zeile">
+                    <span>
+                      {name} <span className="feld__hinweis">({anzahl})</span>
+                    </span>
+                    <select
+                      value={zuordnung[name] ?? ''}
+                      onChange={(x) => setZuordnung({ ...zuordnung, [name]: x.target.value })}
+                    >
+                      <option value="">nicht übernehmen</option>
+                      {(mannschaften ?? []).map((m) => (
+                        <option value={m.id} key={m.id}>
+                          {m.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </li>
+              )
+            })}
+          </ul>
+
+          <div className="satz__aktionen">
+            <button type="button" className="knopf" disabled={laeuft || ausgewaehlt === 0} onClick={übernehmen}>
+              {laeuft ? 'Übernimmt …' : `${ausgewaehlt} Begegnungen übernehmen`}
+            </button>
+            <button
+              type="button"
+              className="knopf knopf--gefahr"
+              disabled={laeuft}
+              onClick={() => {
+                setPlan(null)
+                setDateiname('')
+              }}
+            >
+              Verwerfen
+            </button>
+          </div>
+        </>
+      )}
+    </section>
+  )
+}
+
+/**
+ * Ordnet die Namen aus der Datei den vorhandenen Mannschaften zu, so weit es eindeutig geht.
+ *
+ * Verglichen wird ohne Groß-/Kleinschreibung, ohne mehrfache Leerzeichen und ohne Punkte —
+ * „SV Beispiel III“ und „SV Beispiel III.“ sind dieselbe Mannschaft, und niemand möchte
+ * neun Auswahlfelder von Hand stellen, weil irgendwo ein Punkt steht. Was nicht eindeutig passt,
+ * bleibt leer: ein falscher Vorschlag ist schlimmer als gar keiner, weil ihn niemand prüft.
+ */
+function vorschlagen(ausDatei: string[], vorhanden: Mannschaft[]): Record<string, string> {
+  const schluessel = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/[.]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+
+  const nachName = new Map<string, string[]>()
+  for (const m of vorhanden) {
+    const k = schluessel(m.name)
+    nachName.set(k, [...(nachName.get(k) ?? []), m.id])
+  }
+
+  const ergebnis: Record<string, string> = {}
+  for (const name of ausDatei) {
+    const treffer = nachName.get(schluessel(name)) ?? []
+    ergebnis[name] = treffer.length === 1 ? treffer[0] : ''
+  }
+  return ergebnis
 }
 
 /**
