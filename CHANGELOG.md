@@ -53,6 +53,12 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   ein — ausgerechnet die Seite, auf der die Mitglieder als Erstes landen, blieb beim
   Standardsymbol des Browsers.
 
+### Entfernt
+
+- **`app/public/icons.svg`**, der zweite Rest derselben Projektvorlage: sieben Symbole für
+  Bluesky, Discord, X, GitHub und eine Dokumentation, die es alle nicht gibt. Nirgends im Projekt
+  verwendet — und trotzdem in jedem Image ausgeliefert.
+
 ### Behoben
 
 - **„Bearbeiten" sprang an den Anfang der Liste.** Das Formular für einen Spieltag stand immer
