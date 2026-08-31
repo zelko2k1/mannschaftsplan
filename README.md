@@ -1,8 +1,18 @@
 # Mannschaftsplan
 
-Wer fährt, wer kommt mit, wer sagt ab — für **eine** Dartmannschaft von acht bis zehn Leuten.
-Der Spielplan sieht aus wie ein Fahrplanaushang am Bahnsteig: eine Zeile pro Spieltag, mit
-Abfahrtszeit, Gegner und der Frage, ob noch ein Platz im Auto frei ist.
+[![Version](https://img.shields.io/github/v/release/zelko2k1/mannschaftsplan?label=Version&color=blue)](https://github.com/zelko2k1/mannschaftsplan/releases/latest)
+[![Lizenz: MIT](https://img.shields.io/github/license/zelko2k1/mannschaftsplan?label=Lizenz&color=green)](LICENSE)
+![React](https://img.shields.io/badge/React-19-61dafb)
+![PocketBase](https://img.shields.io/badge/Backend-PocketBase-b8dbe4)
+![Selbst gehostet](https://img.shields.io/badge/selbst-gehostet-success)
+
+Wer fährt, wer kommt mit, wer sagt ab — für die Mannschaften eines Dartvereins. Der Spielplan
+sieht aus wie ein Fahrplanaushang am Bahnsteig: eine Zeile pro Spieltag, mit Abfahrtszeit,
+Gegner und der Frage, ob noch ein Platz im Auto frei ist.
+
+Eine Installation trägt **alle Mannschaften des Vereins**. Jede sieht nur ihre eigenen Spieltage
+und Rückmeldungen, jede hat ihren eigenen Kapitän — einmal einrichten, einmal sichern, einmal
+aktualisieren.
 
 **Die Mannschaft muss sich nirgends anmelden.** Jedes Mitglied bekommt einen persönlichen Link,
 den es sich einmal aufs Handy legt. Kein Konto, kein Passwort, keine App aus dem Store. Nur der
@@ -13,7 +23,25 @@ Dritten.
 
 > **Nicht zu verwechseln** mit [DartsZentrale](https://github.com/zelko2k1/dartszentrale) — das ist
 > die große Vereins-App mit Counter, Ligen und Statistik. Diese hier kann nur eines: Termine und
-> Fahrdienst für eine einzige Mannschaft. Sie kennt keine Ergebnisse.
+> Fahrdienst. Sie kennt keine Ergebnisse.
+
+> ### Ehrlich gesagt: Wer steckt dahinter?
+>
+> Ich bin **Vereins-Admin, kein ausgebildeter Entwickler.** Der Mannschaftsplan ist aus einer
+> konkreten Not entstanden — die Frage „wer fährt?" ging im Gruppenchat zwischen vierzig
+> Nachrichten unter — und **mit KI-Unterstützung (Anthropic Claude) gebaut**, von der ersten
+> Zeile bis zu dieser Anleitung. Das sage ich lieber offen, als so zu tun, als käme es aus
+> jahrelanger Entwickler-Erfahrung.
+>
+> **Was das für dich heißt:** Ich betreibe die App selbst und teste sie im echten Spielbetrieb,
+> kann aber nicht jeden Codepfad tief bewerten. **Code-Reviews, Hinweise und Pull Requests sind
+> ausdrücklich willkommen.** Der Support ist begrenzt, die Nutzung erfolgt **auf eigenes Risiko
+> und ohne Gewähr** (siehe [LICENSE](LICENSE)).
+>
+> Ernst nehmen solltest du dabei zwei Dinge: Die App verwaltet **personenbezogene Daten** deiner
+> Mitglieder — Namen, Zusagen, wer bei wem mitfährt —, und der Einladungslink eines Mitglieds
+> *ist* sein Zugang. Was die App dafür tut und was sie ausdrücklich nicht leisten kann, steht
+> unter [Was die App für deine Sicherheit tut](#was-die-app-für-deine-sicherheit-tut).
 
 ---
 
@@ -926,6 +954,10 @@ Container-Image. Der Tag sagt, welcher Stand läuft.
 Fehler, Ideen und Doku-Korrekturen sind willkommen — auch ohne eine Zeile Code. Am besten über
 [Issues](../../issues/new/choose); Ablauf, Entwicklungsumgebung und Commit-Stil stehen in
 [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+**Ein kritischer Blick in den Code ist besonders willkommen**, gerade weil das Projekt aus einem
+Verein kommt und nicht aus einem Entwicklerbüro. Hab bitte Verständnis, wenn ich bei sehr
+tiefgehenden Themen nur begrenzt antworten kann.
 
 Für Berichte aus dem Betrieb gilt: **keine echten Namen und keine gültigen Einladungslinks**
 mitschicken. Ein Link auf einem Bildschirmfoto ist ein gültiger Zugang.

@@ -1,8 +1,10 @@
 # Mannschaftsplan — Umsetzungsplan
 
-Terminplanung und Fahrdienst für eine Dartmannschaft (8–10 Personen).
+Terminplanung und Fahrdienst für die Mannschaften eines Dartvereins — eine Installation trägt
+alle, jede sieht nur ihre eigenen Spieltage (R13d). Der ursprüngliche Zuschnitt war EINE
+Mannschaft mit 8–10 Personen; er ist seit Abschnitt 12 überholt.
 Design: **Abfahrtsplan** (Fahrplanaushang-Optik).
-Mitglieder ohne Anmeldung über Token-Link, Admin mit Login.
+Mitglieder ohne Anmeldung über Token-Link, Verwaltung mit Login.
 
 Dieses Dokument ist die vollständige Vorgabe für die Umsetzung. Wo eine Entscheidung schon
 gefallen ist, steht sie hier als Vorgabe, nicht als Vorschlag.
