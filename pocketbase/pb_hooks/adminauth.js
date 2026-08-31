@@ -12,7 +12,7 @@ const ADMIN_CSRF_COOKIE = 'dz_admin_csrf'
 const ADMIN_DAUER = 12 * 3600 // 12 Stunden — die Voreinstellung (R13)
 const ADMIN_DAUER_LANG = 90 * 24 * 3600 // 90 Tage — nur mit „angemeldet bleiben" (R13)
 
-// Seit R13e gibt es zwei Wege in dieselbe Ansicht: /manage ohne Tor, /admin dahinter. Ein
+// Seit R13e gibt es zwei Wege in dieselbe Ansicht: /manage ohne Vortür, /admin dahinter. Ein
 // Cookie kennt aber nur EINEN Pfad. Also wird derselbe Wert zweimal gesetzt, einmal je Pfad —
 // unschön, aber die Alternative wäre `Path=/`, und dann liefe der Kapitäns-Cookie auch bei jeder
 // Mitglieder-Anfrage mit. Getrennt bleibt getrennt (R5).

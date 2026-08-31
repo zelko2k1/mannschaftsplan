@@ -5,7 +5,7 @@
 #
 #   DOMAIN                 dart.deinedomain.de
 #   ACME_EMAIL             Adresse für die Zertifikats-Benachrichtigungen
-#   ADMIN_USER             Benutzername für das Tor vor /admin (R13b)
+#   ADMIN_USER             Benutzername für die Vortür vor /admin (R13b)
 #   ADMIN_PASSWORD_HASH    dessen bcrypt-Hash
 #   ADMIN_ALLOW            optional: aus welchen Netzen /admin überhaupt erreichbar ist
 #   MANAGE_ALLOW           optional: aus welchen Netzen /manage überhaupt erreichbar ist
@@ -48,7 +48,7 @@
 
 	# ── R13e · Der Weg für den Kapitän steht offen ──────────────────────────────────────────────
 	# Hier arbeiten die Kapitäne: Spieltage, Spieler, Rückmeldungen — jeder nur in seiner eigenen
-	# Mannschaft. Kein Tor davor, und das ist eine Entscheidung, keine Lücke: Ein geteiltes
+	# Mannschaft. Keine Vortür davor, und das ist eine Entscheidung, keine Lücke: Ein geteiltes
 	# Proxy-Passwort für acht Leute ist nicht widerrufbar, kennt kein Abmelden und landet im
 	# Zweifel im Mannschafts-Chat. Was an seiner Stelle steht, ist in R13e des Umsetzungsplans
 	# aufgeschrieben — erzeugte Passwörter, Sperre pro Konto, enge Rechte.
@@ -61,11 +61,11 @@
 		reverse_proxy mannschaftsplan:8090
 	}
 
-	# ── R13b · Vor dem Admin-Gebiet steht ein Tor ───────────────────────────────────────────────
+	# ── R13b · Vor dem Admin-Gebiet steht eine Vortür ───────────────────────────────────────────────
 	# Alles unter /admin darf nur die Rolle `admin`: Konten und Rollen, Mannschaften anlegen und
 	# löschen, Einstellungen, Sicherungen. Da hängt der Zugriff auf ALLE Mannschaften und auf die
 	# Datenbankdatei — ein Fehler in diesem Code soll von außen gar nicht erst ansprechbar sein.
-	# Das Tor ist eine eigene Anmeldung im Proxy, unabhängig von der in der App, und funktioniert
+	# Die Vortür ist eine eigene Anmeldung im Proxy, unabhängig von der in der App, und funktioniert
 	# aus jedem Netz — auch vom Handy im Mobilnetz.
 	#
 	# Der Hash gehört dir, nicht dieser Datei. Erzeugen mit:
@@ -83,7 +83,7 @@
 		reverse_proxy mannschaftsplan:8090
 	}
 
-	# ── R13c · Die Superuser-Anmeldung liegt hinter demselben Tor ───────────────────────────────
+	# ── R13c · Die Superuser-Anmeldung liegt hinter derselben Vortür ───────────────────────────────
 	# Ohne diesen Block schützt der zweite Faktor aus Abschnitt 9 nur die Kapitänsansicht: Wer
 	# Adresse und Passwort des Superusers kennt, holt sich über
 	#     POST /api/collections/_superusers/auth-with-password
@@ -91,11 +91,11 @@
 	# könnte dort auch gleich den zweiten Faktor löschen.
 	#
 	# Der Token ist der Angelpunkt: Auf keiner Collection stehen Regeln, ohne ihn ist die API
-	# also verschlossen. Wird sein einziger Ausgabeschalter mit demselben Tor gesichert wie
+	# also verschlossen. Wird sein einziger Ausgabeschalter mit derselben Vortür gesichert wie
 	# /admin, ist die Lücke zu.
 	#
 	# Der ganze Präfix, nicht nur `auth-with-password`: `auth-refresh`, `auth-with-otp`,
-	# `request-password-reset` und `impersonate` führten sonst am Tor vorbei zum selben Ziel.
+	# `request-password-reset` und `impersonate` führten sonst an der Vortür vorbei zum selben Ziel.
 	#
 	# Was das für Skripte bedeutet: Wer von außen als Superuser spricht — `scripts/backup.sh`
 	# etwa —, braucht zusätzlich `curl -u <ADMIN_USER>:<passwort>`. Wer durch einen SSH-Tunnel
