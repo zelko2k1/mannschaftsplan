@@ -255,18 +255,50 @@ function Anmeldung({ fertig }: { fertig: (email: string) => void }) {
   const [fehler, setFehler] = useState('')
   const [hinweis, setHinweis] = useState('')
   const [laeuft, setLaeuft] = useState(false)
+  // Der Vereinsname für den Kopfbalken. Ohne Anmeldung lesbar (siehe /api/anzeigename); bis er da
+  // ist — und wenn er nicht kommt — bleibt der Balken leer statt kurz etwas Falsches zu zeigen.
+  const [verein, setVerein] = useState('')
+
+  // Bewusst ein nackter `fetch` statt eines Aufrufs über `api.ts`: Die Verwaltung und die
+  // Mitgliederseite teilen sich weder Cookie noch Prüflogik (R5), und dieser eine Wert braucht
+  // beides nicht — keine Sitzung, keine CSRF-Kopfzeile, kein Fehlerpfad. Der Import zöge das
+  // ganze Modul der anderen Seite in diesen Bündelteil.
+  useEffect(() => {
+    let lebt = true
+    fetch('/api/anzeigename')
+      .then((antwort) => (antwort.ok ? antwort.json() : null))
+      .then((d) => {
+        if (lebt && d?.anzeigename) setVerein(String(d.anzeigename))
+      })
+      .catch(() => {
+        /* Ohne Namen bleibt der Balken leer. Anmelden kann man sich trotzdem. */
+      })
+    return () => {
+      lebt = false
+    }
+  }, [])
 
   return (
     <div className="admin">
-      {/* Der gelbe Balken gehört zum Bild der Anwendung und bleibt, auch wenn nichts darin
-          steht. Sichtbar bleibt er leer: Eine Überschrift ohne Text wäre für eine
-          Bildschirmleseanwendung eine Ankündigung, der nichts folgt.
-          Die Überschrift steht deshalb unsichtbar im Dokument statt gar nicht — eine Seite ohne
-          jede Überschrift lässt sich nicht ansteuern, und das Bild bleibt so, wie es gedacht
-          war. */}
-      <header className="balken admin__kopf admin__kopf--leer" />
+      {/* Der gelbe Balken trug hier lange nichts. Das war gewollt — eine Überschrift ohne Text
+          wäre für eine Bildschirmleseanwendung eine Ankündigung, der nichts folgt —, sah aber
+          aus wie ein Darstellungsfehler: ein leerer Streifen über einem Formular ohne jeden
+          Hinweis, wo man gerade ist. Jetzt steht der Vereinsname darin, derselbe wie nach dem
+          Anmelden. Wozu die Seite dient, hängt unsichtbar an derselben Überschrift — sichtbar
+          wäre es eine Selbstverständlichkeit, für den Sprung von Überschrift zu Überschrift ist
+          es die einzige Auskunft. */}
+      {verein ? (
+        <header className="balken admin__kopf">
+          <h1>
+            {verein}
+            <span className="visuell-versteckt"> — Anmeldung zur Verwaltung</span>
+          </h1>
+        </header>
+      ) : (
+        <header className="balken admin__kopf admin__kopf--leer" />
+      )}
       <main>
-      <h1 className="visuell-versteckt">Anmeldung zur Kapitänsansicht</h1>
+      {!verein && <h1 className="visuell-versteckt">Anmeldung zur Kapitänsansicht</h1>}
       <form
         className="anmeldung"
         onSubmit={async (ereignis) => {
@@ -1122,7 +1154,12 @@ function Verein({
 
   return (
     <>
-    {ohneMannschaft && <Mannschaften abgemeldet={abgemeldet} neuLaden={neuLaden} />}
+    {ohneMannschaft && (
+      <>
+        <Mannschaften abgemeldet={abgemeldet} neuLaden={neuLaden} />
+        <SpielplanImport abgemeldet={abgemeldet} neuLaden={neuLaden} />
+      </>
+    )}
     <form onSubmit={speichern}>
       <Fehler text={fehler} />
 
@@ -1258,9 +1295,12 @@ function Verein({
     </form>
     {/* Sonst steht der eine Schritt, der jetzt zählt, unter Vereinsname, Sperrfrist und zwei
         Rechtstexten — und der erste Admin scrollt an ihm vorbei. */}
-    {!ohneMannschaft && <Mannschaften abgemeldet={abgemeldet} neuLaden={neuLaden} />}
-    {/* Erst die Mannschaften, dann der Spielplan: ohne Mannschaft gibt es nichts zuzuordnen. */}
-    {!ohneMannschaft && <SpielplanImport abgemeldet={abgemeldet} />}
+    {!ohneMannschaft && (
+      <>
+        <Mannschaften abgemeldet={abgemeldet} neuLaden={neuLaden} />
+        <SpielplanImport abgemeldet={abgemeldet} neuLaden={neuLaden} />
+      </>
+    )}
     <Sicherungen abgemeldet={abgemeldet} />
     </>
   )
@@ -1280,7 +1320,24 @@ function Verein({
  * Mannschaftsnamen ist eine Frage an einen Menschen, und was nie hochgeladen wird, kann auch
  * nicht liegenbleiben. Zum Server geht erst die bestätigte Liste.
  */
-function SpielplanImport({ abgemeldet }: { abgemeldet: () => void }) {
+/**
+ * Der Wert im Auswahlfeld, der „diese Mannschaft gibt es noch nicht" bedeutet.
+ *
+ * Kein leerer String und keine echte Kennung — er muss sich von beidem unterscheiden lassen und
+ * darf mit keiner Datenbankkennung kollidieren. Der Doppelpunkt genügt dafür: PocketBase-Kennungen
+ * bestehen aus fünfzehn Buchstaben und Ziffern. Ein Steuerzeichen wäre die naheliegende Wahl
+ * gewesen, aber im Wert eines option-Elements ist darauf kein Verlass.
+ */
+const NEUE_MANNSCHAFT = 'neu:anlegen'
+
+function SpielplanImport({
+  abgemeldet,
+  neuLaden,
+}: {
+  abgemeldet: () => void
+  /** Nach dem Anlegen neuer Mannschaften: Die Auswahl im Kopf muss sie kennen. */
+  neuLaden: () => void
+}) {
   const [mannschaften, setMannschaften] = useState<Mannschaft[] | null>(null)
   const [plan, setPlan] = useState<Spielplan | null>(null)
   const [dateiname, setDateiname] = useState('')
@@ -1313,28 +1370,45 @@ function SpielplanImport({ abgemeldet }: { abgemeldet: () => void }) {
     }
   }
 
-  async function übernehmen() {
+  async function uebernehmen() {
     if (!plan) return
-    const zeilen = plan.zeilen
-      .filter((z) => zuordnung[z.mannschaft])
-      .map((z) => ({
-        quelle: z.quelle,
-        team: zuordnung[z.mannschaft],
-        date: z.date,
-        opponent_club: z.opponent_club,
-        is_home: z.is_home,
-        venue: z.venue,
-        opponent_town: z.opponent_town,
-        km: z.km,
-      }))
-    if (zeilen.length === 0) return
 
     setLaeuft(true)
     setFehler('')
     try {
+      // Zuerst die Mannschaften, die es noch nicht gibt. Vorher musste man sie von Hand anlegen,
+      // bevor überhaupt etwas zuzuordnen war — für den ersten Import einer leeren Instanz war
+      // das eine Tür, die man erst bauen musste, um durchzugehen. Der Name kommt aus der Datei
+      // und ist danach jederzeit über „Mannschaften" zu ändern; der Spielplan hängt an der
+      // Kennung, nicht am Namen.
+      const angelegt: Record<string, string> = {}
+      for (const name of neueNamen) {
+        const { id } = await adminApi.mannschaftAnlegen(name.slice(0, 60))
+        angelegt[name] = id
+      }
+
+      const zeilen = plan.zeilen
+        .filter((z) => zuordnung[z.mannschaft])
+        .map((z) => ({
+          quelle: z.quelle,
+          team: zuordnung[z.mannschaft] === NEUE_MANNSCHAFT ? angelegt[z.mannschaft] : zuordnung[z.mannschaft],
+          date: z.date,
+          opponent_club: z.opponent_club,
+          is_home: z.is_home,
+          venue: z.venue,
+          opponent_town: z.opponent_town,
+          km: z.km,
+        }))
+      if (zeilen.length === 0) return
+
       setErgebnis(await adminApi.spielplanImportieren(zeilen))
       setPlan(null)
       setDateiname('')
+      if (neueNamen.length > 0) {
+        // Die Mannschaftsauswahl im Kopf und die Liste hier kennen die neuen sonst nicht.
+        setMannschaften((await adminApi.mannschaften()).items)
+        neuLaden()
+      }
     } catch (problem) {
       if (problem instanceof NichtAngemeldet) return abgemeldet()
       setFehler(problem instanceof Error ? problem.message : 'Nicht übernommen.')
@@ -1344,6 +1418,9 @@ function SpielplanImport({ abgemeldet }: { abgemeldet: () => void }) {
   }
 
   const ausgewaehlt = plan ? plan.zeilen.filter((z) => zuordnung[z.mannschaft]).length : 0
+  const neueNamen = plan
+    ? plan.mannschaften.filter((name) => zuordnung[name] === NEUE_MANNSCHAFT)
+    : []
 
   return (
     <section className="satz">
@@ -1417,6 +1494,17 @@ function SpielplanImport({ abgemeldet }: { abgemeldet: () => void }) {
             </p>
           ))}
 
+          {/* Anlegen ist die Voreinstellung für alles, was hier noch nicht existiert — aber
+              lautlos soll es nicht geschehen. Wer eine Mannschaft in der App anders nennt als
+              der Verband, stellt das Auswahlfeld um. */}
+          {neueNamen.length > 0 && (
+            <p className="token__text">
+              <strong>{neueNamen.length} Mannschaft(en) werden neu angelegt:</strong>{' '}
+              {neueNamen.join(', ')}. Die Namen kommen aus der Datei und lassen sich danach unter
+              „Mannschaften" ändern.
+            </p>
+          )}
+
           {/* Die Zuordnung ist der einzige Schritt, den kein Programm entscheiden kann: die Datei
               kennt „SV Beispiel III“, die App kennt die Mannschaft, die IHR so nennt. Der
               Vorschlag trifft den Normalfall, das letzte Wort hat der Mensch. */}
@@ -1433,6 +1521,7 @@ function SpielplanImport({ abgemeldet }: { abgemeldet: () => void }) {
                       value={zuordnung[name] ?? ''}
                       onChange={(x) => setZuordnung({ ...zuordnung, [name]: x.target.value })}
                     >
+                      <option value={NEUE_MANNSCHAFT}>neu anlegen</option>
                       <option value="">nicht übernehmen</option>
                       {(mannschaften ?? []).map((m) => (
                         <option value={m.id} key={m.id}>
@@ -1447,7 +1536,7 @@ function SpielplanImport({ abgemeldet }: { abgemeldet: () => void }) {
           </ul>
 
           <div className="satz__aktionen">
-            <button type="button" className="knopf" disabled={laeuft || ausgewaehlt === 0} onClick={übernehmen}>
+            <button type="button" className="knopf" disabled={laeuft || ausgewaehlt === 0} onClick={uebernehmen}>
               {laeuft ? 'Übernimmt …' : `${ausgewaehlt} Begegnungen übernehmen`}
             </button>
             <button
@@ -1490,8 +1579,14 @@ function vorlageHerunterladen() {
  *
  * Verglichen wird ohne Groß-/Kleinschreibung, ohne mehrfache Leerzeichen und ohne Punkte —
  * „SV Beispiel III“ und „SV Beispiel III.“ sind dieselbe Mannschaft, und niemand möchte
- * neun Auswahlfelder von Hand stellen, weil irgendwo ein Punkt steht. Was nicht eindeutig passt,
- * bleibt leer: ein falscher Vorschlag ist schlimmer als gar keiner, weil ihn niemand prüft.
+ * neun Auswahlfelder von Hand stellen, weil irgendwo ein Punkt steht.
+ *
+ * **Was nicht eindeutig passt, wird zum Anlegen vorgeschlagen.** Vorher blieb es leer, aus der
+ * Überlegung, ein falscher Vorschlag sei schlimmer als gar keiner. Beim ersten Import einer
+ * leeren Instanz stand damit aber jedes Feld auf „nicht übernehmen", und der Import tat nichts,
+ * bis jemand alle Mannschaften von Hand angelegt hatte. Anlegen ist die richtige Vorgabe: Es ist
+ * sichtbar (die Vorschau zählt sie auf), es ist umstellbar, und ein zu viel angelegter Name ist
+ * schnell geändert — eine Mannschaft zu wenig kostet einen zweiten Anlauf.
  */
 function vorschlagen(ausDatei: string[], vorhanden: Mannschaft[]): Record<string, string> {
   const schluessel = (s: string) =>
@@ -1510,7 +1605,7 @@ function vorschlagen(ausDatei: string[], vorhanden: Mannschaft[]): Record<string
   const ergebnis: Record<string, string> = {}
   for (const name of ausDatei) {
     const treffer = nachName.get(schluessel(name)) ?? []
-    ergebnis[name] = treffer.length === 1 ? treffer[0] : ''
+    ergebnis[name] = treffer.length === 1 ? treffer[0] : NEUE_MANNSCHAFT
   }
   return ergebnis
 }

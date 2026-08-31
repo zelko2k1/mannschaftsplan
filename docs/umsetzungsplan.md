@@ -549,6 +549,12 @@ POST /api/session          { token }
      → sonst: HTML-Seite „Link ungültig — frag den Kapitän", HTTP 200
      → einzige schreibende Route ohne CSRF-Prüfung (sie stellt die Session ja erst her)
 
+GET  /api/anzeigename
+     → { anzeigename }              // ohne Sitzung, NUR dieser eine Wert
+     // Für den Kopfbalken der Anmeldemaske. Kein Bruch mit R6: Dieselbe Angabe steht längst
+     // öffentlich auf der Einladungsseite (auch bei ungültigem Token), in den Rechtstexten und
+     // in jeder Linkvorschau.
+
 GET  /api/me
      → { id, name, captain:false }  |  401
 
@@ -1053,6 +1059,7 @@ nur im Arbeitsspeicher.
 | I3 | Nachimport über einen gesperrten Spieltag mit nachgetragenem Ort | Spieltag bleibt unberührt, `gesperrt` zählt ihn — **automatisiert** |
 | I4 | Import mit erfundener Mannschaft, leerer Liste, kaputtem Termin, ohne CSRF-Kopfzeile | je 400 bzw. 403 **und nichts geschrieben** — **automatisiert** |
 | I5 | Import mit Ort und Kilometern, danach derselbe Spieltag ohne beides | die Angaben landen am Spieltag und überleben den Nachimport; unsinnige Kilometer → 400 — **automatisiert** |
+| A16 | `GET /api/anzeigename` ohne jede Sitzung | 200 mit dem eingestellten Vereinsnamen, und **nur** diesem einen Feld — **automatisiert** |
 | C2 | Schreiben in der Verwaltung ohne `X-CSRF-Token` | 403 **und der Datensatz ist danach nicht da** — geprüft wird die Wirkung, nicht der Statuscode (R11) — **automatisiert** |
 | T10 | Access-Log nach `/j/`-Aufruf durchsuchen | kein Token im Klartext |
 | T11 | Link in WhatsApp einfügen | Vorschau zeigt den Anzeigename aus `settings`, nichts Personalisiertes |

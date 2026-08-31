@@ -2464,6 +2464,22 @@ await pruefe('I5', 'Ort und Kilometer aus der Vorlage kommen mit — und ein Lee
   )
 })
 
+await pruefe('A16', 'Der Vereinsname ist ohne Anmeldung lesbar — und sonst nichts', async () => {
+  // Der Kopfbalken der Anmeldemaske zeigt ihn an. Ohne diese Route bliebe dort ein leerer
+  // Streifen, der wie ein Darstellungsfehler aussieht.
+  const jar = await adminSitzung()
+  const gesetzt = (await (await alsKapitaen(jar)('/manage/api/settings')).json()).anzeigename
+
+  const antwort = await roh('/api/anzeigename')
+  gleich(antwort.status, 200, 'Status ganz ohne Sitzung')
+  const koerper = await antwort.json()
+  gleich(koerper.anzeigename, gesetzt, 'derselbe Name wie in den Einstellungen')
+
+  // Der Grund, warum das kein Bruch mit R6 ist, trägt nur, solange wirklich NUR der Name
+  // herausgeht — keine Fristen, keine Rechtstexte, nichts über den Betrieb.
+  gleich(Object.keys(koerper).length, 1, 'Anzahl der Felder')
+})
+
 await pruefe('T9', '6× falsches Passwort → gesperrt, auch für das richtige', async () => {
   let letzter = null
   for (let i = 0; i < 6; i++) letzter = (await adminAnmelden('immer-falsch')).antwort

@@ -164,6 +164,20 @@ routerAdd('GET', '/api/me', (e) => {
   })
 })
 
+// ── GET /api/anzeigename ────────────────────────────────────────────────────────────────────
+// Der Vereinsname, ohne Anmeldung. Dafür gibt es genau einen Verwender: den Kopfbalken der
+// Anmeldemaske, der sonst leer bliebe.
+//
+// **Warum das kein Bruch mit R6 ist.** Dieselbe Angabe steht längst öffentlich: Die
+// Einladungsseite zeigt sie auch bei einem ungültigen Token (`/j/…`), die Rechtstexte tragen sie
+// in der Überschrift, und die Linkvorschau in einem Messenger lebt von ihr. Wer die Adresse
+// kennt, kennt den Namen. Herausgegeben wird deshalb **nur** dieser eine Wert — keine Fristen,
+// keine Rechtstexte, nichts, was auf den Betrieb schließen ließe.
+routerAdd('GET', '/api/anzeigename', (e) => {
+  const u = require(`${__hooks}/utils.js`)
+  return e.json(200, { anzeigename: u.einstellungen(e.app).anzeigename })
+})
+
 // ── POST /api/logout ────────────────────────────────────────────────────────────────────────
 routerAdd('POST', '/api/logout', (e) => {
   const u = require(`${__hooks}/utils.js`)

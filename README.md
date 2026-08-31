@@ -261,9 +261,14 @@ Welche Form es ist, erkennt die App an der Kopfzeile — du musst nichts angeben
 1. Datei besorgen (Export oder ausgefüllte Vorlage).
 2. In der Verwaltung auf **Verein → Spielplan einlesen**, Datei wählen.
 3. Es erscheint eine **Vorschau**: Anzahl der Begegnungen und je Mannschaft aus der Datei ein
-   Auswahlfeld mit deinen Mannschaften. Was eindeutig passt, ist schon vorbelegt; den Rest
-   stellst du selbst. „Nicht übernehmen" lässt eine Mannschaft aus.
+   Auswahlfeld. Was eindeutig zu einer vorhandenen Mannschaft passt, ist schon darauf
+   vorbelegt; alles andere steht auf **„neu anlegen"** — die Vorschau zählt auf, welche Namen
+   das betrifft. „Nicht übernehmen" lässt eine Mannschaft aus.
 4. **Übernehmen.** Erst jetzt verlässt irgendetwas den Browser.
+
+**Du musst vorher keine Mannschaften anlegen.** Auf einer frischen Instanz legt der Import sie
+aus der Datei an — die Namen lassen sich danach unter *Mannschaften* jederzeit ändern, ohne dass
+die Spieltage etwas davon merken.
 
 Das darf nur der **Admin** — so eine Datei umfasst den ganzen Verein, ein Kapitän würde damit in
 fremde Mannschaften schreiben.

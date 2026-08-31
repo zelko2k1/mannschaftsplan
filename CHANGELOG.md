@@ -8,6 +8,16 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 ## [Unveröffentlicht]
 
 ### Hinzugefügt
+- **Der Spielplan-Import legt fehlende Mannschaften selbst an.** Bisher stand beim ersten Import
+  jedes Auswahlfeld auf „nicht übernehmen", bis jemand alle Mannschaften von Hand angelegt hatte
+  — eine Tür, die man erst bauen musste, um durchzugehen. Jetzt ist **„neu anlegen"** die
+  Vorgabe für alles, was nicht zu einer vorhandenen Mannschaft passt; die Vorschau zählt auf,
+  welche Namen entstehen, und umstellen lässt es sich weiterhin. Der Import erscheint deshalb
+  auch auf einer Instanz ohne jede Mannschaft.
+- **Der Kopfbalken der Anmeldemaske zeigt den Vereinsnamen.** Bisher war er dort leer — ein
+  gelber Streifen über einem Formular, ohne jeden Hinweis, wo man gerade ist. Jetzt steht dort
+  derselbe Name wie nach dem Anmelden. Kommt er nicht, bleibt der Balken leer statt kurz etwas
+  Falsches zu zeigen.
 - **Vorlage zum Selbstausfüllen.** Wessen Verband keinen brauchbaren Export ausgibt, lädt unter
   **Verein → Spielplan einlesen** eine leere CSV-Vorlage herunter, füllt sie im
   Tabellenprogramm aus und lädt sie wieder hoch. Welche Form eine Datei hat, erkennt die App an
