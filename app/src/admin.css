@@ -174,9 +174,16 @@
   font-weight: 500;
 }
 /* Rot ruft zum Handeln (6.2) — „kein Fahrer" ist genau das, und zwar für den, der es ändern kann. */
+/* `nowrap` gilt nur für die kurzen Einwürfe MITTEN in einer Zeile — „kein Fahrer" soll nicht
+   zwischen den beiden Wörtern umbrechen. Ein ganzer Satz als eigener Absatz muss dagegen
+   umbrechen dürfen: Der Hinweis auf die Spieltage aus dem Spielplan lief sonst rechts aus dem
+   Bild, und man las nur seine erste Hälfte. Deshalb hängt die Regel am Element, nicht an der
+   Klasse. */
 .satz__warnung {
   color: var(--rot);
   font-weight: 600;
+}
+span.satz__warnung {
   white-space: nowrap;
 }
 /* Kein gedrehter Stempel wie im Aushang: Der Kapitän überfliegt zwanzig Zeilen, da wäre jede

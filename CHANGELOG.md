@@ -8,6 +8,11 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 ## [Unveröffentlicht]
 
 ### Hinzugefügt
+- **Der Spielereintrag eines Kapitäns entsteht auf Wunsch gleich mit.** Unter *Konten → Spielt
+  als* gibt es die Zeile „neu anlegen": Name eintippen, und Spielereintrag und Konto entstehen
+  zusammen. Bisher waren das zwei Wege — erst unter *Mannschaft* den Spieler anlegen, dann
+  zurück zu *Konten* —, und wer den ersten nicht kannte, bekam ein Konto ohne Spielerbezug und
+  damit ohne den Einladungslink, über den ein Kapitän selbst zu- und absagt.
 - **Der Spielplan-Import legt fehlende Mannschaften selbst an.** Bisher stand beim ersten Import
   jedes Auswahlfeld auf „nicht übernehmen", bis jemand alle Mannschaften von Hand angelegt hatte
   — eine Tür, die man erst bauen musste, um durchzugehen. Jetzt ist **„neu anlegen"** die
@@ -56,6 +61,12 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   überhaupt erreichbar sind. Ohne Eintrag ändert sich nichts; die README erklärt unter „Nur aus
   dem eigenen Netz erreichbar machen", wann sich das lohnt und wie man sich dabei nicht selbst
   aussperrt.
+
+### Behoben
+- **Lange Hinweise wurden rechts abgeschnitten.** Warnungen durften nicht umbrechen — gedacht für
+  kurze Einwürfe mitten in einer Zeile („kein Fahrer"), verhängnisvoll für ganze Sätze wie den
+  Hinweis auf die Spieltage aus dem Spielplan. Der lief aus dem Bild, und man las nur seine erste
+  Hälfte.
 
 ### Geändert
 - **Die Kapitäne brauchen kein Tor-Passwort mehr.** Die Verwaltung hat jetzt zwei Eingänge:

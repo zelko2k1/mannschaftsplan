@@ -2290,6 +2290,12 @@ function Mannschaften({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLad
  * Das Passwort wird erzeugt und genau einmal angezeigt, wie der Einladungslink eines Mitglieds.
  * Gespeichert ist davon nur ein Hash; herausholen kann es niemand, auch der Admin nicht.
  */
+/**
+ * Der Wert im Feld „Spielt als", der „diesen Spieler gibt es noch nicht" bedeutet — dasselbe
+ * Muster wie beim Spielplan-Import.
+ */
+const NEUER_SPIELER = 'neu:spieler'
+
 function Konten({ abgemeldet }: { abgemeldet: () => void }) {
   const { items, fehler, setFehler, laden } = useListe<Verwalterkonto>(adminApi.verwalter, abgemeldet)
   const { items: teams } = useListe<Mannschaft>(adminApi.mannschaften, abgemeldet)
@@ -2298,12 +2304,14 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
   const [rolle, setRolle] = useState<'admin' | 'kapitaen'>('kapitaen')
   const [team, setTeam] = useState('')
   const [mitglied, setMitglied] = useState('')
+  // Der Name für einen Spielereintrag, der zusammen mit dem Konto entstehen soll.
+  const [spielername, setSpielername] = useState('')
   const [laeuft, setLaeuft] = useState(false)
   const [gezeigt, setGezeigt] = useState<{ email: string; passwort: string } | null>(null)
   const [frage, setFrage] = useState<Nachfrage | null>(null)
 
   // Für die Verknüpfung zum Spielereintrag — nur die Spieler der gewählten Mannschaft.
-  const { items: spieler } = useListe<AdminMitglied>(
+  const { items: spieler, laden: spielerLaden } = useListe<AdminMitglied>(
     () => adminApi.mitglieder(team),
     abgemeldet,
     team,
@@ -2467,7 +2475,23 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
           ereignis.preventDefault()
           if (!email.trim() || (rolle === 'kapitaen' && !team) || laeuft) return
           void fuehreAus(async () => {
-            const d = await adminApi.verwalterAnlegen(email.trim(), rolle, team, mitglied)
+            // Ein Kapitän, der selbst mitspielt, brauchte bisher zwei Wege: erst unter
+            // „Mannschaft" den Spieler anlegen, dann hierher zurück und ihn auswählen. Wer das
+            // nicht wusste, legte das Konto ohne Verknüpfung an — und damit ohne den
+            // Einladungslink, über den er als Spieler zu- und absagt.
+            //
+            // Der Spielereintrag entsteht deshalb ZUERST und die Auswahl merkt ihn sich sofort:
+            // Scheitert das Konto danach am Anmeldenamen, legt der zweite Versuch keinen
+            // zweiten Spieler an.
+            let bezug = mitglied
+            if (bezug === NEUER_SPIELER) {
+              const neuer = await adminApi.mitgliedAnlegen(spielername.trim(), team)
+              bezug = neuer.id
+              setMitglied(neuer.id)
+              setSpielername('')
+              await spielerLaden()
+            }
+            const d = await adminApi.verwalterAnlegen(email.trim(), rolle, team, bezug)
             setGezeigt({ email: d.email, passwort: d.passwort })
             setEmail('')
             setMitglied('')
@@ -2499,6 +2523,7 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
               if (r === 'admin') {
                 setTeam('')
                 setMitglied('')
+                setSpielername('')
               }
             }}
           >
@@ -2514,6 +2539,7 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
               onChange={(x) => {
                 setTeam(x.target.value)
                 setMitglied('')
+                setSpielername('')
               }}
             >
               <option value="">— wählen —</option>
@@ -2530,6 +2556,7 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
             <span>Spielt als</span>
             <select value={mitglied} onChange={(x) => setMitglied(x.target.value)}>
               <option value="">— spielt nicht mit —</option>
+              <option value={NEUER_SPIELER}>— neu anlegen —</option>
               {(spieler ?? []).map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.name}
@@ -2539,10 +2566,29 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
             <span className="feld__hinweis">Wer nur organisiert, bleibt unverknüpft.</span>
           </label>
         )}
+        {rolle === 'kapitaen' && team && mitglied === NEUER_SPIELER && (
+          <label className="feld feld--kurz">
+            <span>Name des Spielers</span>
+            <input
+              type="text"
+              value={spielername}
+              onChange={(x) => setSpielername(x.target.value)}
+            />
+            <span className="feld__hinweis">
+              Wird zusammen mit dem Konto in dieser Mannschaft angelegt — mitsamt eigenem
+              Einladungslink, den du danach unter „Mannschaft" ausstellst.
+            </span>
+          </label>
+        )}
         <button
           type="submit"
           className="knopf"
-          disabled={!email.trim() || (rolle === 'kapitaen' && !team) || laeuft}
+          disabled={
+            !email.trim() ||
+            (rolle === 'kapitaen' && !team) ||
+            (mitglied === NEUER_SPIELER && !spielername.trim()) ||
+            laeuft
+          }
         >
           Konto anlegen
         </button>

@@ -365,6 +365,10 @@ die einzige Quelle für sportliche Personen, Login-Konten sind davon getrennt un
 *optional* auf einen Spieler. Wer nur organisiert, bleibt unverknüpft. Verknüpfen lässt sich nur
 ein Spieler derselben Mannschaft.
 
+Steht er noch nicht in der Liste, wähle unter *Spielt als* die Zeile **„neu anlegen"** und gib
+seinen Namen ein: Spielereintrag und Konto entstehen dann zusammen. Den Einladungslink stellst du
+ihm anschließend wie jedem anderen unter *Mannschaft* aus.
+
 Wer sich mit dem Zugang aus Einrichtungsschritt 7 anmeldet — dem Superuser —, ist immer *Admin*.
 Das ist Absicht und der Rettungsanker: Wer sich beim Verteilen der Rollen vergreift, kommt darüber
 wieder herein.
