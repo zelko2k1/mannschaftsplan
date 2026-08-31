@@ -1,10 +1,13 @@
-# Erster Testlauf auf einem echten Server
+# Der erste Testlauf auf einem echten Server
 
-Bis hierher ist die App lokal entwickelt und in der CI gebaut worden. Was **nie** stattgefunden
-hat, ist ein `docker compose up -d` auf einer Maschine im Internet. Solange das so bleibt, ist
-die Anleitung in der [README](../README.md) gut begründet, aber unbewiesen.
+Dieses Dokument hat zwei Leser:
 
-Dieser Lauf hat zwei Zwecke, und sie sind gleich wichtig:
+- **Wer die App für seinen Verein neu aufsetzt.** Für dich gilt es unverändert und von vorn: Du
+  hast einen frischen Server, und darauf ist alles ungeprüft, bis du es geprüft hast.
+- **Wer diese Installation betreibt.** Für die ist der Lauf in Teilen passiert — was genau,
+  steht im nächsten Abschnitt.
+
+Der Lauf hat zwei Zwecke, und sie sind gleich wichtig:
 
 1. **Die Anleitung prüfen.** Du gehst sie Schritt für Schritt durch wie jemand, der sie zum
    ersten Mal liest. Wo du stolperst, stolpert später ein Vereinsadmin.
@@ -12,6 +15,41 @@ Dieser Lauf hat zwei Zwecke, und sie sind gleich wichtig:
    sind: T8c, T8d, T10, T11 und A12 aus Abschnitt 11 des [Umsetzungsplans](umsetzungsplan.md).
 
 Rechne mit zwei Stunden. Danach ist der Server entweder dein Betrieb oder wieder weg.
+
+---
+
+## Woran diese Installation steht
+
+**Der Server läuft.** Seit Ende August 2026 ist die App auf einem gemieteten Server im Internet
+eingerichtet und in Betrieb: eigene Domain, Zertifikat über Let's Encrypt, Caddy nach
+[`deploy/Caddyfile`](../deploy/Caddyfile). An dieser Stelle stand früher, es habe „nie" ein
+`docker compose up -d` auf einer Maschine im Internet gegeben und die README sei deshalb
+„unbewiesen". Beides ist überholt.
+
+Von den Prüfungen sind zwei erledigt und vier offen:
+
+| Prüfung | Was sie zeigt | Stand |
+|---|---|---|
+| **T11** | Die Linkvorschau verrät nichts, und der Link bleibt gültig | erledigt |
+| **T10** | Kein Token im Protokoll des Webservers | erledigt |
+| **T8d** | `/_/` ist von außen nicht erreichbar | **offen** |
+| **T8c** | Vor `/admin` steht das Gate | **offen** |
+| **A12** | Spieltage schließen sich von selbst | **offen** |
+| **T12** | Eine Sicherung lässt sich zurückspielen | **offen** |
+
+Zwei Anmerkungen dazu, die niemandem gefallen, aber hierher gehören:
+
+**Die beiden offenen Sicherheitsprüfungen sind die schnellsten von allen.** T8c und T8d sind zwei
+`curl`-Aufrufe, zusammen keine halbe Minute. Sie stehen aus, während auf der Installation bereits
+echte Namen und Termine liegen. Geprüft wird damit genau das, was eine Proxy-Konfiguration still
+falsch machen kann: ob PocketBases Verwaltungsoberfläche und das Admin-Gebiet von außen wirklich
+verschlossen sind. Bis dahin sind R13a und R13b eine **Absicht** und kein **Befund** — die
+Konfiguration sieht richtig aus, aber niemand hat von außen dagegen geklopft.
+
+**T12 ist die zweite Lücke mit Folgen.** Eine Sicherung, die nie zurückgespielt wurde, ist keine
+Sicherung, sondern eine Datei, von der man annimmt, dass sie eine wäre. Sie kostet mehr Zeit als
+die beiden anderen, aber sie ist der einzige Punkt auf dieser Liste, an dem im Ernstfall Daten
+hängen.
 
 ---
 
@@ -38,6 +76,11 @@ dem Kopf** — lies sie, als kenntest du sie nicht.
 
 Führe dabei einen Zettel mit zwei Spalten: *war unklar* und *hat nicht funktioniert*. Alles, was
 dort landet, ist ein Fehler in der Anleitung, nicht in dir.
+
+> **Auf dieser Installation ist dieser Teil gelaufen** — der Server steht, mit Domain, Zertifikat
+> und Caddy. Ein Zettel im obigen Sinn ist dabei nicht geführt worden; die Anleitung ist seither
+> aus anderen Anlässen mehrfach überarbeitet worden. Wer die App neu aufsetzt, führt ihn also
+> für sich selbst und nicht für jemanden, der es schon aufgeschrieben hätte.
 
 Drei Stellen, an denen erfahrungsgemäß etwas hängt:
 
@@ -68,6 +111,9 @@ entstanden ist.
 
 ### T8d · Das Dashboard ist von außen nicht erreichbar
 
+> **Auf dieser Installation offen.** Zwei Sekunden Arbeit, und sie steht seit dem Produktivgang
+> aus. Wer sie nachholt, trägt hier „erledigt" ein und streicht die Zeile in der Übersicht oben.
+
 R13a kennt keine Ausnahme. Vom eigenen Rechner:
 
 ```bash
@@ -79,6 +125,8 @@ etwas gibt (R6). Kommt eine Anmeldemaske, ist der Block im Caddyfile nicht aktiv
 PocketBases Verwaltungsoberfläche im Internet stehen. Dann sofort abschalten.
 
 ### T8c · Vor `/admin` steht ein Gate
+
+> **Auf dieser Installation offen** — dasselbe gilt wie bei T8d: ein Aufruf, sofort erledigt.
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' https://dart.mein-verein.de/admin
@@ -95,6 +143,9 @@ Kommt `200` und du siehst die Anmeldemaske der App, fehlt das Gate.
 
 ### T11 · Die Linkvorschau verrät nichts
 
+> **Auf dieser Installation erledigt.** Die Vorschau zeigte nichts Persönliches, und der Link hat
+> danach noch angemeldet — die Vorschau hatte ihn also nicht verbraucht (R10).
+
 Schick dir den Einladungslink des Testmitglieds **im Einzelchat an dich selbst**.
 
 **Erwartet:** Der Messenger zeigt eine Vorschau mit dem Anzeigenamen aus den Einstellungen und
@@ -107,6 +158,9 @@ Einladung verbraucht, bevor ein Mensch sie antippt (R10). Tipp den Link also ans
 muss dich anmelden.
 
 ### T10 · Kein Token im Protokoll
+
+> **Auf dieser Installation erledigt.** Die Route wird nicht protokolliert, und die Gegenprobe
+> zeigte, dass überhaupt geschrieben wird — die Zeile prüft also etwas (R8).
 
 Nach dem Antippen aus T11 liegt mindestens ein Aufruf von `/j/<token>` hinter dir. Auf dem Server,
 und zwar **im Verzeichnis des Klons** — sonst findet `docker compose` seine Dateien nicht und
@@ -139,6 +193,10 @@ docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml \
 Steht dort 0, wird gar nichts geschrieben — dann prüft die Zeile darüber nichts.
 
 ### A12 · Spieltage schließen sich von selbst
+
+> **Auf dieser Installation offen.** Die aufwendigste der fünf: Sie braucht den SSH-Tunnel und
+> einen abgelaufenen Spieltag. Anders als T8c und T8d hängt an ihr keine Sicherheitsregel — geht
+> sie schief, sperren sich alte Spieltage eben nicht von selbst, und der Kapitän tut es von Hand.
 
 Diese Prüfung braucht die Superuser-API, und die liegt hinter R13a. Genau deshalb steht sie hier:
 Sie prüft den Sperr-Cron **und** den Tunnelweg, den du im Notfall ohnehin brauchst.
@@ -188,7 +246,8 @@ Der Tunnel ist für den Notfall gedacht, nicht für den Betrieb.
 Drei Dinge, die nicht zu den Testfällen gehören, aber vor dem ersten echten Mitglied erledigt sein
 sollten:
 
-- **T12 · Eine Sicherung zurückspielen.** Eine ungetestete Sicherung ist keine. Der Ablauf hat
+- **T12 · Eine Sicherung zurückspielen.** *Auf dieser Installation offen — und der Punkt dieser
+  Liste, an dem im Ernstfall Daten hängen.* Eine ungetestete Sicherung ist keine. Der Ablauf hat
   eine Stelle, die man beim ersten Mal nicht errät:
 
   1. **Port öffnen** wie in A12 Schritt 1 — auch wenn du auf dem Server selbst arbeitest.
@@ -230,3 +289,8 @@ sollten:
 - **Zettelspalte *hat nicht funktioniert*** → Fehler, mit Vorrang vor allem anderen.
 - **Eine durchgefallene Handprüfung** ist ein Grund, nicht produktiv zu gehen. T8c, T8d und T10
   hängen unmittelbar an den Sicherheitsregeln; T11 daran, ob die Mannschaft überhaupt hereinkommt.
+- **Eine nicht durchgeführte Handprüfung ist etwas anderes als eine bestandene**, und der
+  Unterschied verwischt schnell, wenn der Betrieb erst einmal läuft und nichts auffällt. Genau
+  deshalb steht oben eine Tabelle mit vier offenen Zeilen und nicht ein Satz, dass alles in
+  Ordnung sei. Wer eine davon nachholt, trägt das Ergebnis dort und beim jeweiligen Abschnitt ein
+  — auch ein *nicht bestanden*.
