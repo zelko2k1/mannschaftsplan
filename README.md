@@ -242,28 +242,51 @@ HTML wird angezeigt statt ausgewertet.
 
 ### Spielplan einlesen
 
-Zum Saisonstart musst du die Spieltage nicht einzeln eintippen. Der Verband liefert sie als
-Datei, und die App liest sie ein — bei einem Verein mit neun Mannschaften sind das rund 130
-Begegnungen auf einen Schlag.
+Zum Saisonstart musst du die Spieltage nicht einzeln eintippen. Die App liest sie aus einer
+CSV-Datei ein — bei einem Verein mit neun Mannschaften sind das rund 130 Begegnungen auf einen
+Schlag.
+
+**Zwei Wege zu dieser Datei:**
+
+- **Der Spielplan-Export deines Verbands.** Viele Verbände geben einen Vereinsspielplan als CSV
+  aus, in dem alle Mannschaften des Vereins stehen. Dann ist gar nichts abzutippen.
+- **Die Vorlage.** Unter *Verein → Spielplan einlesen* auf **Vorlage herunterladen**, in einem
+  Tabellenprogramm ausfüllen, wieder hochladen. Für Verbände ohne brauchbaren Export, für
+  Pokalrunden und für Freundschaftsspiele.
+
+Welche Form es ist, erkennt die App an der Kopfzeile — du musst nichts angeben.
 
 **So geht es:**
 
-1. In **nuLiga** den **Vereinsspielplan** als CSV herunterladen. Die Datei enthält alle
-   Mannschaften des Vereins, du brauchst also nur eine.
+1. Datei besorgen (Export oder ausgefüllte Vorlage).
 2. In der Verwaltung auf **Verein → Spielplan einlesen**, Datei wählen.
-3. Es erscheint eine **Vorschau**: Saison, Anzahl der Begegnungen und je Mannschaft aus der Datei
-   ein Auswahlfeld mit deinen Mannschaften. Was eindeutig passt, ist schon vorbelegt; den Rest
+3. Es erscheint eine **Vorschau**: Anzahl der Begegnungen und je Mannschaft aus der Datei ein
+   Auswahlfeld mit deinen Mannschaften. Was eindeutig passt, ist schon vorbelegt; den Rest
    stellst du selbst. „Nicht übernehmen" lässt eine Mannschaft aus.
 4. **Übernehmen.** Erst jetzt verlässt irgendetwas den Browser.
 
-Das darf nur der **Admin** — die Datei umfasst den ganzen Verein, ein Kapitän würde damit in
+Das darf nur der **Admin** — so eine Datei umfasst den ganzen Verein, ein Kapitän würde damit in
 fremde Mannschaften schreiben.
 
-**Was danach noch zu tun ist:** Der Verband kennt weder den **Ort des Gegners** noch die
-**Entfernung** noch euren **Treffpunkt**. Diese drei Angaben bleiben leer, und ohne sie gibt es
-keine Abfahrtszeit. Jeder Kapitän sieht in seiner Spieltagsliste oben, wie viele Spieltage noch
-darauf warten, und an jedem einzelnen den Hinweis. Das ist Arbeit für einen Abend, nicht für eine
-Woche.
+**Die Spalten der Vorlage:**
+
+| Spalte | Pflicht | Was hineingehört |
+|---|---|---|
+| `Datum` | ja | `18.09.2026` oder `2026-09-18` |
+| `Uhrzeit` | nein | `20:00`. Fehlt sie, steht der Anwurf auf Mitternacht |
+| `Mannschaft` | ja | **eure** Mannschaft — dieser Name wird beim Einlesen zugeordnet |
+| `Gegner` | ja | steht groß in der Zeile |
+| `Heim` | ja | `ja` oder `nein` (auch `x`, `1`, `wahr` werden verstanden) |
+| `Spielort` | nein | die Spielstätte, z. B. „Sportheim TSV Musterdorf" |
+| `Ort` | nein | Ort des Gegners — steht klein unter dem Vereinsnamen |
+| `Kilometer` | nein | einfache Strecke, für die Abfahrtszeit |
+| `Kennung` | nein | frei wählbar, z. B. eine Spieltagsnummer. Siehe unten |
+
+**Was danach noch zu tun ist:** Ein Verbands-Export kennt weder den **Ort des Gegners** noch die
+**Entfernung** noch euren **Treffpunkt** — die bleiben dann leer, und ohne sie gibt es keine
+Abfahrtszeit. In der Vorlage kannst du Ort und Kilometer gleich mit eintragen und sparst dir das.
+Jeder Kapitän sieht in seiner Spieltagsliste oben, wie viele Spieltage noch etwas brauchen, und
+an jedem einzelnen den Hinweis.
 
 **Zwei Dinge, die zunächst wie ein Fehler aussehen:**
 
@@ -274,12 +297,18 @@ Woche.
   vorkam.
 - **Umlaute in den Mannschaftsnamen.** Die Datei kommt in einer alten Windows-Kodierung; die App
   erkennt das und stellt es gerade. Sollte trotzdem etwas seltsam aussehen, liegt es an der Datei
-  selbst — dann in nuLiga neu herunterladen.
+  selbst — dann beim Verband neu herunterladen.
 
 **Ein zweiter Import derselben Saison** ist ungefährlich: Verlegte Begegnungen werden am
 vorhandenen Spieltag nachgezogen, statt ein zweites Mal angelegt zu werden. Unberührt bleiben
-dabei alles, was du von Hand angelegt hast, alles, was ihr nachgetragen habt, und jeder bereits
-gesperrte Spieltag.
+dabei alles, was du von Hand angelegt hast, jeder bereits gesperrte Spieltag — und alles, was ihr
+nachgetragen habt, solange die Datei dazu nichts sagt. **Ein leeres Feld löscht also nichts.**
+Steht in der Datei ein Ort, gilt der aus der Datei.
+
+Wiedererkannt wird eine Begegnung an Mannschaft, Gegner und Seite — nicht am Termin, sonst würde
+jede Verlegung einen zweiten Spieltag anlegen. Spielt ihr dieselbe Paarung mehrfach mit derselben
+Seite, trag in der Spalte **`Kennung`** etwas Eindeutiges ein (z. B. `hinrunde` und `rückrunde`);
+sonst hängt die Wiedererkennung an der Reihenfolge in der Datei, und die Vorschau warnt davor.
 
 ### Der Alltag
 

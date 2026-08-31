@@ -8,7 +8,13 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 ## [Unveröffentlicht]
 
 ### Hinzugefügt
-- **Spielplan einlesen statt eintippen.** Der Vereinsspielplan aus nuLiga (CSV) wird unter
+- **Vorlage zum Selbstausfüllen.** Wessen Verband keinen brauchbaren Export ausgibt, lädt unter
+  **Verein → Spielplan einlesen** eine leere CSV-Vorlage herunter, füllt sie im
+  Tabellenprogramm aus und lädt sie wieder hoch. Welche Form eine Datei hat, erkennt die App an
+  der Kopfzeile. In der Vorlage dürfen **Ort und Kilometer** gleich mitkommen — die kennt kein
+  Verbands-Export, und damit entfällt das Nachtragen. Ein leeres Feld löscht nie etwas, das
+  schon dasteht.
+- **Spielplan einlesen statt eintippen.** Ein Spielplan-Export als CSV wird unter
   **Verein → Spielplan einlesen** übernommen — eine Datei für alle Mannschaften, bei einem
   mittelgroßen Verein rund 130 Begegnungen. Gelesen wird sie im Browser: Vorschau und Zuordnung
   der Mannschaften stehen vor dem Übernehmen, und erst danach geht etwas zum Server. Nur der

@@ -4,7 +4,7 @@
 // Zwei Änderungen, beide unvermeidlich:
 //
 // **1 · `source_key`** — die Herkunft einer Begegnung im Verbands-Export. Ohne sie wäre ein
-// zweiter Import nicht wiederholbar: nuLiga verlegt Begegnungen mitten in der Saison, und wer
+// zweiter Import nicht wiederholbar: Verbände verlegen Begegnungen mitten in der Saison, und wer
 // den Spieltag am Datum wiedererkennen will, legt ihn nach jeder Verlegung ein zweites Mal an.
 // Der Schlüssel steht deshalb für die BEGEGNUNG, nicht für den Termin (Aufbau in
 // `app/src/spielplan.ts`). Von Hand angelegte Spieltage lassen ihn leer und bleiben unberührt —
@@ -13,7 +13,7 @@
 // Der Index ist ein TEILINDEX. Ein gewöhnlicher UNIQUE-Index würde beim zweiten von Hand
 // angelegten Spieltag brechen, weil mehrere Leerstrings kollidieren.
 //
-// **2 · `opponent_town` ist nicht mehr Pflicht.** nuLiga liefert keinen Ort — die Datei kennt
+// **2 · `opponent_town` ist nicht mehr Pflicht.** Ein Verbands-Export liefert keinen Ort — er kennt
 // nur das Spiellokal („Vereinsheim", „Sportheim Muster"), und das ist ein Lokalname, kein
 // Ortsname. Die Wahl stand zwischen „Lokalname in das Ortsfeld schreiben" (der Aushang zeigt
 // dann etwas Falsches, und niemand findet hin) und „leer lassen, sichtbar nachtragen". Es ist

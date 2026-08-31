@@ -22,7 +22,7 @@ import {
   systemDatumZeit,
 } from './format'
 import { dekodiere } from './csv'
-import { leseSpielplan, type Spielplan } from './spielplan'
+import { leseSpielplan, vorlageCsv, type Spielplan } from './spielplan'
 import { Fehler, Hinweis } from './Meldung'
 import { Nachfragekasten, type Nachfrage } from './Nachfrage'
 import './admin.css'
@@ -405,9 +405,10 @@ const ohneFahrer = (s: AdminSpieltag) => !s.is_home && (s.rides ?? []).length ==
 /**
  * Ein eingelesener Auswärtsspieltag, dem noch die Reiseangaben fehlen.
  *
- * Der nuLiga-Export kennt Datum, Gegner und Spiellokal — nicht aber den Ort des Gegners, die
+ * Ein Verbands-Export kennt Datum, Gegner und Spiellokal — nicht aber den Ort des Gegners, die
  * Entfernung und den Treffpunkt. Die kann nur jemand nachtragen, der die Fahrt kennt, und ohne
- * sie rechnet die Abfahrtszeit ins Leere. Deshalb steht es dran, statt still zu bleiben.
+ * sie rechnet die Abfahrtszeit ins Leere. Deshalb steht es dran, statt still zu bleiben. Wer die
+ * Vorlage ausfüllt, kann Ort und Kilometer gleich mitgeben — dann kommt dieser Hinweis nicht.
  */
 const nachzutragen = (s: AdminSpieltag) =>
   s.aus_spielplan && !s.is_home && (!s.opponent_town.trim() || s.km <= 0)
@@ -1266,11 +1267,14 @@ function Verein({
 }
 
 /**
- * Spielplan aus einem Verbands-Export übernehmen — Schritt 8.
+ * Spielplan aus einer CSV-Datei übernehmen — Schritt 8.
  *
- * Steht im Reiter „Verein“, weil der nuLiga-Export den ganzen Verein umfasst: eine Datei, alle
- * Mannschaften. Deshalb auch nur der Admin — ein Kapitän würde damit in fremde Mannschaften
- * schreiben.
+ * Zwei Wege führen hier herein: der Export des eigenen Verbands (eine Datei für alle
+ * Mannschaften) und die Vorlage, die man selbst ausfüllt. Welche es ist, erkennt `spielplan.ts`
+ * an der Kopfzeile — die Oberfläche muss nicht danach fragen.
+ *
+ * Steht im Reiter „Verein“, weil so eine Datei den ganzen Verein umfasst. Deshalb auch nur der
+ * Admin — ein Kapitän würde damit in fremde Mannschaften schreiben.
  *
  * Gelesen wird die Datei HIER im Browser, nicht auf dem Server. Zwei Gründe: die Zuordnung der
  * Mannschaftsnamen ist eine Frage an einen Menschen, und was nie hochgeladen wird, kann auch
@@ -1320,6 +1324,8 @@ function SpielplanImport({ abgemeldet }: { abgemeldet: () => void }) {
         opponent_club: z.opponent_club,
         is_home: z.is_home,
         venue: z.venue,
+        opponent_town: z.opponent_town,
+        km: z.km,
       }))
     if (zeilen.length === 0) return
 
@@ -1375,15 +1381,24 @@ function SpielplanImport({ abgemeldet }: { abgemeldet: () => void }) {
                 }}
               />
             </label>
+            <button type="button" className="knopf" onClick={vorlageHerunterladen}>
+              Vorlage herunterladen
+            </button>
           </div>
           <div className="token">
-            <p className="token__hinweis">Der Vereinsspielplan aus nuLiga</p>
+            <p className="token__hinweis">Zwei Wege zu einer Datei</p>
             <p className="token__text">
-              In nuLiga unter „Vereinsspielplan“ als CSV herunterladen — die Datei enthält alle
-              Mannschaften des Vereins. Nichts wird hochgeladen, bevor du die Vorschau bestätigt
-              hast. Ein zweiter Import derselben Saison aktualisiert verlegte Begegnungen, statt
-              sie ein zweites Mal anzulegen; von Hand angelegte und bereits gesperrte Spieltage
-              bleiben unberührt.
+              Entweder der <strong>Spielplan-Export deines Verbands</strong> als CSV — eine Datei
+              für alle Mannschaften, nichts abzutippen. Oder die <strong>Vorlage</strong>: Du
+              lädst sie hier herunter, füllst sie in einem Tabellenprogramm aus und lädst sie
+              wieder hoch. In der Vorlage darfst du Ort und Kilometer gleich mit eintragen; ein
+              Verbands-Export kennt beides nicht.
+            </p>
+            <p className="token__text">
+              Welche Form es ist, erkennt die App an der Kopfzeile. Nichts wird hochgeladen, bevor
+              du die Vorschau bestätigt hast. Ein zweiter Import aktualisiert verlegte
+              Begegnungen, statt sie ein zweites Mal anzulegen; von Hand angelegte und bereits
+              gesperrte Spieltage bleiben unberührt.
             </p>
           </div>
         </>
@@ -1402,7 +1417,7 @@ function SpielplanImport({ abgemeldet }: { abgemeldet: () => void }) {
             </p>
           ))}
 
-          {/* Die Zuordnung ist der einzige Schritt, den kein Programm entscheiden kann: nuLiga
+          {/* Die Zuordnung ist der einzige Schritt, den kein Programm entscheiden kann: die Datei
               kennt „SV Beispiel III“, die App kennt die Mannschaft, die IHR so nennt. Der
               Vorschlag trifft den Normalfall, das letzte Wort hat der Mensch. */}
           <ul className="namen liste">
@@ -1451,6 +1466,23 @@ function SpielplanImport({ abgemeldet }: { abgemeldet: () => void }) {
       )}
     </section>
   )
+}
+
+/**
+ * Legt die leere Vorlage im Download-Ordner ab.
+ *
+ * Der Inhalt entsteht in `spielplan.ts` aus derselben Spaltenliste, nach der die Datei später
+ * gelesen wird — deshalb kann die Vorlage nicht veralten, und was hier heruntergeladen wird,
+ * nimmt der Import garantiert wieder an. Geprüft wird genau das im Test „lässt sich unverändert
+ * wieder einlesen".
+ */
+function vorlageHerunterladen() {
+  const adresse = URL.createObjectURL(new Blob([vorlageCsv()], { type: 'text/csv;charset=utf-8' }))
+  const verweis = document.createElement('a')
+  verweis.href = adresse
+  verweis.download = 'spielplan-vorlage.csv'
+  verweis.click()
+  URL.revokeObjectURL(adresse)
 }
 
 /**

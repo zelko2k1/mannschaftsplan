@@ -1,17 +1,18 @@
 // Dekodieren und Zerlegen hochgeladener CSV-Dateien. Bewusst ohne Abhängigkeit — es geht um
 // Verbands-Exporte, und die halten sich an wenige, gut bekannte Formen.
 //
-// Übernommen aus DartsZentrale (`app/src/lib/csv.ts`), wo dieselben nuLiga-Exporte seit
+// Übernommen aus DartsZentrale (`app/src/lib/csv.ts`), wo dieselben Verbands-Exporte seit
 // Längerem eingelesen werden. Die Erkennungslogik ist dort an echten Dateien gewachsen; sie hier
 // neu zu erfinden hieße, dieselben Fallen ein zweites Mal zu entdecken.
 
 /**
  * Macht aus hochgeladenen Bytes Text.
  *
- * **Der Grund, warum das nicht einfach `new TextDecoder()` ist:** nuLiga liefert
- * Windows-1252, nicht UTF-8. Als UTF-8 gelesen wird aus „Grünau" ein „N<?>rnberg" — und weil
- * der Import den Mannschaftsnamen als Schlüssel benutzt, stünde der Schaden anschließend in der
- * Datenbank statt nur auf dem Bildschirm.
+ * **Der Grund, warum das nicht einfach `new TextDecoder()` ist:** Verbands-Exporte kommen
+ * regelmäßig als Windows-1252, nicht als UTF-8 — nachgemessen an einer echten Datei. Als UTF-8
+ * gelesen wird aus „Grünau" ein „N<?>rnberg", und weil der Import den Mannschaftsnamen als
+ * Schlüssel benutzt, stünde der Schaden anschließend in der Datenbank statt nur auf dem
+ * Bildschirm.
  *
  * Strategie: erst UTF-8 versuchen; tauchen Ersetzungszeichen auf, auf Windows-1252 wechseln.
  * Die Unterscheidung ist nötig, weil ein U+FFFD zwei Ursachen haben kann:
@@ -50,7 +51,7 @@ export function unlesbareZeichen(text: string): number {
   return (text.match(/�/g) || []).length
 }
 
-/** Das wahrscheinlichste Trennzeichen aus der Kopfzeile. nuLiga nimmt „;", andere Verbände nicht. */
+/** Das wahrscheinlichste Trennzeichen aus der Kopfzeile — „;" ist üblich, aber nicht sicher. */
 export function trennzeichen(kopfzeile: string): string {
   const kandidaten = [';', '\t', ',', '|']
   let bestes = ';'

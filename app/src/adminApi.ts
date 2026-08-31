@@ -267,6 +267,10 @@ export const adminApi = {
   /**
    * Spielplan übernehmen — NUR Admin, deshalb `rufAdmin`. Gelesen und zugeordnet wird die Datei
    * im Browser (`spielplan.ts`); hier gehen fertige Zeilen mit Mannschafts-Kennung hinaus.
+   *
+   * `opponent_town` und `km` sind freiwillig: Ein Verbands-Export kennt sie nicht, die selbst
+   * ausgefüllte Vorlage schon. Leer heißt „nicht angerührt" — ein Nachimport löscht damit nicht,
+   * was jemand von Hand nachgetragen hat.
    */
   spielplanImportieren: (
     zeilen: {
@@ -276,6 +280,8 @@ export const adminApi = {
       opponent_club: string
       is_home: boolean
       venue: string
+      opponent_town: string
+      km: number
     }[],
   ) =>
     rufAdmin<ImportErgebnis>('/fixtures/import', {

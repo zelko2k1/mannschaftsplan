@@ -504,7 +504,7 @@ routerAdd('DELETE', '/manage/api/fixtures/{id}', (e) => {
 // (`app/src/spielplan.ts`) - hier kommt eine fertige Liste an. Geprüft wird sie trotzdem noch
 // einmal vollständig: Was aus dem Browser kommt, ist eine Behauptung.
 //
-// **Nur der Admin.** Der nuLiga-Export umfasst den ganzen VEREIN, also alle Mannschaften. Wer
+// **Nur der Admin.** Ein Verbands-Export umfasst den ganzen VEREIN, also alle Mannschaften. Wer
 // ihn einliest, schreibt damit in fremde Mannschaften — für einen Kapitän wäre das die Grenze
 // aus R13d. Ein Kapitän sieht das Ergebnis in seiner Ansicht, einlesen tut es der Admin.
 //
@@ -513,8 +513,10 @@ routerAdd('DELETE', '/manage/api/fixtures/{id}', (e) => {
 //   • Von Hand angelegte Spieltage haben keinen Schlüssel und werden nie angefasst.
 //   • Ein gesperrter Spieltag bleibt unberührt — „nach dem Spiel keine Änderungen mehr“ gilt
 //     auch für den Import, sonst überschriebe ein Nachimport im Frühjahr die halbe Hinrunde.
-//   • Was der Kapitän ergänzt hat — Ort, Kilometer, Treffpunkt, benötigte Spieler —, bleibt
-//     stehen. Der Import bringt nur mit, was im Export steht.
+//   • Was der Kapitän ergänzt hat, bleibt stehen, solange die Datei nichts dazu sagt. Ort und
+//     Kilometer kennt ein Verbands-Export nicht — die selbst ausgefüllte Vorlage schon, und
+//     dann sind sie eine Angabe und keine Lücke. Leer heißt deshalb „nicht angerührt", nicht
+//     „auf leer setzen"; Treffpunkt und benötigte Spieler bleiben in jedem Fall unberührt.
 routerAdd('POST', '/admin/api/fixtures/import', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
   const vor = a.pruefen(e)
@@ -563,8 +565,13 @@ routerAdd('POST', '/admin/api/fixtures/import', (e) => {
     if (!datum || isNaN(new Date(datum.replace(' ', 'T')).getTime())) {
       return e.json(400, { message: `Zeile ${i + 1}: unbrauchbarer Termin.` })
     }
-    if (gegner.length > 80 || lokal.length > 120) {
+    const ort = String(z.opponent_town || '').trim()
+    const km = z.km === undefined || z.km === null || z.km === '' ? null : Number(z.km)
+    if (gegner.length > 80 || lokal.length > 120 || ort.length > 80) {
       return e.json(400, { message: `Zeile ${i + 1}: Angabe zu lang.` })
+    }
+    if (km !== null && (!isFinite(km) || km < 0 || km > 2000 || km !== Math.round(km))) {
+      return e.json(400, { message: `Zeile ${i + 1}: unbrauchbare Kilometerangabe.` })
     }
     if (!team) return e.json(400, { message: `Zeile ${i + 1}: keine Mannschaft zugeordnet.` })
     if (!bekannteTeams[team]) {
@@ -589,6 +596,8 @@ routerAdd('POST', '/admin/api/fixtures/import', (e) => {
           satz.getString('opponent_club'),
           satz.getBool('is_home') ? '1' : '0',
           satz.getString('venue'),
+          satz.getString('opponent_town'),
+          String(satz.getInt('km')),
         ].join(' ')
       const vorher = abbild(alt)
       alt.set('team', team)
@@ -596,6 +605,11 @@ routerAdd('POST', '/admin/api/fixtures/import', (e) => {
       alt.set('opponent_club', gegner)
       alt.set('is_home', !!z.is_home)
       alt.set('venue', lokal)
+      // Nur wenn die Datei etwas dazu sagt. Ein leeres Feld ist keine Aussage — sonst löschte
+      // ein Nachimport aus dem Verbands-Export genau die Angaben, die der Kapitän mühsam
+      // nachgetragen hat.
+      if (ort) alt.set('opponent_town', ort)
+      if (km !== null && km > 0) alt.set('km', km)
       if (abbild(alt) === vorher) {
         unveraendert++
         continue
@@ -614,12 +628,12 @@ routerAdd('POST', '/admin/api/fixtures/import', (e) => {
     satz.set('venue', lokal)
     // Der Export kennt sie nicht — und PocketBase kennt keine Defaultwerte. Ohne diese Zeilen
     // stünde überall 0: ein Tempo von null und ein Spieltag ohne Abfahrtszeit.
-    satz.set('opponent_town', '')
+    satz.set('opponent_town', ort)
     satz.set('meeting_point', '')
     satz.set('tempo_kmh', -1)
     satz.set('puffer_minuten', -1)
     satz.set('needed_players', 4)
-    satz.set('km', 0)
+    satz.set('km', km === null ? 0 : km)
     satz.set('locked', false)
     e.app.save(satz)
     neu++

@@ -2220,7 +2220,7 @@ await pruefe('A15', 'Der Kapitän wechselt ohne Token in seine eigene Spielerans
 // Import nichts verdoppelt und nichts überschreibt, was ihm nicht gehört.
 const importSchluessel = randomBytes(4).toString('hex')
 const importZeile = (nr, eigenschaften = {}) => ({
-  quelle: `nuliga|test-${importSchluessel}|Staffel A|${nr}|Wir|Gegner`,
+  quelle: `verband|test-${importSchluessel}|Staffel A|${nr}|Wir|Gegner`,
   date: '2026-09-18 18:00:00.000Z'.replace(' ', 'T'),
   opponent_club: `test-Gegner-${importSchluessel}`,
   is_home: false,
@@ -2385,6 +2385,83 @@ await pruefe('I4', 'Der Import prüft, was aus dem Browser kommt — und schreib
   if (liste.items.some((s) => s.opponent_club === `test-CSRF-${importSchluessel}`)) {
     throw new Error('Trotz 403 wurde ein Spieltag angelegt — R11 wirkt nicht')
   }
+})
+
+await pruefe('I5', 'Ort und Kilometer aus der Vorlage kommen mit — und ein Leerfeld löscht sie nicht', async () => {
+  const jar = await adminSitzung()
+  const ruf = alsKapitaen(jar)
+  const team = await testTeam()
+  const kennung = `vorlage|test-${importSchluessel}|1`
+
+  // Die selbst ausgefüllte Vorlage darf beides mitbringen. Genau dafür gibt es sie.
+  const mitAngaben = await (
+    await ruf('/admin/api/fixtures/import', {
+      method: 'POST',
+      body: JSON.stringify({
+        zeilen: [
+          {
+            quelle: kennung,
+            team,
+            date: '2026-11-06T19:00:00.000Z',
+            opponent_club: `test-Vorlage-${importSchluessel}`,
+            is_home: false,
+            venue: 'test-Sportheim',
+            opponent_town: 'test-Beispielstadt',
+            km: 42,
+          },
+        ],
+      }),
+    })
+  ).json()
+  gleich(mitAngaben.neu, 1, 'neu')
+
+  const liste = await (await ruf(`/manage/api/fixtures?team=${team}`)).json()
+  const meiner = liste.items.find((s) => s.opponent_club === `test-Vorlage-${importSchluessel}`)
+  aufraeumen.push(['fixtures', meiner.id])
+  gleich(meiner.opponent_town, 'test-Beispielstadt', 'Ort aus der Datei')
+  gleich(meiner.km, 42, 'Kilometer aus der Datei')
+
+  // Und jetzt derselbe Spieltag aus einem Verbands-Export, der beides nicht kennt: Ein leeres
+  // Feld ist keine Aussage. Wer das anders löst, löscht beim Nachimport genau die Angaben,
+  // die jemand mühsam nachgetragen hat.
+  const ohneAngaben = await (
+    await ruf('/admin/api/fixtures/import', {
+      method: 'POST',
+      body: JSON.stringify({
+        zeilen: [
+          {
+            quelle: kennung,
+            team,
+            date: '2026-11-13T19:00:00.000Z',
+            opponent_club: `test-Vorlage-${importSchluessel}`,
+            is_home: false,
+            venue: 'test-Sportheim',
+            opponent_town: '',
+            km: 0,
+          },
+        ],
+      }),
+    })
+  ).json()
+  gleich(ohneAngaben.geaendert, 1, 'der Termin wurde nachgezogen')
+
+  const danach = await (await ruf(`/manage/api/fixtures?team=${team}`)).json()
+  const wieder = danach.items.find((s) => s.id === meiner.id)
+  gleich(wieder.opponent_town, 'test-Beispielstadt', 'der Ort steht noch da')
+  gleich(wieder.km, 42, 'die Kilometer stehen noch da')
+  stimmt(wieder.date.startsWith('2026-11-13'), 'der neue Termin ist angekommen')
+
+  // Unbrauchbare Kilometer werden abgewiesen, statt in die Datenbank zu wandern.
+  gleich(
+    (
+      await ruf('/admin/api/fixtures/import', {
+        method: 'POST',
+        body: JSON.stringify({ zeilen: [{ quelle: kennung, team, date: '2026-11-13T19:00:00.000Z', opponent_club: 'x', is_home: false, venue: '', opponent_town: '', km: 99999 }] }),
+      })
+    ).status,
+    400,
+    'unbrauchbare Kilometerangabe',
+  )
 })
 
 await pruefe('T9', '6× falsches Passwort → gesperrt, auch für das richtige', async () => {

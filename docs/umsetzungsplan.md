@@ -594,7 +594,8 @@ POST   /admin/api/fixtures
 PATCH  /admin/api/fixtures/:id
 DELETE /admin/api/fixtures/:id
 POST   /admin/api/fixtures/import   { zeilen: [{ quelle, team, date, opponent_club,
-                                                is_home, venue }] }
+                                                is_home, venue,
+                                                opponent_town?, km? }] }
                                     → { neu, geaendert, unveraendert, gesperrt }
        // NUR Rolle admin (R13d): der Export umfasst den ganzen Verein, ein Kapitän
        // schriebe damit in fremde Mannschaften. Wiedererkannt wird an `source_key`;
@@ -966,10 +967,20 @@ Header, Rate Limits, Log-Filter, Backup mit getestetem Restore, Löschjob, Erinn
 Spielplan einlesen, Tokens erzeugen, per Einzelchat verteilen.
 
 Der Import ist gebaut (Verwaltung → Verein → „Spielplan einlesen", nur Rolle `admin`). Gelesen
-wird die **nuLiga-Vereinsspielplan-CSV**, nicht ein PDF: der Export umfasst alle Mannschaften
-des Vereins auf einmal — bei einem mittelgroßen Verein rund 130 Begegnungen, die sonst einzeln
-getippt werden müssten. Gelesen und zugeordnet wird die Datei **im Browser**
-(`app/src/spielplan.ts`); zum Server geht erst die bestätigte Liste.
+werden **CSV-Dateien in zwei Formen**, erkannt an der Kopfzeile — die Oberfläche fragt nicht
+danach:
+
+1. **Der Spielplan-Export eines Verbands.** Eine Datei
+   für den ganzen Verein, alle Mannschaften, alle Staffeln — bei einem mittelgroßen Verein rund
+   130 Begegnungen, die sonst einzeln getippt werden müssten.
+2. **Die Vorlage** (`vorlageCsv()`), die der Betreiber herunterlädt und selbst ausfüllt. Spalten:
+   `Datum`, `Uhrzeit`, `Mannschaft`, `Gegner`, `Heim`, `Spielort`, `Ort`, `Kilometer`, `Kennung`
+   — Pflicht sind Datum, Mannschaft, Gegner und Heim. **Die Spaltenliste steht genau einmal im
+   Code** (`VORLAGE_SPALTEN`), und die heruntergeladene Datei wird im Test wieder eingelesen;
+   damit kann die Vorlage nicht von dem abweichen, was der Import annimmt.
+
+Gelesen und zugeordnet wird die Datei **im Browser** (`app/src/spielplan.ts`); zum Server geht
+erst die bestätigte Liste.
 
 Drei Punkte, die dabei nicht offensichtlich sind und deshalb hier stehen:
 
@@ -985,9 +996,12 @@ Drei Punkte, die dabei nicht offensichtlich sind und deshalb hier stehen:
 - **Die Datei ist Windows-1252**, nicht UTF-8. Als UTF-8 gelesen stünde „N<?>rnberg" anschließend
   in der Datenbank statt nur auf dem Bildschirm.
 
-Was der Export **nicht** kennt: Ort des Gegners, Kilometer, Treffpunkt. Die bleiben leer und
-werden nachgetragen — die Spieltagsliste des Kapitäns weist darauf hin, oben mit einer Zahl und
-an jedem betroffenen Spieltag.
+Was ein Verbands-Export **nicht** kennt: Ort des Gegners, Kilometer, Treffpunkt. Die bleiben
+leer und werden nachgetragen — die Spieltagsliste des Kapitäns weist darauf hin, oben mit einer
+Zahl und an jedem betroffenen Spieltag. Die Vorlage darf Ort und Kilometer mitbringen; der
+Endpunkt schreibt sie **nur, wenn die Datei etwas dazu sagt** — ein leeres Feld ist keine
+Aussage, sonst löschte ein Nachimport aus dem Verbands-Export genau die Angaben, die jemand
+nachgetragen hat.
 
 **Schritt 9 — Auslieferbar für Fremde**
 Overlay, `.env`-Konfiguration und die Prüfung der Vorlagen in der CI stehen. Offen bleibt der
@@ -1038,6 +1052,7 @@ nur im Arbeitsspeicher.
 | I2 | Dieselbe Datei ein zweites Mal, danach eine Verlegung | nichts wird verdoppelt; der geänderte Termin landet am vorhandenen Spieltag — **automatisiert** |
 | I3 | Nachimport über einen gesperrten Spieltag mit nachgetragenem Ort | Spieltag bleibt unberührt, `gesperrt` zählt ihn — **automatisiert** |
 | I4 | Import mit erfundener Mannschaft, leerer Liste, kaputtem Termin, ohne CSRF-Kopfzeile | je 400 bzw. 403 **und nichts geschrieben** — **automatisiert** |
+| I5 | Import mit Ort und Kilometern, danach derselbe Spieltag ohne beides | die Angaben landen am Spieltag und überleben den Nachimport; unsinnige Kilometer → 400 — **automatisiert** |
 | C2 | Schreiben in der Verwaltung ohne `X-CSRF-Token` | 403 **und der Datensatz ist danach nicht da** — geprüft wird die Wirkung, nicht der Statuscode (R11) — **automatisiert** |
 | T10 | Access-Log nach `/j/`-Aufruf durchsuchen | kein Token im Klartext |
 | T11 | Link in WhatsApp einfügen | Vorschau zeigt den Anzeigename aus `settings`, nichts Personalisiertes |
