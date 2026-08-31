@@ -1,0 +1,43 @@
+# Dependabot — hält Abhängigkeiten aktuell, ohne dass jemand daran denken muss.
+#
+# Warum überhaupt: Diese App steht im Internet und trägt fremde Namen und Rückmeldungen. Die
+# Lücke, die sie irgendwann trifft, wird mit hoher Wahrscheinlichkeit keine im eigenen Code sein,
+# sondern eine in etwas, das mitgeliefert wird. Dagegen hilft kein Nachdenken, sondern nur ein
+# Wecker.
+#
+# **Nicht** gepflegt wird hier PocketBase selbst: Es ist eine feste Version im Dockerfile und in
+# `scripts/dev-pb.sh` (an BEIDEN Stellen, siehe README). Dafür gibt es kein Ökosystem, das
+# Dependabot kennt — das bleibt ein Handgriff beim Aktualisieren.
+version: 2
+
+updates:
+  # ── Das Frontend ─────────────────────────────────────────────────────────────────────────
+  # package.json liegt in app/, nicht in der Wurzel.
+  - package-ecosystem: npm
+    directory: /app
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Europe/Berlin
+    # Mehr als fünf offene Vorschläge liest niemand mehr durch, und ungelesene Vorschläge sind
+    # schlimmer als keine: Man gewöhnt sich daran, sie wegzuklicken.
+    open-pull-requests-limit: 5
+    groups:
+      # Entwicklungswerkzeuge in EINEN Vorschlag zusammenfassen. Sie kommen wöchentlich in
+      # Bewegung, landen aber nie beim Verein — ein Sammelvorschlag reicht.
+      werkzeuge:
+        dependency-type: development
+    commit-message:
+      prefix: 'chore(deps)'
+
+  # ── Die Bausteine der CI ─────────────────────────────────────────────────────────────────
+  # Auch `actions/checkout@v4` und Konsorten altern, und sie laufen mit Schreibrechten auf das
+  # Repo. Seltener, deshalb monatlich.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: 'chore(ci)'

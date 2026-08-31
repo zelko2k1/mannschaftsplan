@@ -8,6 +8,12 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 ## [Unveröffentlicht]
 
 ### Hinzugefügt
+- **Dependabot und CodeQL.** Abhängigkeiten werden wöchentlich auf Aktualität geprüft
+  (Entwicklungswerkzeuge gesammelt in einem Vorschlag, GitHub-Actions monatlich), und GitHubs
+  Codeanalyse läuft bei jedem Push mit — allerdings erst, sobald das Repo öffentlich ist. Für
+  private Repositorys verlangt GitHub dafür ein kostenpflichtiges Zusatzprodukt, deshalb
+  überspringt der Job sich selbst, solange das Repo privat ist, statt bei jedem Push ein rotes
+  Kreuz zu erzeugen.
 - **Anleitung zum Aktualisieren.** Wie ein neuer Stand auf den Server kommt (`git pull` und ein
   Neubau), was dabei mit den Daten passiert, wie man auf einen älteren Stand zurückgeht und
   warum `--build` nicht optional ist. Das fehlte bisher ganz — dabei ist es der Handgriff, den
