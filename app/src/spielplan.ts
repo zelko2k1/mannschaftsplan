@@ -95,8 +95,9 @@ const sauber = (wert: string | undefined) => (wert || '').replace(/\s+/g, ' ').t
  * Die Vorlage zum Herunterladen — Kopfzeile und zwei Beispielzeilen.
  *
  * Semikolon als Trennzeichen, CRLF und ein BOM: So öffnet Excel die Datei in einem deutschen
- * Windows ohne Nachfrage und ohne zerschossene Umlaute. Ohne BOM steht dort „Grünau", und der
- * Name ist hier der Schlüssel für die Zuordnung.
+ * Windows ohne Nachfrage und ohne zerschossene Umlaute. Ohne BOM liest Excel die Datei als
+ * Windows-1252: aus „Grün" wird „GrÃ¼n" — und der Mannschaftsname ist hier der Schlüssel für
+ * die Zuordnung.
  *
  * Die Beispielzeilen zeigen beides: eine vollständig ausgefüllte Auswärtsfahrt und ein Heimspiel,
  * bei dem Ort und Kilometer zu Recht leer bleiben.

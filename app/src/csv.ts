@@ -10,7 +10,7 @@
  *
  * **Der Grund, warum das nicht einfach `new TextDecoder()` ist:** Verbands-Exporte kommen
  * regelmäßig als Windows-1252, nicht als UTF-8 — nachgemessen an einer echten Datei. Als UTF-8
- * gelesen wird aus „Grünau" ein „N<?>rnberg", und weil der Import den Mannschaftsnamen als
+ * gelesen wird aus „Grün" ein „Gr<?>n", und weil der Import den Mannschaftsnamen als
  * Schlüssel benutzt, stünde der Schaden anschließend in der Datenbank statt nur auf dem
  * Bildschirm.
  *

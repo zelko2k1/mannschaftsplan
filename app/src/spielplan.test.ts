@@ -30,7 +30,7 @@ const zeile = (
   gastNr: string,
   gast: string,
 ) =>
-  `${termin};VBD;2026/27;Bayern 2026/27;Liga;${staffel};0;${begegnungNr};${lokalNr};${lokal};` +
+  `${termin};VBD;2026/27;Beispiel 2026/27;Liga;${staffel};0;${begegnungNr};${lokalNr};${lokal};` +
   `VBD;${heimNr};Verein;Kurz;1;${heim};VBD;${gastNr};Verein;Kurz;1;${gast};0;0`
 
 const VERBANDSDATEI = [
@@ -41,10 +41,10 @@ const VERBANDSDATEI = [
   zeile('25.09.2026 20:00', 'Kreisliga A', '7', '09000020', 'Sportheim Muster', '0900002', 'TSV Muster', '0900001', 'SV Beispiel III'),
   // zweites Heimspiel derselben Mannschaft — macht das Vereinsheim zum häufigsten Lokal
   zeile('02.10.2026 20:00', 'Kreisliga A', '9', '09000010', 'Vereinsheim', '0900001', 'SV Beispiel III', '0900003', 'SG Exempel'),
-  // Turniertag der Ersten: die Datei führt uns als Heim, gespielt wird in Beispielstadt
-  zeile('05.09.2026 14:30', 'Oberliga', '2', '09000030', 'Sportheim FC Probe', '0900001', 'SV Beispiel', '0900004', 'DC Vorbild'),
+  // Turniertag der Ersten: die Datei führt uns als Heim, gespielt wird an einem neutralen Ort
+  zeile('05.09.2026 14:30', 'Oberliga', '2', '09000050', 'Sportheim FC Probe', '0900001', 'SV Beispiel', '0900004', 'DC Vorbild'),
   // dasselbe Turnier, wir als Gast
-  zeile('05.09.2026 12:00', 'Oberliga', '1', '09000030', 'Sportheim FC Probe', '0900005', 'FC Probe', '0900001', 'SV Beispiel'),
+  zeile('05.09.2026 12:00', 'Oberliga', '1', '09000050', 'Sportheim FC Probe', '0900005', 'FC Probe', '0900001', 'SV Beispiel'),
   // einziges echtes Heimspiel der Ersten
   zeile('24.10.2026 12:00', 'Oberliga', '22', '09000010', 'Vereinsheim', '0900001', 'SV Beispiel', '0900006', 'SV Nachbar'),
   // spielfrei — kein Gegner
@@ -73,17 +73,17 @@ describe('zerlegeCsv', () => {
 describe('dekodiere', () => {
   // Der Fall, der ohne diese Funktion still danebengeht: Verbands-Exporte sind oft Windows-1252.
   it('erkennt Windows-1252 an den kaputten Umlauten und schaltet um', () => {
-    const bytes = new Uint8Array([0x4e, 0xfc, 0x72, 0x6e, 0x62, 0x65, 0x72, 0x67]) // G r ü n a u
-    expect(dekodiere(bytes.buffer)).toBe('Grünau')
+    const bytes = new Uint8Array([0x47, 0x72, 0xfc, 0x6e]) // G r ü n
+    expect(dekodiere(bytes.buffer)).toBe('Grün')
   })
 
   it('lässt echtes UTF-8 in Ruhe', () => {
-    const bytes = new TextEncoder().encode('Grünau')
-    expect(dekodiere(bytes.buffer as ArrayBuffer)).toBe('Grünau')
+    const bytes = new TextEncoder().encode('Grün')
+    expect(dekodiere(bytes.buffer as ArrayBuffer)).toBe('Grün')
   })
 
   it('verschlimmbessert eine Datei nicht, in der das Ersetzungszeichen schon steht', () => {
-    const bytes = new TextEncoder().encode('Grünau')
+    const bytes = new TextEncoder().encode('Gr�n')
     const text = dekodiere(bytes.buffer as ArrayBuffer)
     expect(unlesbareZeichen(text)).toBe(1)
     expect(text).not.toContain('ï¿½')

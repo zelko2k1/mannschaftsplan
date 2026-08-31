@@ -1007,7 +1007,7 @@ Drei Punkte, die dabei nicht offensichtlich sind und deshalb hier stehen:
 
 - **`is_home` kommt aus dem Spiellokal, nicht aus der Heim-Spalte.** In Ligen mit Turniertagen
   ist die eigene Mannschaft nominell Heimmannschaft, gespielt wird aber im Lokal eines fremden
-  Vereins — in der ersten echten Datei sechsmal, bis nach Beispielstadt und Musterstadt. Da `is_home` im
+  Vereins — in der ersten echten Datei sechsmal, teils über hundert Kilometer weit. Da `is_home` im
   Aushang den kompletten Fahrdienst ausblendet, hätte die Spaltenlogik die Funktion abgeschaltet,
   für die es die App gibt. Heimlokal einer Mannschaft ist die häufigste `SpiellokalNr` ihrer
   nominellen Heimspiele; bei Gleichstand entscheidet das Lokal des Vereins.

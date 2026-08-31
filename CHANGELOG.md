@@ -72,6 +72,11 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   aussperrt.
 
 ### Behoben
+- **Keine echten Namen mehr in Beispielen.** Der Beispiel-Anmeldename in der Kontenmaske und in
+  der README trug einen Vornamen; in den Tests, Kommentaren und im Umsetzungsplan standen echte
+  Vereins-, Lokal- und Liganamen aus einem Verbands-Export. Alles ersetzt durch ein
+  durchgängiges, erkennbar erfundenes Schema — die App ist zum Ausliefern gedacht, und dort
+  gehört so etwas nicht hinein.
 - **Lange Hinweise wurden rechts abgeschnitten.** Warnungen durften nicht umbrechen — gedacht für
   kurze Einwürfe mitten in einer Zeile („kein Fahrer"), verhängnisvoll für ganze Sätze wie den
   Hinweis auf die Spieltage aus dem Spielplan. Der lief aus dem Bild, und man las nur seine erste
