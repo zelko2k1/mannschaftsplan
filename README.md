@@ -199,7 +199,7 @@ Die Datei `.env` öffnen (`nano .env`) und ausfüllen:
 ```
 DOMAIN=dart.mein-verein.de
 ACME_EMAIL=du@mein-verein.de
-ADMIN_USER=vortuer
+ADMIN_USER=gate
 ADMIN_PASSWORD_HASH=$2a$14$…die Zeile von eben…
 ```
 
@@ -207,8 +207,8 @@ Mehr ist es nicht. In der Datei stehen keine Vorgaben, die du übernehmen könnt
 deiner.
 
 > **`ADMIN_USER` ist kein Konto in der App.** Es ist nur der Benutzername, den der Browser beim
-> Vortür-Fenster abfragt, zusammen mit dem Passwort von eben. Du darfst dort hineinschreiben, was
-> du willst — `vortuer`, `verwaltung`, dein Vorname. Mit den Kapitänen, ihren Anmeldenamen und
+> Gate-Fenster abfragt, zusammen mit dem Passwort von eben. Du darfst dort hineinschreiben, was
+> du willst — `gate`, `verwaltung`, dein Vorname. Mit den Kapitänen, ihren Anmeldenamen und
 > überhaupt mit irgendetwas in der App hat dieser Name nichts zu tun.
 
 > Wenn du später einen dieser Werte korrigierst: Die Änderung wirkt erst, wenn die Container **neu
@@ -244,7 +244,7 @@ Drei Dinge, die hier gern verwechselt werden:
 | | |
 |---|---|
 | **Das hier** | dein eigener Zugang zur Verwaltung, Rolle *Admin* |
-| **Schritt 4** | nur die Vortür des Webservers, ein anderes Passwort und kein Konto |
+| **Schritt 4** | nur das Gate des Webservers, ein anderes Passwort und kein Konto |
 | **Deine Kapitäne** | bekommen später eigene Konten in der App, unter *Konten* — **nicht** über diesen Befehl |
 
 Die Adresse muss wie eine echte E-Mail-Adresse aussehen, es wird aber nie etwas dorthin
@@ -540,10 +540,10 @@ Protokoll.
 > gelesen — er bekommt seine eigene, so wie ein Mitglied im Aushang immer sich selbst ändert und
 > nie jemand anderen.
 
-**Die Vortür aus Schritt 4 brauchen die Kapitäne nicht.** Sie arbeiten unter `/manage` und melden
+**Das Gate aus Schritt 4 brauchen die Kapitäne nicht.** Sie arbeiten unter `/manage` und melden
 sich dort nur in der App an — mit einem eigenen Passwort, das der Server erzeugt und das du
-jederzeit für eine einzelne Person zurücksetzen kannst. Ein geteiltes Vortür-Passwort könnte das
-nicht: Es ist nicht widerrufbar, kennt kein Abmelden, und wer ausscheidet, nimmt es mit. Die Vortür
+jederzeit für eine einzelne Person zurücksetzen kannst. Ein geteiltes Gate-Passwort könnte das
+nicht: Es ist nicht widerrufbar, kennt kein Abmelden, und wer ausscheidet, nimmt es mit. Das Gate
 steht deshalb nur noch vor dem, was alle Mannschaften betrifft — siehe „Zwei Wege hinein".
 
 **Eine Mannschaft auflösen** geht erst, wenn sie leer ist — keine Mitglieder, keine Spieltage,
@@ -556,14 +556,14 @@ Die Verwaltung ist dieselbe Oberfläche, aber sie hat zwei Eingänge:
 | Adresse | Für wen | Davor steht |
 |---|---|---|
 | `https://dart.mein-verein.de/manage` | die Kapitäne — Spieltage, Spieler, Rückmeldungen | nichts. Nur die Anmeldung in der App |
-| `https://dart.mein-verein.de/admin` | dich — Konten, Mannschaften, Verein, Sicherungen | zusätzlich die Vortür aus Einrichtungsschritt 4 |
+| `https://dart.mein-verein.de/admin` | dich — Konten, Mannschaften, Verein, Sicherungen | zusätzlich das Gate aus Einrichtungsschritt 4 |
 
 **Den Kapitänen gibst du `/manage`.** Sie sehen dort nur ihre eigene Mannschaft und brauchen kein
-Vortür-Passwort — eines, das sich acht Leute teilen, ist ohnehin nicht widerrufbar und landet im
+Gate-Passwort — eines, das sich acht Leute teilen, ist ohnehin nicht widerrufbar und landet im
 Zweifel in der Mannschaftsgruppe. Wer sein Passwort verliert, bekommt von dir ein neues; wer sich
 vertippt hat, wartet eine Viertelstunde (siehe unten).
 
-**Du selbst gehst über `/admin`.** Dort fragt der Browser zuerst nach dem Vortür-Passwort und danach
+**Du selbst gehst über `/admin`.** Dort fragt der Browser zuerst nach dem Gate-Passwort und danach
 die App nach deinem eigenen. Zweimal, ja — das ist gewollt: Hinter `/admin` hängt der Zugriff auf
 *alle* Mannschaften und auf die Datenbankdatei.
 
@@ -614,7 +614,7 @@ einmal. Wie viele noch übrig sind, steht unter *Mein Konto*, und über **Neue C
 zehn frische (die alten gelten dann nicht mehr).
 
 > **Was er schützt.** Die Verwaltung unter `/manage` und `/admin`. Damit er nicht zu umgehen ist,
-> liegt seit R13c auch die **Superuser-Anmeldung** der API hinter der Vortür aus
+> liegt seit R13c auch die **Superuser-Anmeldung** der API hinter dem Gate aus
 > Einrichtungsschritt 4 — sonst holte sich jemand mit Adresse und Passwort über
 > `/api/collections/_superusers/auth-with-password` einen Token, käme an die ganze Datenbank,
 > ohne `/admin` je zu berühren, und könnte dort auch den zweiten Faktor löschen.
@@ -628,10 +628,10 @@ Für einen **Kapitän** ist der kürzeste Weg ohnehin ein anderer: Du schaltest 
 den zweiten Faktor ab, er richtet ihn neu ein.
 
 **Handy weg und Zettel weg, und zwar bei deinem eigenen Admin-Konto?** Dann führt der Ausweg über
-die API — mit deinem Superuser-Passwort **und** den Zugangsdaten der Vortür aus Schritt 4 (`-u`):
+die API — mit deinem Superuser-Passwort **und** den Zugangsdaten des Gates aus Schritt 4 (`-u`):
 
 ```bash
-TOKEN=$(curl -s -u vortuer:dein-vortuer-passwort \
+TOKEN=$(curl -s -u gate:dein-gate-passwort \
   https://dart.mein-verein.de/api/collections/_superusers/auth-with-password \
   -H 'Content-Type: application/json' \
   -d '{"identity":"deine@adresse.de","password":"dein-passwort"}' \
@@ -721,7 +721,7 @@ PB_URL=https://dart.mein-verein.de \
 
 > **Zwei Angaben, die leicht fehlen.** Ohne **`PB_URL`** versucht das Skript
 > `http://127.0.0.1:8090` — also den Rechner, auf dem es gerade läuft — und bricht mit „Could not
-> connect to server" ab. Und **`ADMIN_USER`/`ADMIN_PASSWORD`** sind die Zugangsdaten der Vortür aus
+> connect to server" ab. Und **`ADMIN_USER`/`ADMIN_PASSWORD`** sind die Zugangsdaten des Gates aus
 > Schritt 4 (das Passwort im Klartext, nicht der Hash): Seit R13c liegt die Superuser-Anmeldung
 > dahinter. Fehlen sie, sagt dir das Skript genau das, statt dich ein falsches
 > Superuser-Passwort suchen zu lassen.
@@ -949,14 +949,14 @@ den Betrieb am stärksten prägen:
 - **R13a** — `/_/` ist nie öffentlich erreichbar. Keine Allowlist, kein Schalter. Zugang über einen
   SSH-Tunnel auf einen an `127.0.0.1` gebundenen Port, siehe die Kommentare in
   [`docker-compose.yaml`](docker-compose.yaml).
-- **R13b** — vor `/admin` steht eine Vortür, das nicht das Passwort aus der App ist: IP-Allowlist oder
+- **R13b** — vor `/admin` steht ein Gate, das nicht das Passwort aus der App ist: IP-Allowlist oder
   vorgeschaltete Proxy-Anmeldung. Ohne eines von beiden bleibt `/admin` zu.
-- **R13e** — `/manage` steht dagegen offen: Ein Vortür-Passwort, das sich alle Kapitäne teilen, ist
+- **R13e** — `/manage` steht dagegen offen: Ein Gate-Passwort, das sich alle Kapitäne teilen, ist
   nicht widerrufbar und kennt kein Abmelden. An seine Stelle treten erzeugte Passwörter, eine
   Sperre pro Konto und enge Rechte. Wer trotzdem einschränken will, setzt `MANAGE_ALLOW`.
-- **R13c** — dieselbe Vortür steht vor `/api/collections/_superusers/*`. Dort wird der
+- **R13c** — dasselbe Gate steht vor `/api/collections/_superusers/*`. Dort wird der
   Superuser-Token ausgegeben, und mit ihm steht die ganze Datenbank offen; auf den Collections
-  liegen keine Regeln. Eine Vortür nur vor der Kapitänsansicht wäre eines mit offener Hintertür.
+  liegen keine Regeln. Ein Gate nur vor der Kapitänsansicht wäre eines mit offener Hintertür.
 
 Der Kapitäns-Login prüft in [`admin.pb.js`](pocketbase/pb_hooks/admin.pb.js) das Passwort direkt
 und geht damit weiterhin an PocketBases eigenem MFA vorbei — er bringt seit Abschnitt 9 aber

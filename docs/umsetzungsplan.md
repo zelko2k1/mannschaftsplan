@@ -279,7 +279,7 @@ sitzt im Vereinsheim hinter EINER öffentlichen IP. Verschickt der Kapitän die 
 acht Leute im selben WLAN darauf, wären die letzten sonst ausgesperrt — an ihrem eigenen,
 gültigen Link. Wer ein gültiges Token hat, rät nicht; ein Treffer setzt den Zähler zurück.
 
-**Warum der Login zusätzlich pro Konto zählt:** Seit R13e steht er ohne Tor im Netz. Eine reine
+**Warum der Login zusätzlich pro Konto zählt:** Seit R13e steht er ohne Gate im Netz. Eine reine
 IP-Zählung ist dort wirkungslos, sobald jemand über mehrere Adressen anfragt — jede einzelne
 bliebe unter der Grenze, das Konto bekäme trotzdem beliebig viele Versuche. Der Zähler pro Konto
 schließt das; der Zähler pro IP bleibt daneben stehen, weil er auch die Adressen bremst, die es
@@ -288,7 +288,7 @@ gar nicht auf ein bestimmtes Konto abgesehen haben.
 **Auch der Zähler pro IP zählt seit R13e nur Fehlversuche.** Vorher zählte er jede Anfrage — und
 das ist derselbe Fehler, den der Absatz oben für das Einlösen der Einladungslinks beschreibt: Acht
 Kapitäne im WLAN des Vereinsheims sind acht Anmeldungen von EINER öffentlichen Adresse. Solange
-`/manage` hinter dem Tor lag, fiel das nicht auf, weil sich dort ohnehin kaum jemand anmeldete.
+`/manage` hinter dem Gate lag, fiel das nicht auf, weil sich dort ohnehin kaum jemand anmeldete.
 
 **Zehn Fehlversuche pro Viertelstunde beim Konto, nicht fünf pro Minute.** Dieser Zähler lässt
 sich von außen füttern: Wer die Adresse eines Kapitäns kennt, könnte ihn sonst absichtlich
@@ -397,7 +397,7 @@ Admin-Aktion „Neues Token" pro Mitglied:
   existiert (bei bekannter Adresse läuft eine bcrypt-Prüfung, bei unbekannter nicht). Das
   schließt erst die Sperre oben: fünf Versuche, dann eine Viertelstunde Ruhe. Sie zählt seit
   R13e **pro IP und pro Konto** und liegt im Arbeitsspeicher — nach einem Neustart ist sie weg.
-  Für den Admin-Weg steht zusätzlich das Tor aus R13b davor; für den Kapitänsweg ist die Sperre
+  Für den Admin-Weg steht zusätzlich das Gate aus R13b davor; für den Kapitänsweg ist die Sperre
   das einzige Mittel, und deshalb zählt sie dort auch pro Konto.
 
 Die beiden geschützten Pfade haben verschiedene Bedürfnisse und deshalb verschiedene Regeln.
@@ -428,7 +428,7 @@ auf *alle* Mannschaften und auf die Datenbankdatei. **Eines von beiden, aber nie
 | Weg | Wie | Für wen |
 |---|---|---|
 | Netz | IP-Allowlist im Proxy, alles andere 404 | feste Adresse oder VPN (WireGuard, Tailscale) |
-| Tor | vorgeschaltete Proxy-Anmeldung vor `/admin*` | alle anderen — funktioniert aus jedem Netz |
+| Gate | vorgeschaltete Proxy-Anmeldung vor `/admin*` | alle anderen — funktioniert aus jedem Netz |
 
 Beide erreichen dasselbe: ein Fehler im Admin-Code ist von außen nicht ansprechbar, weil die
 Anfrage den eigenen Code gar nicht erst erreicht. **Ist keiner der beiden Wege eingerichtet,
@@ -438,9 +438,9 @@ Dass hier eine zweite Anmeldung steht, ist Absicht und kein Versehen: Der Admin 
 er macht das ein paar Mal im Jahr, und der Preis ist ein Browser-Fenster. Für die Kapitäne war
 genau dieser Preis zu hoch — siehe R13e.
 
-#### R13c · Dasselbe Tor vor der Superuser-Anmeldung
+#### R13c · Dasselbe Gate vor der Superuser-Anmeldung
 
-Ein Tor nur vor `/admin` ist eines mit offener Hintertür. Unter
+Ein Gate nur vor `/admin` ist eines mit offener Hintertür. Unter
 `/api/collections/_superusers/auth-with-password` gibt PocketBase den Superuser-Token aus, und
 mit ihm steht die gesamte Datenbank offen — auf den Collections liegen keine Regeln, der Token
 ist also der einzige Schlüssel. Wer Adresse und Passwort hat, käme so an alle Daten, ohne
@@ -448,10 +448,10 @@ ist also der einzige Schlüssel. Wer Adresse und Passwort hat, käme so an alle 
 
 Deshalb liegt **der ganze Präfix** `/api/collections/_superusers/*` hinter derselben Anmeldung
 wie `/admin`. Nicht nur `auth-with-password`: `auth-refresh`, `auth-with-otp`,
-`request-password-reset` und `impersonate` führten sonst am Tor vorbei zum selben Ziel.
+`request-password-reset` und `impersonate` führten sonst am Gate vorbei zum selben Ziel.
 
 Der Preis steht in der Anleitung: Wer von außen als Superuser spricht — `scripts/backup.sh` —,
-braucht zusätzlich die Zugangsdaten des Tors. Durch einen SSH-Tunnel auf 8090 gilt das nicht,
+braucht zusätzlich die Zugangsdaten des Gates. Durch einen SSH-Tunnel auf 8090 gilt das nicht,
 dort steht kein Proxy.
 
 #### Erledigt · Der zweite Faktor für `/admin`
@@ -479,11 +479,11 @@ Wer ihn einschaltet, bekommt **Wiederherstellungscodes** — zehn Stück, einmal
 einmal verwendbar. Ohne sie ist ein verlorenes Handy ein verlorener Zugang, und der Ausweg wäre
 jedes Mal der Admin.
 
-#### R13e · Der Kapitänsweg steht ohne Tor
+#### R13e · Der Kapitänsweg steht ohne Gate
 
 `/manage*` liegt **nicht** hinter der Proxy-Anmeldung aus R13b. Das ist eine bewusste Abkehr
 von der ersten Fassung dieser Regel, und sie hat einen Grund, der nichts mit Bequemlichkeit zu
-tun hat, sondern mit dem, was das Tor in der Praxis war:
+tun hat, sondern mit dem, was das Gate in der Praxis war:
 
 - Es ist **ein** Passwort für alle sieben Kapitäne. Nicht pro Person widerrufbar, kein Abmelden,
   und wer ausscheidet, nimmt es mit.
@@ -649,7 +649,7 @@ GET    /admin/api/audit?limit=100
 |---|---|
 | `/` | Abfahrtsplan. Ohne Session: „Link ungültig"-Seite |
 | `/manage` | Login, danach Spieltage / Mitglieder / Protokoll — der Weg für den Kapitän |
-| `/admin` | dasselbe Frontend, aber der Einstieg für den Admin: hinter dem Tor aus R13b |
+| `/admin` | dasselbe Frontend, aber der Einstieg für den Admin: hinter dem Gate aus R13b |
 
 ### 6.2 Design-Tokens — Abfahrtsplan
 
@@ -786,10 +786,10 @@ wer ihn betreibt:
 | `+ docker-compose.caddy.yaml` | nackter Server, auf dem noch nichts läuft | zusätzlich Caddy mit ACME auf 80/443 | da |
 
 Was sich von Betrieb zu Betrieb unterscheidet, steht in der `.env` und **nicht** in einer
-Konfigurationsdatei: Domain, ACME-Adresse und das Tor aus R13b. Fehlt einer dieser Werte, fährt das
+Konfigurationsdatei: Domain, ACME-Adresse und das Gate aus R13b. Fehlt einer dieser Werte, fährt das
 Overlay nicht an und nennt den fehlenden — besser ein Stack, der nicht startet, als einer, der
 falsch konfiguriert läuft. Im Repo liegt kein Zugang, auch kein erfundener: den bcrypt-Hash für das
-Tor erzeugt der Betreiber selbst mit `caddy hash-password`.
+Gate erzeugt der Betreiber selbst mit `caddy hash-password`.
 
 ```bash
 docker compose up -d                                                       # eigener Proxy
@@ -855,7 +855,7 @@ Traefik betreibt, bildet dieselben vier Punkte dort nach — Kopfzeilen (R9), Ad
   handle @admin {
     # Weg 1 — Netz:  @fremd not remote_ip <dein-bereich>
     #                respond @fremd 404
-    # Weg 2 — Tor:   basic_auth { <benutzer> <bcrypt-hash aus `caddy hash-password`> }
+    # Weg 2 — Gate:   basic_auth { <benutzer> <bcrypt-hash aus `caddy hash-password`> }
     respond 404
     # reverse_proxy mannschaftsplan:8090
   }

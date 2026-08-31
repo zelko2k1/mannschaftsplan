@@ -15,7 +15,7 @@ const backendPaths = {
   '/j': PB,           // Einladungslink (liefert nur das Formular, siehe R10)
   '/api': PB,         // Mitglieder-API
   '/manage/api': PB,  // Verwaltung — alles, was auch ein Kapitän darf
-  '/admin/api': PB,   // nur für die Rolle `admin`, im Betrieb hinter der Vortür aus R13b
+  '/admin/api': PB,   // nur für die Rolle `admin`, im Betrieb hinter dem Gate aus R13b
   '/_': PB,           // PocketBase-eigene Oberfläche
 }
 

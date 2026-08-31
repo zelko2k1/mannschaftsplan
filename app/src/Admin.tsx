@@ -499,17 +499,24 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
     <>
       <Fehler text={fehler} />
 
-      {entwurf ? (
+      {/* Hier oben steht nur der NEUE Spieltag. Ein vorhandener wird dort bearbeitet, wo er in
+          der Liste steht — das Formular sprang sonst bei jedem „Bearbeiten" an den Anfang, und wer
+          den letzten von dreißig Terminen ändern wollte, scrollte erst hoch und danach wieder
+          zurück, um zu sehen, ob es gestimmt hat. Beide Fälle bleiben ausschließlich: Wer gerade
+          einen Spieltag bearbeitet, bekommt „Neuer Spieltag" nicht angeboten — ein Klick darauf
+          würde die ungesicherte Eingabe verwerfen. */}
+      {!entwurf && (
+        <button type="button" className="knopf" onClick={() => setEntwurf({ ...LEER })}>
+          Neuer Spieltag
+        </button>
+      )}
+      {entwurf && !entwurf.id && (
         <Spieltagformular
           entwurf={entwurf}
           setEntwurf={setEntwurf}
           speichern={speichern}
           abbrechen={() => setEntwurf(null)}
         />
-      ) : (
-        <button type="button" className="knopf" onClick={() => setEntwurf({ ...LEER })}>
-          Neuer Spieltag
-        </button>
       )}
 
       {items.length === 0 && !entwurf && <p className="namen">Noch keine Termine eingetragen.</p>}
@@ -570,16 +577,21 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
             <button
               type="button"
               className="knopf"
+              aria-expanded={entwurf?.id === s.id}
               onClick={() =>
-                // Die Felder wollen Ortszeit im Format "YYYY-MM-DDTHH:MM".
-                setEntwurf({
-                  ...s,
-                  date: fuerEingabe(s.date),
-                  departure_manual: fuerEingabe(s.departure_manual),
-                })
+                setEntwurf(
+                  entwurf?.id === s.id
+                    ? null
+                    : // Die Felder wollen Ortszeit im Format "YYYY-MM-DDTHH:MM".
+                      {
+                        ...s,
+                        date: fuerEingabe(s.date),
+                        departure_manual: fuerEingabe(s.departure_manual),
+                      },
+                )
               }
             >
-              Bearbeiten
+              {entwurf?.id === s.id ? 'Bearbeiten zu' : 'Bearbeiten'}
             </button>
             <button
               type="button"
@@ -635,6 +647,19 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
             abbrechen={() => setFrage(null)}
             laeuft={laeuft === s.id}
           />
+
+          {/* Unter dem Spieltag, den es ändert — in Sichtweite der Angaben, die daneben in der
+              Kopfzeile stehen. Nur einer ist offen, weil `entwurf` nur einen fasst. */}
+          {entwurf?.id === s.id && (
+            <div className="satz__formular">
+              <Spieltagformular
+                entwurf={entwurf}
+                setEntwurf={setEntwurf}
+                speichern={speichern}
+                abbrechen={() => setEntwurf(null)}
+              />
+            </div>
+          )}
 
           {offen === s.id && (
             <div className="rueckmeldungen">

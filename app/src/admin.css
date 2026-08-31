@@ -189,6 +189,17 @@ span.satz__warnung {
   letter-spacing: 0.08em;
 }
 
+/* Ein Spieltag wird dort bearbeitet, wo er steht — nicht am Anfang der Liste. Dieselbe Kante wie
+   bei den Rückmeldungen darunter: Sie sagt, dass das Folgende zu diesem Spieltag gehört und nicht
+   zum nächsten. Ohne sie stehen elf Felder unvermittelt zwischen zwei Terminen. */
+.satz__formular {
+  margin-top: 0.6rem;
+  padding-top: 0.4rem;
+  border-top: var(--linie-innen);
+}
+/* Der Abstand kommt schon von `.satz__formular`; die erste Feldreihe braucht ihn nicht doppelt. */
+.satz__formular .feldreihe:first-child { margin-top: 0; }
+
 /* Rückmeldungen korrigieren — wer telefonisch zusagt, wird hier eingetragen. */
 .rueckmeldungen {
   margin-top: 0.6rem;
