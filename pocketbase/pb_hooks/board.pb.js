@@ -22,7 +22,7 @@ routerAdd('GET', '/api/board', (e) => {
     'members',
     'active = true && team = {:t}',
     'sort,name',
-    200,
+    u.MITGLIEDER_GRENZE,
     0,
     { t: team },
   )

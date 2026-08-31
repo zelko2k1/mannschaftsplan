@@ -127,6 +127,14 @@ Drei Eigenheiten von PocketBase, die beim Anlegen zu beachten sind:
 | `locked` | bool, default false | nach dem Spiel: keine Änderungen mehr |
 | `source_key` | text | Herkunft aus einem Verbands-Export, Teilindex `WHERE source_key != ''`. Leer = von Hand angelegt; solche Spieltage fasst der Import nie an. Nach außen geht nur `aus_spielplan: bool` — der Schlüssel selbst ist eine Innerei des Imports. |
 
+**Keine Obergrenze für die Mannschaftsgröße** — begrenzt ist allein, wie viele Zeilen eine
+Abfrage zurückgibt: `MITGLIEDER_GRENZE = 200` in `pb_hooks/utils.js`, für Aushang und
+Kapitänsansicht dieselbe. Weil das lange **stumm** war (der 201. Spieler fehlte einfach, ohne
+Meldung), liefert `GET /manage/api/members` zusätzlich die gezählte Gesamtzahl, und die
+Kapitänsansicht warnt ab 90 % der Grenze. Die nächstkleinere Schranke sind die 2000
+Rückmeldungen je Mannschaft im Aushang — Spieler × Spieltage, also bei einer vollen Saison etwa
+ab 80 Spielern.
+
 ### `responses`
 | Feld | Typ | Anmerkung |
 |---|---|---|
@@ -549,12 +557,6 @@ POST /api/session          { token }
      → sonst: HTML-Seite „Link ungültig — frag den Kapitän", HTTP 200
      → einzige schreibende Route ohne CSRF-Prüfung (sie stellt die Session ja erst her)
 
-GET  /api/anzeigename
-     → { anzeigename }              // ohne Sitzung, NUR dieser eine Wert
-     // Für den Kopfbalken der Anmeldemaske. Kein Bruch mit R6: Dieselbe Angabe steht längst
-     // öffentlich auf der Einladungsseite (auch bei ungültigem Token), in den Rechtstexten und
-     // in jeder Linkvorschau.
-
 GET  /api/me
      → { id, name, captain:false }  |  401
 
@@ -614,7 +616,10 @@ POST   /admin/api/fixtures/import   { zeilen: [{ quelle, team, date, opponent_cl
        // schriebe damit in fremde Mannschaften. Wiedererkannt wird an `source_key`;
        // gesperrte und von Hand angelegte Spieltage bleiben unberührt. Höchstens
        // 600 Zeilen je Aufruf.
-GET    /admin/api/members
+GET    /admin/api/members   → { items, gesamt, grenze }
+       // `gesamt` ist die WIRKLICHE Anzahl, `grenze` die Seitengröße (200, in utils.js). Beide
+       // stehen dabei, weil die Liste allein den Unterschied nicht zeigt: Bei 200 und bei 250
+       // Spielern kommen genau 200 Zeilen zurück.
 POST   /admin/api/members
 PATCH  /admin/api/members/:id
 POST   /admin/api/members/:id/rotate-token   → { token: "<Klartext, einmalig>" }
@@ -1074,9 +1079,9 @@ nur im Arbeitsspeicher.
 | I3 | Nachimport über einen gesperrten Spieltag mit nachgetragenem Ort | Spieltag bleibt unberührt, `gesperrt` zählt ihn — **automatisiert** |
 | I4 | Import mit erfundener Mannschaft, leerer Liste, kaputtem Termin, ohne CSRF-Kopfzeile | je 400 bzw. 403 **und nichts geschrieben** — **automatisiert** |
 | I5 | Import mit Ort und Kilometern, danach derselbe Spieltag ohne beides | die Angaben landen am Spieltag und überleben den Nachimport; unsinnige Kilometer → 400 — **automatisiert** |
-| A16 | `GET /api/anzeigename` ohne jede Sitzung | 200 mit dem eingestellten Vereinsnamen, und **nur** diesem einen Feld — **automatisiert** |
 | S1 | Spieler mit Rückmeldung löschen, dann aufräumen, dann nochmal | erst 409 **und der Spieler steht noch da**, nach dem Aufräumen 200; keine verwaisten Rückmeldungen — **automatisiert** |
 | S2 | Spieler löschen, an dem ein Kapitänskonto hängt | 409 mit dem Grund — **automatisiert** |
+| G1 | Spielerliste einer Mannschaft abrufen | `grenze` steht dabei, `gesamt` ist gezählt und stimmt mit der Liste überein, solange nichts gekappt ist — **automatisiert** |
 | S3 | Aufräumen mit Stichtag und Mannschaft | löscht Vergangenes der gewählten Mannschaft, lässt Künftiges und fremde Mannschaften stehen; unbrauchbares Datum → 400 — **automatisiert** |
 | C2 | Schreiben in der Verwaltung ohne `X-CSRF-Token` | 403 **und der Datensatz ist danach nicht da** — geprüft wird die Wirkung, nicht der Statuscode (R11) — **automatisiert** |
 | T10 | Access-Log nach `/j/`-Aufruf durchsuchen | kein Token im Klartext |

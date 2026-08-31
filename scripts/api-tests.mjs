@@ -2464,23 +2464,6 @@ await pruefe('I5', 'Ort und Kilometer aus der Vorlage kommen mit — und ein Lee
   )
 })
 
-await pruefe('A16', 'Der Vereinsname ist ohne Anmeldung lesbar — und sonst nichts', async () => {
-  // Der Kopfbalken der Anmeldemaske zeigt ihn an. Ohne diese Route bliebe dort ein leerer
-  // Streifen, der wie ein Darstellungsfehler aussieht.
-  const jar = await adminSitzung()
-  const gesetzt = (await (await alsKapitaen(jar)('/manage/api/settings')).json()).anzeigename
-
-  const antwort = await roh('/api/anzeigename')
-  gleich(antwort.status, 200, 'Status ganz ohne Sitzung')
-  const koerper = await antwort.json()
-  gleich(koerper.anzeigename, gesetzt, 'derselbe Name wie in den Einstellungen')
-
-  // Der Grund, warum das kein Bruch mit R6 ist, trägt nur, solange wirklich NUR der Name
-  // herausgeht — keine Fristen, keine Rechtstexte, nichts über den Betrieb.
-  gleich(Object.keys(koerper).length, 1, 'Anzahl der Felder')
-})
-
-// ── Saisonende (Spieler löschen, Spieltage aufräumen) ──────────────────────────────────────
 await pruefe('S1', 'Ein Spieler mit Historie lässt sich nicht löschen — ohne schon', async () => {
   const jar = await adminSitzung()
   const ruf = alsKapitaen(jar)
@@ -2583,6 +2566,26 @@ await pruefe('S3', 'Das Aufräumen hält sich an Stichtag und Mannschaft', async
     400,
     'unbrauchbares Datum',
   )
+})
+
+await pruefe('G1', 'Die Spielerliste sagt, wie viele es wirklich sind', async () => {
+  // Die Liste ist bei 200 gekappt. Ohne `gesamt` sähe eine Mannschaft mit 250 Spielern in der
+  // Verwaltung genauso aus wie eine mit 200 — deshalb zählt der Server getrennt.
+  const jar = await adminSitzung()
+  const ruf = alsKapitaen(jar)
+  const team = await testTeam()
+  await testMitglied('grenze', true, team)
+
+  const d = await (await ruf(`/manage/api/members?team=${team}`)).json()
+  gleich(d.grenze, 200, 'die Grenze steht dabei')
+  stimmt(d.gesamt >= 1, 'gezählt wurde')
+  // Solange nichts gekappt ist, müssen beide Zahlen übereinstimmen — sonst zählt der Server
+  // etwas anderes, als er ausliefert (etwa über alle Mannschaften statt über die eine).
+  gleich(d.gesamt, d.items.length, 'Zählung und Liste stimmen überein')
+
+  // Und der Gesamt-Admin ohne gewählte Mannschaft zählt alle.
+  const alle = await (await ruf('/manage/api/members?team=')).json()
+  stimmt(alle.gesamt >= d.gesamt, 'über alle Mannschaften sind es mindestens so viele')
 })
 
 await pruefe('T9', '6× falsches Passwort → gesperrt, auch für das richtige', async () => {

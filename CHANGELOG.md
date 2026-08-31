@@ -8,6 +8,11 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 ## [Unveröffentlicht]
 
 ### Hinzugefügt
+- **Warnung, wenn eine Mannschaft zu groß wird.** Verwaltung und Aushang zeigen je Mannschaft
+  höchstens 200 Spieler — das stand nirgends und meldete sich nie: Der 201. wurde angelegt und
+  tauchte einfach nicht auf, auch nicht in den Rückmeldungen. Die Spielerliste sagt jetzt, wie
+  viele es wirklich sind, und warnt ab 90 % der Grenze. Für eine Dartmannschaft ist das
+  unerreichbar; für einen Verein, der die App für eine große Trainingsgruppe benutzt, nicht.
 - **Saison abschließen.** Unter *Verein* lassen sich Spieltage bis zu einem Stichtag löschen —
   wahlweise nur die einer Mannschaft —, mitsamt Rückmeldungen, Fahrten und Mitfahrern. Bisher
   ging das nur automatisch nach zwölf Monaten oder gar nicht. Vor dem Löschen steht, wie viele
@@ -28,10 +33,10 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   Vorgabe für alles, was nicht zu einer vorhandenen Mannschaft passt; die Vorschau zählt auf,
   welche Namen entstehen, und umstellen lässt es sich weiterhin. Der Import erscheint deshalb
   auch auf einer Instanz ohne jede Mannschaft.
-- **Der Kopfbalken der Anmeldemaske zeigt den Vereinsnamen.** Bisher war er dort leer — ein
-  gelber Streifen über einem Formular, ohne jeden Hinweis, wo man gerade ist. Jetzt steht dort
-  derselbe Name wie nach dem Anmelden. Kommt er nicht, bleibt der Balken leer statt kurz etwas
-  Falsches zu zeigen.
+- **Der Kopfbalken der Anmeldemaske sagt „Anmeldung".** Bisher war er dort leer — ein gelber
+  Streifen über einem Formular, ohne jeden Hinweis, wo man gerade ist. Bewusst NICHT der
+  Vereinsname: Wer noch nicht angemeldet ist, hat nichts davon zu erfahren, wessen Verwaltung
+  das ist.
 - **Vorlage zum Selbstausfüllen.** Wessen Verband keinen brauchbaren Export ausgibt, lädt unter
   **Verein → Spielplan einlesen** eine leere CSV-Vorlage herunter, füllt sie im
   Tabellenprogramm aus und lädt sie wieder hoch. Welche Form eine Datei hat, erkennt die App an

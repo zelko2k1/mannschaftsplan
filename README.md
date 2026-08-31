@@ -331,6 +331,18 @@ Listen und ist sofort von allen Geräten abgemeldet.
 Zusage ändern. Wenn du unter Einstellungen eine Frist hinterlegt hast, passiert das von selbst;
 im Protokoll steht die Zeile dann mit dem Vermerk „(automatisch)".
 
+### Wie groß darf eine Mannschaft sein?
+
+Es gibt keine eingestellte Obergrenze — aber eine technische: **200 Spieler je Mannschaft**
+zeigen Verwaltung und Aushang an. Wird sie überschritten, sagt die Spielerliste es dir; bis
+dahin merkst du nichts davon. Für eine Dartmannschaft mit acht bis sechzehn Leuten ist das weit
+weg.
+
+Wer die App für etwas Größeres benutzt, sollte die zweite Schranke kennen: Der Aushang holt je
+Mannschaft bis zu **2000 Rückmeldungen** — Spieler mal Spieltage. Bei einer vollen Saison mit
+rund 25 Spieltagen ist das ab etwa 80 Spielern erreicht. Beide Zahlen stehen in
+`pocketbase/pb_hooks/utils.js` bzw. `board.pb.js` und lassen sich erhöhen.
+
 ### Nach der Saison aufräumen
 
 Von selbst passiert das auch: Spieltage älter als zwölf Monate verschwinden nachts, das Protokoll

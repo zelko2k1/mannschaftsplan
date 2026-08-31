@@ -8,7 +8,6 @@ import {
   type Protokollzeile,
   type ImportErgebnis,
   type Mannschaft,
-  type Sicherung,
   type Verwalterkonto,
   type Wer,
   ZweiterFaktorNoetig,
@@ -255,50 +254,17 @@ function Anmeldung({ fertig }: { fertig: (email: string) => void }) {
   const [fehler, setFehler] = useState('')
   const [hinweis, setHinweis] = useState('')
   const [laeuft, setLaeuft] = useState(false)
-  // Der Vereinsname für den Kopfbalken. Ohne Anmeldung lesbar (siehe /api/anzeigename); bis er da
-  // ist — und wenn er nicht kommt — bleibt der Balken leer statt kurz etwas Falsches zu zeigen.
-  const [verein, setVerein] = useState('')
-
-  // Bewusst ein nackter `fetch` statt eines Aufrufs über `api.ts`: Die Verwaltung und die
-  // Mitgliederseite teilen sich weder Cookie noch Prüflogik (R5), und dieser eine Wert braucht
-  // beides nicht — keine Sitzung, keine CSRF-Kopfzeile, kein Fehlerpfad. Der Import zöge das
-  // ganze Modul der anderen Seite in diesen Bündelteil.
-  useEffect(() => {
-    let lebt = true
-    fetch('/api/anzeigename')
-      .then((antwort) => (antwort.ok ? antwort.json() : null))
-      .then((d) => {
-        if (lebt && d?.anzeigename) setVerein(String(d.anzeigename))
-      })
-      .catch(() => {
-        /* Ohne Namen bleibt der Balken leer. Anmelden kann man sich trotzdem. */
-      })
-    return () => {
-      lebt = false
-    }
-  }, [])
 
   return (
     <div className="admin">
-      {/* Der gelbe Balken trug hier lange nichts. Das war gewollt — eine Überschrift ohne Text
-          wäre für eine Bildschirmleseanwendung eine Ankündigung, der nichts folgt —, sah aber
-          aus wie ein Darstellungsfehler: ein leerer Streifen über einem Formular ohne jeden
-          Hinweis, wo man gerade ist. Jetzt steht der Vereinsname darin, derselbe wie nach dem
-          Anmelden. Wozu die Seite dient, hängt unsichtbar an derselben Überschrift — sichtbar
-          wäre es eine Selbstverständlichkeit, für den Sprung von Überschrift zu Überschrift ist
-          es die einzige Auskunft. */}
-      {verein ? (
-        <header className="balken admin__kopf">
-          <h1>
-            {verein}
-            <span className="visuell-versteckt"> — Anmeldung zur Verwaltung</span>
-          </h1>
-        </header>
-      ) : (
-        <header className="balken admin__kopf admin__kopf--leer" />
-      )}
+      {/* Ein Wort, und zwar dasselbe für jeden: „Anmeldung". Der Balken war hier lange leer und
+          sah damit aus wie ein Darstellungsfehler; kurzzeitig stand der Vereinsname darin, aber
+          der gehört nicht vor die Tür — wer noch nicht angemeldet ist, hat auch nichts davon,
+          zu erfahren, wessen Verwaltung das ist. */}
+      <header className="balken admin__kopf">
+        <h1>Anmeldung</h1>
+      </header>
       <main>
-      {!verein && <h1 className="visuell-versteckt">Anmeldung zur Kapitänsansicht</h1>}
       <form
         className="anmeldung"
         onSubmit={async (ereignis) => {
@@ -382,13 +348,22 @@ function Anmeldung({ fertig }: { fertig: (email: string) => void }) {
 }
 
 /** Ein Ladezustand mit Fehlerzeile — dreimal gebraucht, deshalb hier einmal. */
-function useListe<T>(holen: () => Promise<{ items: T[] }>, abgemeldet: () => void, schluessel = '') {
-  const [items, setItems] = useState<T[] | null>(null)
+function useListe<A extends { items: unknown[] }>(
+  holen: () => Promise<A>,
+  abgemeldet: () => void,
+  schluessel = '',
+) {
+  const [items, setItems] = useState<A['items'] | null>(null)
+  // Die ganze Antwort, nicht nur die Liste: Manche Routen sagen mehr, als in den Zeilen steht —
+  // etwa, wie viele Datensätze es insgesamt gibt, wenn die Liste gekappt wurde.
+  const [antwort, setAntwort] = useState<A | null>(null)
   const [fehler, setFehler] = useState('')
 
   const laden = useCallback(async () => {
     try {
-      setItems((await holen()).items)
+      const d = await holen()
+      setAntwort(d)
+      setItems(d.items)
       setFehler('')
     } catch (problem) {
       if (problem instanceof NichtAngemeldet) return abgemeldet()
@@ -405,7 +380,7 @@ function useListe<T>(holen: () => Promise<{ items: T[] }>, abgemeldet: () => voi
     void laden()
   }, [laden])
 
-  return { items, fehler, setFehler, laden }
+  return { items, antwort, fehler, setFehler, laden }
 }
 
 // ── Spieltage ───────────────────────────────────────────────────────────────────────────────
@@ -454,7 +429,7 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
   // Die Namen für die Rückmeldungen. Über dieselbe Route wie der Reiter „Mannschaft" — der
   // Spieltag kennt nur Mitglieds-IDs, und ein zweites Feld in der Antwort wäre eine zweite
   // Stelle, an der dieselbe Liste gepflegt werden müsste.
-  const { items: spieler } = useListe<AdminMitglied>(() => adminApi.mitglieder(team), abgemeldet, team)
+  const { items: spieler } = useListe(() => adminApi.mitglieder(team), abgemeldet, team)
   const [entwurf, setEntwurf] = useState<Partial<AdminSpieltag> | null>(null)
   /** Welcher Spieltag aufgeklappt ist. Immer höchstens einer, wie im Aushang. */
   const [offen, setOffen] = useState('')
@@ -855,7 +830,7 @@ function Spieltagformular({
 
 // ── Mitglieder ──────────────────────────────────────────────────────────────────────────────
 function Mitglieder({ abgemeldet, team }: { abgemeldet: () => void; team: string }) {
-  const { items, fehler, setFehler, laden } = useListe(
+  const { items, antwort, fehler, setFehler, laden } = useListe(
     () => adminApi.mitglieder(team),
     abgemeldet,
     team,
@@ -918,6 +893,25 @@ function Mitglieder({ abgemeldet, team }: { abgemeldet: () => void; team: string
           Anlegen
         </button>
       </form>
+
+      {/* Die einzige Grenze, die es für eine Mannschaft überhaupt gibt — und bis hierher war sie
+          stumm: Ab dem 201. Spieler kamen weiterhin 200 Zeilen zurück, in der Verwaltung wie im
+          Aushang, ohne Meldung. Wer ihn angelegt hatte, hätte gedacht, er habe sich nicht
+          zurückgemeldet. Für eine Dartmannschaft ist das unerreichbar; für einen Verein, der die
+          App für eine große Trainingsgruppe benutzt, nicht. */}
+      {antwort && antwort.gesamt > antwort.grenze && (
+        <p className="satz__warnung">
+          Diese Mannschaft hat {antwort.gesamt} Spieler. Angezeigt werden hier und im Aushang nur
+          die ersten {antwort.grenze} — die übrigen fehlen, auch für die Rückmeldungen. Teile die
+          Mannschaft auf, oder melde dich, damit die Grenze steigt.
+        </p>
+      )}
+      {antwort && antwort.gesamt <= antwort.grenze && antwort.gesamt >= antwort.grenze * 0.9 && (
+        <p className="satz__warnung">
+          {antwort.gesamt} von {antwort.grenze} Spielern — mehr zeigen Verwaltung und Aushang je
+          Mannschaft nicht an.
+        </p>
+      )}
 
       {items.map((m: AdminMitglied) => (
         <div key={m.id} className="satz">
@@ -1647,14 +1641,14 @@ function vorschlagen(ausDatei: string[], vorhanden: Mannschaft[]): Record<string
  * der erste Schritt einer Kette — deshalb steht er hier und nicht in der Mannschaftsansicht.
  */
 function Saisonende({ abgemeldet }: { abgemeldet: () => void }) {
-  const { items: teams } = useListe<Mannschaft>(adminApi.mannschaften, abgemeldet)
+  const { items: teams } = useListe(adminApi.mannschaften, abgemeldet)
   const [team, setTeam] = useState('')
   const {
     items: spieltage,
     fehler,
     setFehler,
     laden,
-  } = useListe<AdminSpieltag>(() => adminApi.spieltage(team), abgemeldet, team)
+  } = useListe(() => adminApi.spieltage(team), abgemeldet, team)
   const [bis, setBis] = useState(alsDatumsfeld(new Date()))
   const [laeuft, setLaeuft] = useState(false)
   const [frage, setFrage] = useState<Nachfrage | null>(null)
@@ -2346,7 +2340,7 @@ function Mannschaftseinstellungen({
 
 /** Mannschaften anlegen und auflösen — Sache des Gesamt-Admins (Abschnitt 12). */
 function Mannschaften({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLaden: () => void }) {
-  const { items, fehler, setFehler, laden } = useListe<Mannschaft>(adminApi.mannschaften, abgemeldet)
+  const { items, fehler, setFehler, laden } = useListe(adminApi.mannschaften, abgemeldet)
   const [neu, setNeu] = useState('')
   const [laeuft, setLaeuft] = useState(false)
   const [frage, setFrage] = useState<Nachfrage | null>(null)
@@ -2474,8 +2468,8 @@ function Mannschaften({ abgemeldet, neuLaden }: { abgemeldet: () => void; neuLad
 const NEUER_SPIELER = 'neu:spieler'
 
 function Konten({ abgemeldet }: { abgemeldet: () => void }) {
-  const { items, fehler, setFehler, laden } = useListe<Verwalterkonto>(adminApi.verwalter, abgemeldet)
-  const { items: teams } = useListe<Mannschaft>(adminApi.mannschaften, abgemeldet)
+  const { items, fehler, setFehler, laden } = useListe(adminApi.verwalter, abgemeldet)
+  const { items: teams } = useListe(adminApi.mannschaften, abgemeldet)
 
   const [email, setEmail] = useState('')
   const [rolle, setRolle] = useState<'admin' | 'kapitaen'>('kapitaen')
@@ -2488,7 +2482,7 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
   const [frage, setFrage] = useState<Nachfrage | null>(null)
 
   // Für die Verknüpfung zum Spielereintrag — nur die Spieler der gewählten Mannschaft.
-  const { items: spieler, laden: spielerLaden } = useListe<AdminMitglied>(
+  const { items: spieler, laden: spielerLaden } = useListe(
     () => adminApi.mitglieder(team),
     abgemeldet,
     team,
@@ -2823,7 +2817,7 @@ function Konten({ abgemeldet }: { abgemeldet: () => void }) {
  */
 function Sicherungen({ abgemeldet }: { abgemeldet: () => void }) {
   // Derselbe Ladezustand wie bei Spieltagen, Mitgliedern und Protokoll.
-  const { items: liste, fehler, setFehler, laden } = useListe<Sicherung>(adminApi.sicherungen, abgemeldet)
+  const { items: liste, fehler, setFehler, laden } = useListe(adminApi.sicherungen, abgemeldet)
   const [laeuft, setLaeuft] = useState('')
   const [zurueck, setZurueck] = useState('')
   const [frage, setFrage] = useState<Nachfrage | null>(null)

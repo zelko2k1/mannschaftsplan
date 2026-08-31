@@ -646,15 +646,26 @@ routerAdd('POST', '/admin/api/fixtures/import', (e) => {
 // ── Mitglieder ──────────────────────────────────────────────────────────────────────────────
 routerAdd('GET', '/manage/api/members', (e) => {
   const a = require(`${__hooks}/adminauth.js`)
+  // Die Grenze steht in utils.js, weil der Aushang dieselbe braucht. Im Modul-Scope dieser
+  // Datei wäre sie den Handlern nicht zugänglich — jeder läuft in einer eigenen Laufzeit.
+  const u = require(`${__hooks}/utils.js`)
   const vor = a.pruefen(e)
   if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
   const kontext = vor.kontext
 
   const team = a.teamFuer(kontext, (e.requestInfo().query || {}).team)
   const alle = team
-    ? e.app.findRecordsByFilter('members', 'team = {:t}', 'sort,name', 200, 0, { t: team })
-    : e.app.findRecordsByFilter('members', "id != ''", 'sort,name', 200, 0)
+    ? e.app.findRecordsByFilter('members', 'team = {:t}', 'sort,name', u.MITGLIEDER_GRENZE, 0, { t: team })
+    : e.app.findRecordsByFilter('members', "id != ''", 'sort,name', u.MITGLIEDER_GRENZE, 0)
+
+  // Wie viele es WIRKLICH sind — gezählt, nicht geholt. Ohne diese Zahl könnte die Ansicht den
+  // Unterschied zwischen „200 Spieler" und „mehr als 200, der Rest fehlt hier" nicht kennen:
+  // Sie sieht in beiden Fällen genau 200 Zeilen. Genau das war die stille Grenze.
+  const gesamt = team ? e.app.countRecords('members', $dbx.hashExp({ team })) : e.app.countRecords('members')
+
   return e.json(200, {
+    grenze: u.MITGLIEDER_GRENZE,
+    gesamt,
     items: alle.map((m) => {
       const sitzungen = e.app.findRecordsByFilter('sessions', 'member = {:m}', '', 50, 0, { m: m.id })
       return {

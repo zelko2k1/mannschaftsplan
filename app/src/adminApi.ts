@@ -303,7 +303,17 @@ export const adminApi = {
       body: JSON.stringify({ status }),
     }),
 
-  mitglieder: (team: string) => ruf<{ items: AdminMitglied[] }>(`/members?team=${encodeURIComponent(team)}`),
+  /**
+   * Die Spieler einer Mannschaft.
+   *
+   * `gesamt` ist die WIRKLICHE Anzahl, `grenze` die Seitengröße der Abfrage. Beide stehen dabei,
+   * weil die Liste allein den Unterschied nicht zeigt: Bei 200 und bei 250 Spielern kommen
+   * genau 200 Zeilen zurück.
+   */
+  mitglieder: (team: string) =>
+    ruf<{ items: AdminMitglied[]; gesamt: number; grenze: number }>(
+      `/members?team=${encodeURIComponent(team)}`,
+    ),
   mitgliedAnlegen: (name: string, team: string) =>
     ruf<{ id: string }>('/members', { method: 'POST', body: JSON.stringify({ name, team }) }),
   mitgliedAendern: (id: string, daten: Partial<AdminMitglied>) =>

@@ -23,6 +23,20 @@ const SAMESITE_LAX = 2
 // Ein halbes Jahr, wie in R2.
 const SESSION_DAUER = 15552000
 
+/**
+ * Wie viele Spieler einer Mannschaft eine Abfrage zurückgibt — im Aushang wie in der
+ * Kapitänsansicht.
+ *
+ * Eine Obergrenze für die Mannschaftsgröße gibt es im Schema NICHT; begrenzt ist allein die
+ * Seitengröße der Abfrage. Genau das war lange die Falle: Wer den 201. Spieler anlegte, bekam
+ * keine Meldung — er tauchte einfach nicht auf, und im Aushang fehlte er ebenso. Deshalb steht
+ * die Zahl jetzt hier statt dreimal im Code, und die Kapitänsansicht bekommt zusätzlich die
+ * echte Gesamtzahl, um davor warnen zu können.
+ *
+ * Großzügig gewählt: Eine Dartmannschaft hat acht bis sechzehn Leute.
+ */
+const MITGLIEDER_GRENZE = 200
+
 // Fallen zurück, solange niemand etwas eingestellt hat. Stehen genauso in den Migrationen
 // 1787700000_settings.js und 1787800000_settings_fahrzeit_sperre.js — zusammen ändern.
 const ANZEIGENAME_STANDARD = 'Mannschaftsplan'
@@ -31,6 +45,7 @@ const PUFFER_STANDARD = 25
 const AUTO_SPERRE_STANDARD = 0
 
 module.exports = {
+  MITGLIEDER_GRENZE,
   SID_COOKIE,
   CSRF_COOKIE,
 
