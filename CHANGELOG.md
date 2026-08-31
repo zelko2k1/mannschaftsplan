@@ -7,6 +7,17 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+### Geändert
+- **Die Anleitung sagt, wer dahintersteckt.** Ein Kasten ganz oben: Vereins-Admin, kein
+  ausgebildeter Entwickler, mit KI-Unterstützung gebaut — samt dem, was das für einen Betreiber
+  bedeutet (begrenzter Support, keine Gewähr, Code-Reviews willkommen) und dem Hinweis auf die
+  personenbezogenen Daten. Dasselbe Vorgehen wie bei DartsZentrale.
+- **Der erste Absatz stimmt wieder.** Dort stand „für **eine** Dartmannschaft von acht bis zehn
+  Leuten" — dabei trägt eine Installation längst alle Mannschaften eines Vereins. Das war das
+  Erste, was ein Besucher las. Auch der Kopf des Umsetzungsplans ist nachgezogen.
+- **Abzeichen im README** (Version, Lizenz, React, PocketBase) — bei einem privaten Repo blieben
+  sie leer, jetzt zeigen sie etwas.
+
 ## [0.2.0] – 2026-08-31
 
 ### Hinzugefügt
