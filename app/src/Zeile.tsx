@@ -65,6 +65,12 @@ export default function Zeile({
   const zeitpunkt = spieltag.is_home ? spieltag.date : (spieltag.departure ?? spieltag.date)
   const zeitLabel = spieltag.is_home || !spieltag.departure ? 'Anwurf' : 'Abfahrt'
 
+  // Steht in der Spalte die Abfahrt, fehlte der Anwurf bisher in der ganzen Zeile — dabei ist
+  // das die zweite Uhrzeit, die zu einem Auswärtsspiel gehört: wann müssen wir dort sein. Sie
+  // stand nur im Datum des Spieltags, das die Zeile als Tag ausgibt, nicht als Uhrzeit. Wo kein
+  // Abfahrtszeitpunkt eingetragen ist, zeigt die Spalte ohnehin schon den Anwurf.
+  const anwurfDazu = !spieltag.is_home && !!spieltag.departure
+
   // Rot ist für die Dinge da, die jemanden zum Handeln bringen sollen (6.2).
   const ohneFahrer = !spieltag.is_home && spieltag.rides.length === 0
   const ohneAntwort = meineAntwort === null
@@ -95,6 +101,7 @@ export default function Zeile({
         <span className="zeile__zeit">
           <span className="zeile__uhr">{uhrzeit(zeitpunkt)}</span>
           <span className="zeile__label">{zeitLabel.toUpperCase()}</span>
+          {anwurfDazu && <span className="zeile__anwurf">Anwurf {uhrzeit(spieltag.date)}</span>}
         </span>
 
         <span className="zeile__inhalt">
@@ -178,15 +185,16 @@ export default function Zeile({
             {/* Der Treffpunkt stand bislang nur in der Kapitänsansicht: Er wurde eingegeben, vom
                 Board mitgeliefert — und hier fallengelassen. Wer gemeinsam losfährt, muss wissen,
                 wohin. Bei Heimspielen fährt niemand los, dort bleibt die Zeile weg. */}
-            {!spieltag.is_home && (spieltag.meeting_point || spieltag.departure) && (
+            {!spieltag.is_home && (
               <p className="detail__treffpunkt">
                 {spieltag.departure && (
                   <>
                     Abfahrt <strong>{uhrzeit(spieltag.departure)}</strong>
+                    {' · '}
                   </>
                 )}
-                {spieltag.departure && spieltag.meeting_point && ' · '}
-                {spieltag.meeting_point && <>Treffpunkt: {spieltag.meeting_point}</>}
+                Anwurf <strong>{uhrzeit(spieltag.date)}</strong>
+                {spieltag.meeting_point && <> · Treffpunkt: {spieltag.meeting_point}</>}
               </p>
             )}
             {spieltag.locked ? (
@@ -197,11 +205,11 @@ export default function Zeile({
               <>
                 <h3 className="detail__titel">Deine Rückmeldung</h3>
                 <div className="knopfreihe">
-                  {ANTWORTEN.map(({ wert, text }) => (
+                  {ANTWORTEN.map(({ wert, text, klasse }) => (
                     <button
                       key={wert}
                       type="button"
-                      className="knopf"
+                      className={`knopf ${klasse}`}
                       aria-pressed={meineAntwort === wert}
                       disabled={laeuft}
                       // Nochmal auf dieselbe Antwort tippen nimmt sie zurück.
