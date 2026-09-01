@@ -9,6 +9,27 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- **Der Aushang sagt, wenn Zusagen ohne Platz bleiben.** Bisher stand dort, wie viele Plätze frei
+  sind — nicht, ob sie reichen. Acht Zusagen und ein Auto mit drei belegten Plätzen lasen sich als
+  „8/8 zugesagt · keine Plätze frei", und vier Leute standen am Samstag vor der Kneipe, ohne dass
+  es irgendwo gestanden hätte. Jetzt steht daneben „4 ohne Platz", in Rot wie „kein Fahrer", und
+  im aufgeklappten Bereich ein Satz an der Stelle, an der jemand entscheidet, ob er sein Auto
+  anbietet. Dieselbe Angabe in der Kapitänsansicht, aus derselben Rechnung. Gezählt wird, wer
+  zugesagt hat und weder selbst fährt noch einen Platz beansprucht; die freien Plätze gehen ab.
+  Wo gar niemand fährt, bleibt es bei „kein Fahrer" — der schärfere Satz.
+- **Eine Erinnerung, die der Kapitän kopieren kann.** Wer noch nicht geantwortet hat, steht in
+  seiner Liste ohnehin; die Namen musste er bisher abschreiben, um in der Gruppe nachzufragen. Ein
+  Knopf über den Rückmeldungen legt den fertigen Satz in die Zwischenablage — verschickt wird er
+  von Hand, im Messenger, den die Mannschaft ohnehin benutzt. **Ohne Link**: Einladungslinks sind
+  persönlich (R14), einer in der Gruppe wäre der Zugang eines Einzelnen für alle. Und mit Namen,
+  weil „es fehlen noch drei Rückmeldungen" jeder als „nicht ich" liest.
+- **Ein Standard-Treffpunkt je Mannschaft.** Unter *Mannschaft* steht jetzt ein Treffpunkt; er
+  füllt neue Auswärtsspiele vor — im Formular wie beim Spielplan-Import, der dreißig Spieltage auf
+  einmal anlegt, in die ihn sonst jemand einzeln einträgt. Eine eigene Angabe am Spieltag schlägt
+  ihn, vorhandene Spieltage rührt er nicht an, und Heimspiele bekommen keinen. Damit hat das Feld
+  `startort` eine Aufgabe, das seit dem Mehr-Mannschaften-Umbau im Schema stand und von nichts
+  gelesen wurde.
+
 - **Bei Auswärtsspielen steht jetzt auch der Anwurf.** Die Zeitspalte zeigt dort die Abfahrt —
   die Zeit, nach der man sich richtet —, und damit fehlte die zweite, die zu einem
   Auswärtsspiel gehört: wann es losgeht. Sie stand nirgends in der Zeile, obwohl sie im Spieltag

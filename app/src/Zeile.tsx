@@ -59,6 +59,23 @@ export default function Zeile({
   const zugesagt = Object.values(spieltag.responses).filter((s) => s === 'yes').length
   const vollzaehlig = zugesagt >= spieltag.needed_players
   const freiGesamt = spieltag.rides.reduce((summe, f) => summe + (f.seats - f.taken), 0)
+
+  /**
+   * Wie viele Zusagen am Ende ohne Mitfahrgelegenheit dastehen.
+   *
+   * Die Zeile sagte bisher, wie viele Plätze frei sind — nicht, ob sie reichen. Acht Zusagen und
+   * ein Auto mit drei belegten Plätzen lasen sich als „8/8 zugesagt · keine Plätze frei", und
+   * vier Leute standen am Samstag vor der Kneipe, ohne dass es jemandem gesagt worden wäre.
+   * Gezählt wird, wer zugesagt hat und weder selbst fährt noch einen Platz beansprucht; davon
+   * finden die freien Plätze noch unter.
+   */
+  const brauchtPlatz = Object.entries(spieltag.responses).filter(
+    ([wer, status]) =>
+      status === 'yes' &&
+      !spieltag.rides.some((f) => f.member === wer) &&
+      !spieltag.seat_claims[wer],
+  ).length
+  const ohnePlatz = spieltag.is_home ? 0 : Math.max(0, brauchtPlatz - freiGesamt)
   const vorbei = wannUngefaehr(spieltag.date) === 'vorbei'
 
   // Bei Heimspielen gibt es keine Abfahrt — die Zeitspalte zeigt dann den Anwurf (6.3).
@@ -145,6 +162,14 @@ export default function Zeile({
                 <span className={ohneFahrer ? 'zeile__warnung' : undefined}>
                   {ohneFahrer ? 'kein Fahrer' : plaetzeText(freiGesamt)}
                 </span>
+                {/* Nur wenn überhaupt jemand fährt: Steht dort schon „kein Fahrer", ist das der
+                    schärfere Satz, und beides nebeneinander sagte zweimal dasselbe. */}
+                {!ohneFahrer && ohnePlatz > 0 && (
+                  <>
+                    {' · '}
+                    <span className="zeile__warnung">{ohnePlatz} ohne Platz</span>
+                  </>
+                )}
               </>
             )}
             {/* Dieselbe Stelle, zwei Zustände. Die Zeile sagte, wie viele zugesagt haben, wie
@@ -336,6 +361,18 @@ export default function Zeile({
 
                       {spieltag.rides.length === 0 && (
                         <p className="namen">Noch fährt niemand.</p>
+                      )}
+
+                      {/* Hier steht der Satz, nicht nur die Zahl: An dieser Stelle entscheidet
+                          jemand, ob er sein Auto anbietet. */}
+                      {ohnePlatz > 0 && (
+                        <p className="namen">
+                          <span className="zeile__warnung">
+                            {ohnePlatz === 1
+                              ? 'Eine Zusage hat noch keinen Platz.'
+                              : `${ohnePlatz} Zusagen haben noch keinen Platz.`}
+                          </span>
+                        </p>
                       )}
                     </div>
 

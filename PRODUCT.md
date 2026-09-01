@@ -95,6 +95,12 @@ Quelle sportlicher Personen, Konten davon getrennt und optional damit verknüpft
 Ergebnisse, Statistiken und Averages; Push-Nachrichten; WhatsApp-Anbindung; Mehrsprachigkeit;
 Konten für Spieler; eine Routenberechnung über einen Kartendienst (erwogen und zurückgestellt,
 weil sie einen API-Schlüssel und eine Abhängigkeit einführte, die das Produkt bisher nicht hat).
+
+**Auch keine Zählung, wer wie oft gefahren ist** — vorgeschlagen und ausdrücklich abgelehnt. Eine
+solche Zahl beantwortet keine Frage, die jemand hat, sondern eröffnet eine, die niemand stellen
+wollte: „Ich bin siebenmal gefahren, du dreimal." Der Fahrdienst funktioniert, weil man sich
+kennt; eine App, die mitzählt, macht daraus eine Abrechnung. Wer sehen will, wie es um einen
+Spieltag steht, findet das am Spieltag.
 Diese Liste beschreibt den Umfang von heute und darf sich ändern — sie steht hier, damit eine
 Erweiterung eine Entscheidung ist und kein Versehen.
 
