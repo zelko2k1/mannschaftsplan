@@ -738,7 +738,7 @@ Rechner zu Hause, einem kleinen Server, was du hast:
 ```bash
 PB_URL=https://dart.mein-verein.de \
   PB_SUPERUSER_EMAIL=… PB_SUPERUSER_PASSWORD=… \
-  ADMIN_USER=kapitaen ADMIN_PASSWORD=… \
+  ADMIN_USER=gate ADMIN_PASSWORD=… \
   BACKUP_DIR=/backup GPG_EMPFAENGER=… \
   ./scripts/backup.sh
 ```
