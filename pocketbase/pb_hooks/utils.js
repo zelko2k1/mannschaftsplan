@@ -287,6 +287,31 @@ module.exports = {
    * Findet den Datensatz eines Mitglieds zu einem Spieltag — die drei Tabellen responses, rides
    * und seat_claims haben alle denselben Zuschnitt (UNIQUE über fixture + member).
    */
+  /**
+   * Wer absagt, fährt nicht mehr und sitzt nirgends mehr mit.
+   *
+   * Ohne das bleibt beides stehen: Das Auto eines Abgesagten steht weiter im Fahrplan und bietet
+   * Plätze an, die es nicht gibt — und der Aushang rechnet mit ihnen, wenn er sagt, wie viele
+   * Zusagen ohne Mitfahrgelegenheit dastehen. Ein beanspruchter Platz wiederum blockiert weiter
+   * einen, den jemand anders gebraucht hätte. Beides sah aus wie ein Fahrplan und war keiner.
+   *
+   * Die Mitfahrer eines gelöschten Autos verschwinden über cascadeDelete mit — dieselbe Folge
+   * wie beim ausdrücklichen „Auto zurückziehen", und im Aushang wird vorher gefragt.
+   *
+   * Gibt zurück, was weggeräumt wurde; die Route schreibt es ins Protokoll.
+   */
+  absageAufraeumen(e, spieltagId, mitgliedId) {
+    const fahrt = module.exports.eigenerSatz(e, 'rides', spieltagId, mitgliedId)
+    const platz = module.exports.eigenerSatz(e, 'seat_claims', spieltagId, mitgliedId)
+    let mitfahrer = 0
+    if (fahrt) {
+      mitfahrer = e.app.findRecordsByFilter('seat_claims', 'ride = {:r}', '', 20, 0, { r: fahrt.id }).length
+      e.app.delete(fahrt)
+    }
+    if (platz) e.app.delete(platz)
+    return { fahrt: !!fahrt, platz: !!platz, mitfahrer: mitfahrer }
+  },
+
   eigenerSatz(e, collection, spieltagId, mitgliedId) {
     try {
       const treffer = e.app.findRecordsByFilter(

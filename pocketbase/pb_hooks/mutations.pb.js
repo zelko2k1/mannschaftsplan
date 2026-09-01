@@ -39,8 +39,19 @@ routerAdd('PUT', '/api/response/{fixtureId}', (e) => {
     e.app.save(satz)
   }
 
+  // Eine Absage betrifft den Fahrdienst, nicht nur die Zählung. Das gehört hierher und nicht in
+  // den Aushang: Der Kapitän korrigiert über eine andere Route, und beide Wege sollen dieselbe
+  // Wirkung haben.
+  const weg = status === 'no' ? u.absageAufraeumen(e, spieltag.id, sitzung.mitglied.id) : null
+  if (weg && weg.fahrt) {
+    u.protokollieren(e.app, `member:${sitzung.mitglied.id}`, 'ride.set', spieltag.id, 'fährt', 'abgesagt')
+  }
+  if (weg && weg.platz) {
+    u.protokollieren(e.app, `member:${sitzung.mitglied.id}`, 'seat.set', spieltag.id, 'mitfahren', 'abgesagt')
+  }
+
   u.protokollieren(e.app, `member:${sitzung.mitglied.id}`, 'response.set', spieltag.id, alt, status || '')
-  return e.json(200, { ok: true, status })
+  return e.json(200, { ok: true, status, fahrt_zurueckgezogen: !!(weg && weg.fahrt), mitfahrer: weg ? weg.mitfahrer : 0 })
 })
 
 // ── PUT /api/ride/{fixtureId} — ich fahre, mit so vielen Plätzen ────────────────────────────

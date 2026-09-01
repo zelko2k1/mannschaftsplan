@@ -104,9 +104,68 @@ export function systemDatumZeit(wert: string | null | undefined): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(d)
 }
 
+/**
+ * Ein Zeitpunkt, der von außerhalb der Datenbank kommt — heute: der Änderungszeitpunkt einer
+ * Sicherungsdatei.
+ *
+ * Der geht nicht durch PocketBases Datumstyp, sondern durch das Dateisystem, und kommt deshalb in
+ * der Schreibweise der Go-Laufzeit an: `2026-09-01 08:12:33.123456 +0000 UTC`. Daran scheitert
+ * `ausISO` — die Zeitzone am Ende ist kein ISO-Kürzel. Statt auf eine Schreibweise zu wetten, die
+ * niemand hier festlegt, wird zuerst der ISO-Weg versucht und danach der gemeinsame Anfang beider
+ * Formen gelesen; was auf beides nicht passt, gilt als unbekannt und wird nicht angezeigt.
+ */
+export function ausZeitangabe(wert: string | null | undefined): Date | null {
+  const ueberIso = ausISO(wert)
+  if (ueberIso) return ueberIso
+  const teile = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/.exec(String(wert || '').trim())
+  if (!teile) return null
+  const [, jahr, monat, tag, stunde, minute, sekunde] = teile
+  return new Date(
+    Date.UTC(+jahr, +monat - 1, +tag, +stunde, +minute, +sekunde),
+  )
+}
+
+/**
+ * „heute", „gestern", „vor 5 Tagen" — wie alt etwas ist.
+ *
+ * Das Gegenstück zu `wannUngefaehr`, das nach vorn schaut. Getrennt, weil die Wörter andere sind:
+ * Eine Sicherung ist nicht „in 3 Wochen", sie ist „vor 3 Wochen". Leer bei unbekanntem Datum —
+ * eine erfundene Angabe wäre schlimmer als keine.
+ */
+export function seit(wert: string | null | undefined, jetzt = new Date()): string {
+  const d = ausZeitangabe(wert)
+  if (!d) return ''
+  const heute = new Date(jetzt.getFullYear(), jetzt.getMonth(), jetzt.getDate())
+  const damals = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  const tage = Math.round((heute.getTime() - damals.getTime()) / 86400000)
+  if (tage <= 0) return 'heute'
+  if (tage === 1) return 'gestern'
+  if (tage < 7) return `vor ${tage} Tagen`
+  if (tage < 28) return `vor ${Math.round(tage / 7)} Wochen`
+  return `vor ${Math.round(tage / 30)} Monaten`
+}
+
+/**
+ * Ab wann eine Sicherung alt ist. Kein Naturgesetz, sondern eine Ansage: Ein Verein, der einmal im
+ * Monat sichert, verliert im schlimmsten Fall einen Monat Rückmeldungen — das ist die Grenze, ab
+ * der die Anzeige etwas sagt, statt nur ein Datum hinzuschreiben.
+ */
+export const SICHERUNG_ALT_TAGE = 30
+
+/** Wie viele Tage her — für die Entscheidung, ob gewarnt wird. Unbekannt: null. */
+export function tageSeit(wert: string | null | undefined, jetzt = new Date()): number | null {
+  const d = ausZeitangabe(wert)
+  if (!d) return null
+  return Math.floor((jetzt.getTime() - d.getTime()) / 86400000)
+}
+
 /** Nur der Tag — für Angaben, bei denen die Uhrzeit nichts beiträgt („Link seit …"). */
 export function systemDatum(wert: string | null | undefined): string {
-  const d = ausISO(wert)
+  // Über `ausZeitangabe`, nicht über `ausISO`: Dieselbe Funktion zeigt Datenbankdaten („Link
+  // seit …") und den Änderungszeitpunkt einer Sicherungsdatei, und der kommt aus dem Dateisystem
+  // in einer anderen Schreibweise. Für alles Bisherige ändert sich nichts — der ISO-Weg wird
+  // zuerst versucht.
+  const d = ausZeitangabe(wert)
   if (!d) return ''
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(d)
 }

@@ -44,6 +44,11 @@ export default function Zeile({
 }: Props) {
   const bereichId = useId()
   const [frage, setFrage] = useState<Nachfrage | null>(null)
+  /**
+   * Die Rückfrage vor einer Absage — eigener Zustand, weil sie an einer anderen Stelle steht als
+   * die beim Zurückziehen des Autos: unter den Rückmeldeknöpfen, wo gerade getippt wurde.
+   */
+  const [absageFrage, setAbsageFrage] = useState<Nachfrage | null>(null)
   const name = (id: string) => board.members.find((m) => m.id === id)?.name ?? '—'
 
   /** Wer in einem bestimmten Auto sitzt — der Fahrer will das wissen, nicht nur die Anzahl. */
@@ -58,7 +63,16 @@ export default function Zeile({
 
   const zugesagt = Object.values(spieltag.responses).filter((s) => s === 'yes').length
   const vollzaehlig = zugesagt >= spieltag.needed_players
-  const freiGesamt = spieltag.rides.reduce((summe, f) => summe + (f.seats - f.taken), 0)
+  /**
+   * Ein Auto, dessen Fahrer abgesagt hat, ist keines.
+   *
+   * Seit `absageAufraeumen` räumt eine Absage die Fahrt gleich mit weg — die Anzeige rechnet
+   * trotzdem nicht mit solchen Sätzen: Aus der Zeit davor können welche dastehen, und was der
+   * Server einmal übersehen hat, soll die Zeile nicht als freie Plätze weitererzählen.
+   */
+  const abgesagt = (f: Fahrt) => spieltag.responses[f.member] === 'no'
+  const fahrten = spieltag.rides.filter((f) => !abgesagt(f))
+  const freiGesamt = fahrten.reduce((summe, f) => summe + (f.seats - f.taken), 0)
 
   /**
    * Wie viele Zusagen am Ende ohne Mitfahrgelegenheit dastehen.
@@ -89,7 +103,7 @@ export default function Zeile({
   const anwurfDazu = !spieltag.is_home && !!spieltag.departure
 
   // Rot ist für die Dinge da, die jemanden zum Handeln bringen sollen (6.2).
-  const ohneFahrer = !spieltag.is_home && spieltag.rides.length === 0
+  const ohneFahrer = !spieltag.is_home && fahrten.length === 0
   const ohneAntwort = meineAntwort === null
 
   const klassen = [
@@ -237,13 +251,44 @@ export default function Zeile({
                       className={`knopf ${klasse}`}
                       aria-pressed={meineAntwort === wert}
                       disabled={laeuft}
-                      // Nochmal auf dieselbe Antwort tippen nimmt sie zurück.
-                      onClick={() => setzeAntwort(meineAntwort === wert ? null : wert)}
+                      onClick={() => {
+                        // Nochmal auf dieselbe Antwort tippen nimmt sie zurück.
+                        const naechste = meineAntwort === wert ? null : wert
+                        // Eine Absage zieht das eigene Auto mit ab (der Server räumt es weg).
+                        // Sitzen Leute drin, ist das die Nachricht und nicht die Nebenwirkung:
+                        // Sie stehen danach ohne Mitfahrgelegenheit da. Ein leeres Auto betrifft
+                        // niemanden und fragt nichts — dieselbe Grenze wie beim Zurückziehen.
+                        const drin = meineFahrt ? mitfahrer(meineFahrt.id) : []
+                        if (naechste === 'no' && drin.length > 0) {
+                          setAbsageFrage({
+                            id: spieltag.id,
+                            titel: 'Absagen und Auto zurückziehen',
+                            text: `${drin.join(' und ')} ${
+                              drin.length === 1 ? 'sitzt' : 'sitzen'
+                            } bei dir. Sagst du ab, fährt dein Auto nicht mehr — ${
+                              drin.length === 1 ? 'er oder sie muss' : 'sie müssen'
+                            } sich neu einteilen.`,
+                            knopf: 'Absagen',
+                            tun: () => {
+                              setAbsageFrage(null)
+                              setzeAntwort('no')
+                            },
+                          })
+                          return
+                        }
+                        setzeAntwort(naechste)
+                      }}
                     >
                       {text}
                     </button>
                   ))}
                 </div>
+
+                <Nachfragekasten
+                  frage={absageFrage}
+                  abbrechen={() => setAbsageFrage(null)}
+                  laeuft={laeuft}
+                />
 
                 {!spieltag.is_home && (
                   <>
@@ -339,21 +384,34 @@ export default function Zeile({
                         .map((f: Fahrt) => {
                           const drin = meinPlatz === f.id
                           const voll = f.taken >= f.seats && !drin
+                          // Sichtbar stehen bleiben, aber nichts mehr anbieten: Wer hier
+                          // einstiege, führe mit niemandem.
+                          const fahrerWeg = abgesagt(f)
                           return (
                             <div key={f.id} className="auto">
                               <span className="auto__wer">{name(f.member)} fährt</span>
                               <Balken voll={f.taken} gesamt={f.seats} />
                               <span className="auto__frei">
-                                {mitfahrer(f.id).join(', ') || 'noch frei'}
+                                {fahrerWeg ? (
+                                  <span className="zeile__warnung">Fahrer hat abgesagt</span>
+                                ) : (
+                                  mitfahrer(f.id).join(', ') || 'noch frei'
+                                )}
                               </span>
                               <button
                                 type="button"
                                 className="knopf"
                                 aria-pressed={drin}
-                                disabled={laeuft || voll}
+                                disabled={laeuft || voll || (fahrerWeg && !drin)}
                                 onClick={() => setzeMitfahrt(drin ? null : f.id)}
                               >
-                                {drin ? 'Aussteigen' : voll ? 'Voll' : 'Mitfahren'}
+                                {drin
+                                  ? 'Aussteigen'
+                                  : fahrerWeg
+                                    ? 'Fährt nicht'
+                                    : voll
+                                      ? 'Voll'
+                                      : 'Mitfahren'}
                               </button>
                             </div>
                           )
