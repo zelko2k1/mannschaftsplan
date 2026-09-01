@@ -1023,6 +1023,11 @@ weder `env_file` noch `environment` an ihn durch. Die Variable stand außerdem i
 `.env.example`, in keiner Anleitung und in keiner Fähigkeitsliste. Gebaut, nirgends beschrieben, im
 Betrieb tot.
 
+> **Stand: geplant, nicht gebaut** (01.09.2026). Der Abschnitt beschreibt, was zu tun wäre, wenn
+> der Betreiber ntfy als zweiten Dienst aufnehmen will. Bis dahin ändert sich nichts: Ohne
+> `NTFY_URL` schweigt der Cron, und niemand merkt, dass es ihn gibt. Was für den Bau vom Betreiber
+> gebraucht wird, ist eine Entscheidung über den Namen, unter dem ntfy erreichbar sein soll.
+
 ### 9.1 Wohin die Nachricht geht
 
 **ntfy, selbst gehostet, als eigener Container neben der App.** Nicht `ntfy.sh`.
@@ -1084,26 +1089,21 @@ benannte Netz `mannschaftsplan` (`docker-compose.yaml`), und die Adresse lautet
 Zertifikat, kein Umweg über das Internet, kein Token nötig, wenn das Netz die Grenze ist. Dieser
 Weg steht schon für einen fremden Caddy offen; das Netz heißt genau deshalb, wie es heißt.
 
-**(b) Es soll eines dazukommen.** Dafür ein **drittes, optionales Overlay**
-`docker-compose.ntfy.yaml` — dieselbe Bauweise wie das Caddy-Overlay:
+**(b) Es soll eines dazukommen.** Seit `deploy/conf.d/` (Abschnitt 7.2) ist das **kein Sonderfall
+mehr, sondern der dokumentierte Normalweg für jeden zweiten Dienst**: ein eigener Container, ein
+Site-Block als Datei im Verzeichnis, der Container ins Netz `mannschaftsplan`. Die README
+beschreibt das bereits unter „Noch einen Dienst hinter denselben Proxy hängen"; für ntfy gilt kein
+Wort anders.
 
-```
-docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml -f docker-compose.ntfy.yaml up -d
-```
+Das Repo braucht dafür **kein weiteres Overlay**. Was es liefern sollte, sind zwei **Beispiele**
+zum Kopieren und Anpassen — eine Compose-Datei für den ntfy-Container (gepinnte Version, Volume
+für seine Datenbank, `NTFY_AUTH_DEFAULT_ACCESS=read-only`, **kein** `ports`) und ein
+Caddy-Baustein für `deploy/conf.d/`. Beispiele und nicht Overlays, weil der Startbefehl aus der
+Anleitung dann bei zwei `-f` bleibt, für immer, und niemand eine dritte Datei mitschleppt, die er
+nie benutzt.
 
-Wer es weglässt, bekommt keinen Container, keine Subdomain und kein Zertifikat. Es bringt mit:
-den ntfy-Service mit gepinnter Version, ein Volume für seine Datenbank, **kein** `ports` — und den
-Caddy-Block für `ntfy.{$DOMAIN}`.
-
-> **Offen, technisch:** Wie dieser Block in die Konfiguration des laufenden Caddy kommt, ohne
-> `deploy/Caddyfile` für alle anderen zu verändern. Zwei Kandidaten: ein `import` auf ein
-> Verzeichnis, das ohne das Overlay leer bleibt — dann muss Caddy ein Muster hinnehmen, auf das
-> nichts passt —, oder das Overlay hängt eine erweiterte Vorlage an die Stelle der bisherigen,
-> die ihrerseits die Basis importiert. Der zweite Weg kommt ohne Annahme über Caddy aus, wirft
-> aber die Frage auf, ob der globale Optionsblock nach einem `import` noch am Anfang steht.
-> **Entschieden wird das nicht durch Nachdenken, sondern durch den CI-Job „Caddy-Vorlagen"**, der
-> beide Vorlagen gegen dieselbe Caddy-Version validiert, in der sie später laufen. Bis dahin steht
-> hier keine Behauptung.
+Damit ist die technische Frage aus der ersten Fassung dieses Abschnitts erledigt — sie war nie
+eine Frage über ntfy, sondern über den Proxy, und sie ist in 7.2 beantwortet.
 
 **(c) Gar keines.** Der Normalfall. Werte leer lassen, alles bleibt wie bisher.
 
@@ -1112,19 +1112,22 @@ Caddy-Block für `ntfy.{$DOMAIN}`.
 Der Weg des Betreibers dieser Installation, über (b). Ein Empfänger, ein Thema, kein neues Feld in
 der Datenbank:
 
-1. Overlay dazunehmen, Subdomain im DNS anlegen — das Zertifikat holt Caddy von selbst.
-2. ntfy mit `NTFY_AUTH_DEFAULT_ACCESS=read-only` betreiben, ein Token für die Anwendung anlegen,
-   ein langes zufälliges Thema wählen.
-3. `NTFY_URL` und `NTFY_TOKEN` in die `.env`, Stack neu starten.
-4. Auf dem Handy die ntfy-App installieren, das Thema abonnieren.
-5. Datenschutzhinweis der Installation um den Satz ergänzen.
-6. **Prüfen:** den Cron von Hand auslösen (`POST /api/crons/erinnerung` als Superuser durch den
+1. **Im Repo:** die vier Dinge aus 9.3 — zwei Werte in `.env.example`, der `environment:`-Block am
+   App-Service, der `Authorization`-Header im Cron, der Abschnitt in der README. Dazu die beiden
+   Beispieldateien aus 9.4 (b).
+2. **Auf dem Server:** ntfy-Container starten, Site-Block nach `deploy/conf.d/`, Subdomain im DNS
+   anlegen — das Zertifikat holt Caddy von selbst —, Caddy neu starten.
+3. Ein Token für die Anwendung anlegen, ein langes zufälliges Thema wählen.
+4. `NTFY_URL` und `NTFY_TOKEN` in die `.env`, Stack neu starten.
+5. Auf dem Handy die ntfy-App installieren, das Thema abonnieren.
+6. Datenschutzhinweis der Installation um den Satz ergänzen.
+7. **Prüfen:** den Cron von Hand auslösen (`POST /api/crons/erinnerung` als Superuser durch den
    SSH-Tunnel) und nachsehen, ob die Nachricht ankommt — und ob sie **ausbleibt**, wenn nichts
    offen ist.
 
 *Fertig, wenn:* an einem Spieltag mit offener Rückmeldung um 18 Uhr eine Nachricht auf dem Handy
-liegt, ein `curl` ohne Token auf das Thema `403` bekommt — und ein Start **ohne** das Overlay
-unverändert durchläuft.
+liegt, ein `curl` ohne Token auf das Thema `403` bekommt — und eine Installation **ohne** ntfy
+unverändert durchläuft, ohne dass ihr Betreiber von alldem etwas merkt.
 
 ### 9.6 Phase 2 — ein Thema je Mannschaft
 
@@ -1232,14 +1235,15 @@ T8c, T8d, T10, T11 und T12.
 *Fertig, wenn:* ein nackter Server allein mit den Werten aus einer `.env` zum laufenden HTTPS-Dienst
 wird — und der Weg mit vorhandenem Proxy unverändert weiter funktioniert.
 
-**Schritt 10 — Erinnerungen einschalten**
+**Schritt 10 — Erinnerungen einschalten** *(geplant, nicht begonnen)*
 Zum Produkt gehören zwei Werte in der `.env` und ein Header im Cron (9.3), nicht der ntfy-Server.
 Wer schon einen betreibt, trägt seine Adresse ein; wer keinen will, lässt die Werte leer und merkt
-nichts. Für den, der bei null anfängt, ein **drittes, optionales Overlay** (9.4 b). Dann Phase 1
-aus 9.5: ein Thema für den Admin. Phase 2 (ein Thema je Mannschaft, 9.6) erst danach und nur, wenn
+nichts. Wer bei null anfängt, nimmt einen eigenen Container dazu — seit `deploy/conf.d/` (7.2) der
+Normalweg für jeden zweiten Dienst, nicht mehr als zwei Beispieldateien im Repo. Dann Phase 1 aus
+9.5: ein Thema für den Admin. Phase 2 (ein Thema je Mannschaft, 9.6) erst danach und nur, wenn
 Phase 1 sich bewährt.
 *Fertig, wenn:* eine Erinnerung auf dem Handy des Admins ankommt, das Thema ohne Token nicht
-beschreibbar ist — und ein Start ohne das Overlay unverändert durchläuft.
+beschreibbar ist — und eine Installation ohne ntfy unverändert durchläuft.
 
 ---
 
