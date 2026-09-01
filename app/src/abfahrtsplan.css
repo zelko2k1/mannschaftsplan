@@ -177,7 +177,7 @@
 }
 .zeile__label {
   margin-top: 0.15rem;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   font-weight: 600;
   /* 0.08em zerlegte „ABFAHRT" optisch in „ABF AHRT" — bei einer schmalen Schrift in dieser
      Größe trägt viel weniger Sperrung. */
@@ -194,9 +194,9 @@
   margin-top: 0.4rem;
   padding-top: 0.35rem;
   border-top: var(--linie-innen);
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   font-weight: 600;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
   font-variant-numeric: tabular-nums;
   color: var(--grau);
@@ -215,7 +215,11 @@
   align-items: baseline;
   gap: 0.15rem 0.75rem;
   font-family: var(--schrift-mono);
-  font-size: 0.78rem;
+  /* Die Angaben im Kasten neben dem Gegner standen eine Spur zu klein: Datum, Entfernung, Ort
+     und Zählstand sind das, was beim Überfliegen gelesen wird, und die Schreibmaschinenschrift
+     wirkt bei gleicher Größe kleiner als die Grotesk daneben. Ein Schritt größer, mehr nicht —
+     der Gegner soll die Zeile weiterhin anführen. */
+  font-size: 0.85rem;
   color: var(--grau);
 }
 .zeile__oben > span { white-space: nowrap; }
@@ -239,12 +243,12 @@
 }
 .zeile__ort {
   margin: 0.15rem 0 0;
-  font-size: 0.88rem;
+  font-size: 0.95rem;
   color: var(--grau);
 }
 .zeile__stand {
   margin: 0.45rem 0 0;
-  font-size: 0.88rem;
+  font-size: 0.95rem;
   font-weight: 500;
 }
 .zeile__warnung {
