@@ -655,8 +655,19 @@ git pull
 docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml up -d --build
 ```
 
+**Oder in einem Befehl:**
+
+```bash
+./scripts/update.sh
+```
+
+Das Skript macht genau das oben, startet anschließend den Proxy neu (warum, steht weiter unten)
+und misst zum Schluss nach, ob die Schutzregeln danach greifen. Betreibst du einen eigenen
+Reverse Proxy statt des Overlays, erkennt es das selbst.
+
 **Vorher eine Sicherung ziehen** — in der App unter *Verein → Sicherungen*, ein Klick. Das ist
-der einzige Rückweg, falls etwas nicht passt.
+der einzige Rückweg, falls etwas nicht passt. Das Skript nimmt dir das absichtlich nicht ab: Eine
+Sicherung, die auf dem Server liegen bleibt, ist im Ernstfall keine.
 
 Der Bau dauert ein paar Minuten. Danach läuft die neue Fassung; **deine Daten bleiben**, sie
 liegen in einem eigenen Docker-Volume und nicht im Container. Nötige Änderungen an der Datenbank
@@ -707,6 +718,7 @@ Das löscht nur, was kein Container mehr benutzt — deine Daten sind davon nie 
 >
 > Das dauert Sekunden, baut nichts und ist unschädlich, wenn sich nichts geändert hat — **lass es
 > einfach bei jedem Aktualisieren mitlaufen**, statt nachzusehen, ob es diesmal nötig war.
+> `./scripts/update.sh` tut genau das von selbst.
 >
 > **Nachmessen von außen**, ob die Regeln greifen — aus jedem Terminal, auch vom eigenen Rechner:
 >

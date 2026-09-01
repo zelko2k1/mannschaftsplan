@@ -7,6 +7,18 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- **`scripts/update.sh`** — der Ablauf aus dem Abschnitt *Aktualisieren* in einem Befehl: holen,
+  bauen, starten, und danach den Proxy auf die aktuelle `deploy/Caddyfile` bringen. Der letzte
+  Schritt ist der Grund für das Skript: Er wird von Hand zuverlässig vergessen, und man merkt es
+  nicht, weil ausgerechnet die Regeln betroffen sind, die man von außen nicht sieht. Zum Schluss
+  misst es selbst nach, ob das Gate aus R13c steht, statt es zu behaupten. Ob das Caddy-Overlay
+  dazugehört, erkennt es am Container; wer einen eigenen Reverse Proxy betreibt, wird nicht
+  behelligt. Die Sicherung bleibt ausdrücklich Handarbeit — sie gehört heruntergeladen und vom
+  Server genommen, und ein Skript, das eine anlegt und liegen lässt, verkauft ein
+  Sicherheitsgefühl, das nicht trägt.
+
 ### Geändert
 - **Aus „Tor" wird „Gate".** Das zusätzliche Passwort vor `/admin` hieß im ganzen Projekt
   „Tor" — ein Wort, das bei einer Anwendung im Internet unweigerlich an das Tor-Netzwerk denken
