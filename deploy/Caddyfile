@@ -129,3 +129,16 @@
 		}
 	}
 }
+
+# ── Eigene Dienste desselben Servers ────────────────────────────────────────────────────────
+# Wer neben dem Mannschaftsplan noch etwas betreibt, legt dessen Site-Block als eigene Datei in
+# `deploy/conf.d/` ab — er wird hier eingelesen. Diese Vorlage bleibt dabei unangetastet, und
+# damit auch die Regeln aus R13, die in ihr stehen.
+#
+# Der Weg über ein Verzeichnis statt über eine Änderung an dieser Datei ist Absicht: Was der
+# Betreiber hier hineinschreibt, gehört ihm und liegt in `.gitignore`. Ein `git pull` bricht
+# sonst mit einem Konflikt ab, und zwar an der Datei, die das Gate vor `/admin` trägt.
+#
+# Der Pfad ist RELATIV zu dieser Datei — im Container wird daraus `/etc/caddy/conf.d`, in der CI
+# das Verzeichnis neben der Vorlage. Beide Male dieselbe Zeile, ohne Sonderfall.
+import conf.d/*.caddy

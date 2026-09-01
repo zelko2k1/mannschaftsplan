@@ -14,6 +14,13 @@ pocketbase/pb_public/
 .env
 .env.local
 
+# Site-Blöcke für eigene Dienste hinter demselben Caddy. Sie gehören dem Betreiber, nicht dem
+# Repo — sonst bräche jedes `git pull` mit einem Konflikt an einer Datei ab, die die Regeln vor
+# /admin trägt. Der Platzhalter bleibt versioniert: Er sorgt dafür, dass das Einlesemuster in
+# deploy/Caddyfile immer auf mindestens eine Datei passt.
+deploy/conf.d/*.caddy
+!deploy/conf.d/00-leer.caddy
+
 .DS_Store
 
 # Werkzeuge der KI-Assistenten, die über einen Installer beschafft werden (`npx impeccable

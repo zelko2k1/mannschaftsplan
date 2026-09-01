@@ -924,10 +924,13 @@ Superuser-Anmeldung trägt (R13a–c). Das ist die letzte Datei, an der geraten 
 Dasselbe Muster fahren nginx und Apache seit zwanzig Jahren. Es löst nicht einen Fall, sondern die
 ganze Klasse: ntfy aus Abschnitt 9 ist danach der erste Anwendungsfall und kein Sonderfall.
 
-> **Offen, technisch:** ob Caddy ein Einlesemuster hinnimmt, auf das nichts passt — der leere
-> Normalfall. Entschieden wird das vom CI-Job „Caddy-Vorlagen", der gegen dieselbe Caddy-Version
-> validiert, in der die Datei später läuft, und nicht durch Nachdenken. Trägt es nicht, ist der
-> Ersatz eine erweiterte Vorlage, die das Overlay an die Stelle der bisherigen hängt.
+> **Die offene Frage ist umgangen statt beantwortet.** Ob Caddy ein Einlesemuster hinnimmt, auf
+> das nichts passt, ist nicht zugesichert — Apache brauchte dafür eine zweite Direktive
+> (`IncludeOptional`), nginx schweigt von sich aus. Deshalb liegt im Verzeichnis eine versionierte
+> Platzhalterdatei: Damit passt das Muster immer auf mindestens eine Datei, und Caddys Verhalten
+> bei null Treffern spielt keine Rolle. Der Pfad ist relativ zur Vorlage, also im Container
+> `/etc/caddy/conf.d` und in der CI das Verzeichnis daneben — der CI-Job prüft dieselbe
+> Konstellation, die auf dem Server läuft.
 
 **Was in die Anleitung gehört, damit es niemand herausfinden muss:** Fremde Blöcke landen in
 demselben Caddy, der `/admin` bewacht. Gefährlich ist das nicht — Regeln gelten je Hostname, ein
