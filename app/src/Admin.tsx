@@ -588,7 +588,10 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
               derselbe wie im Aushang — eine zweite, abweichende Zählweise wäre schlimmer als gar
               keine. Ohne Aufklappen, weil das Grundsatz 2 verlangt. */}
           <p className="satz__stand">
-            {zugesagt(s)}/{s.needed_players} zugesagt
+            <span className="satz__zusagen">
+              {zugesagt(s)} zugesagt
+              {zugesagt(s) < s.needed_players && `, ${s.needed_players} nötig`}
+            </span>
             {!s.is_home && (
               <>
                 {' · '}

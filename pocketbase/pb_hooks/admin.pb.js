@@ -324,7 +324,7 @@ routerAdd('GET', '/manage/api/fixtures', (e) => {
     ? e.app.findRecordsByFilter('fixtures', 'team = {:t}', 'date', 500, 0, { t: team })
     : e.app.findRecordsByFilter('fixtures', "id != ''", 'date', 500, 0)
 
-  // Der Kapitän soll sehen, was seine Mannschaft sieht: „4/4 zugesagt · 2 Plätze frei". Ohne
+  // Der Kapitän soll sehen, was seine Mannschaft sieht: „4 zugesagt · 2 Plätze frei". Ohne
   // diese drei Felder stand in seiner Liste nur, gegen wen und wann gespielt wird — und der
   // Zweck des Produkts laut PRODUCT.md ist gerade, dass er NICHT nachzählen muss.
   //
