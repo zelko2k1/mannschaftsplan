@@ -181,7 +181,16 @@ export default function Zeile({
                 {' · '}
               </>
             )}
-            {zugesagt}/{spieltag.needed_players} zugesagt
+            {/* Kein Bruchstrich mehr. „0/4 zugesagt" las sich als Kapazität — vier Plätze, davon
+                null belegt —, und genau so kam es aus der Mannschaft zurück. Gemeint ist eine
+                Untergrenze: Vier müssen, mehr dürfen. Zwei Zahlen, jede mit ihrem eigenen Wort.
+
+                Sobald es reicht, fällt die zweite Hälfte weg. Die Untergrenze interessiert nur,
+                solange sie fehlt — und die Zeile wird im guten Fall kürzer als vorher. */}
+            <span className="zeile__zusagen">
+              {zugesagt} zugesagt
+              {!vollzaehlig && `, ${spieltag.needed_players} nötig`}
+            </span>
             {!spieltag.is_home && (
               <>
                 {' · '}

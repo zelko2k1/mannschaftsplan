@@ -251,6 +251,14 @@
   font-size: 0.95rem;
   font-weight: 500;
 }
+/* Die Zusagen bleiben zusammen. Ein Umbruch zwischen „4" und „nötig" wäre schlimmer als der
+   Bruchstrich, den wir gerade losgeworden sind — dieselbe Vorsorge wie bei „kein Fahrer" und
+   „du: dabei" darunter. Die Zeile als Ganzes darf weiterhin an den Trennpunkten umbrechen;
+   siebzig Zeichen in eine Handybreite zu zwingen ginge nur über eine Schriftgröße, die niemand
+   mehr liest. */
+.zeile__zusagen {
+  white-space: nowrap;
+}
 .zeile__warnung {
   color: var(--rot);
   font-weight: 600;

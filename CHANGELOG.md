@@ -105,6 +105,14 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Geändert
 
+- **„0/4 zugesagt" las sich als Kapazität.** Erste Rückmeldung aus der Mannschaft, und sie traf
+  etwas Richtiges: Der Bruchstrich sagt „vier Plätze, davon null belegt". Gemeint ist das
+  Gegenteil einer Obergrenze — vier müssen, mehr dürfen und sollen. Jetzt stehen dort zwei Zahlen
+  mit je einem eigenen Wort: **„0 zugesagt, 4 nötig"**. Sobald es reicht, fällt die zweite Hälfte
+  weg und es bleibt „5 zugesagt" samt Komplett-Stempel — die Untergrenze interessiert nur, solange
+  sie fehlt, und im guten Fall wird die Zeile damit kürzer als vorher. Wörtlich dieselbe Angabe in
+  Aushang und Kapitänsansicht; zwischen „4" und „nötig" wird nie umgebrochen.
+
 - **Die Angaben neben dem Gegner stehen eine Spur größer.** Datum, „nächste Woche", Entfernung,
   Ort und Zählstand waren die kleinste Schrift der Zeile — dabei ist genau das, was beim
   Überfliegen gelesen wird; der Gegnername darüber wird ohnehin gefunden. Datum und Entfernung

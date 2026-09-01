@@ -804,7 +804,7 @@ Frontend rechnet sie nicht nach, sonst liefe sie irgendwann auseinander.
 │ 17:55 │ Sa 29.08.        52 km         │  ← Zeitspalte 96 px, 2 px Trennlinie
 │ ABFAHR│ GEGNERVEREIN                   │  ← der Gegner, danach wird gesucht
 │       │ Ort · Spielstätte              │
-│       │ 4/4 zugesagt · 2 Plätze frei   │
+│       │ 4 zugesagt · 2 Plätze frei     │
 │       │                    [KOMPLETT]  │  ← Stempel, −7°, nur wenn vollzählig
 ├───────┴────────────────────────────────┤
 │ (aufgeklappt)                          │
