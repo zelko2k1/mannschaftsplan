@@ -73,6 +73,10 @@ Quelle sportlicher Personen, Konten davon getrennt und optional damit verknüpft
   sehen. Tempo und Rüstzeit lassen sich je Spieltag überschreiben, die Abfahrt selbst von Hand
   setzen; leer heißt jeweils: der eingebaute Standard rechnet.
 - Rückmeldung pro Spieler und Spieltag: dabei / unsicher / kann nicht.
+- **Verlegte Spieltage behalten ihre Rückmeldungen und kennzeichnen sie.** Ein Spieltag fällt
+  selten aus, er wird verschoben; wer vor der Verschiebung geantwortet hat, hat den neuen Termin
+  nie gesehen. Die Zusage bleibt stehen und gilt als unbestätigt, bis derjenige sie noch einmal
+  antippt. Als Verlegung zählt ein anderer Kalendertag oder mindestens eine Stunde.
 - Fahrdienst: wer fährt mit wie vielen Plätzen, und wer sitzt in welchem Auto.
 - Spieltage schließen sich nach einer einstellbaren Frist von selbst.
 - Konten für Kapitäne und Admins, mit optionalem zweitem Faktor (TOTP). Der Admin sieht, wer

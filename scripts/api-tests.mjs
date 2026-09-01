@@ -2369,6 +2369,69 @@ await pruefe('I1', 'Der Import legt Spieltage an und lässt Ort, km und Treffpun
   gleich(nachHand.items.find((s) => s.id === vonHand.id).aus_spielplan, false, 'von Hand angelegt')
 })
 
+// ── V1 · Ein verlegter Spieltag behält seine Rückmeldungen, kennzeichnet sie aber ───────────
+// Ein Spieltag fällt nicht aus, er wird verschoben. Bisher blieb dabei jede Zusage unverändert
+// stehen: Wer für Samstag zugesagt hatte, stand am neuen Mittwoch weiter als „Dabei" da, an einem
+// Termin, den er nie gesehen hatte. Die Zusagen bleiben — sie tragen jetzt ein Kennzeichen, bis
+// derjenige noch einmal geantwortet hat.
+await pruefe('V1', 'Eine Verlegung kennzeichnet die Rückmeldungen von vorher', async () => {
+  const jar = await adminSitzung()
+  const ruf = alsKapitaen(jar)
+  const spieler = await testMitglied('verlegung')
+  const spielerJar = (await anmelden(spieler.klartext)).jar
+  const spieltag = await testSpieltag()
+
+  const stand = async () => {
+    const liste = await (await ruf('/manage/api/fixtures')).json()
+    return liste.items.find((x) => x.id === spieltag.id)
+  }
+  const verschieben = async (minuten) => {
+    const jetztDatum = new Date((await stand()).date.replace(' ', 'T'))
+    jetztDatum.setMinutes(jetztDatum.getMinutes() + minuten)
+    const antwort = await ruf(`/manage/api/fixtures/${spieltag.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ date: jetztDatum.toISOString() }),
+    })
+    gleich(antwort.status, 200, `verschoben um ${minuten} Minuten`)
+  }
+
+  await alsMitglied(spielerJar)(`/api/response/${spieltag.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ status: 'yes' }),
+  })
+  gleich((await stand()).verlegt_am, '', 'noch nie verlegt')
+
+  // Eine halbe Stunde ist kein Grund, zehn Leute neu zu fragen.
+  await verschieben(30)
+  gleich((await stand()).verlegt_am, '', 'eine halbe Stunde ist keine Verlegung')
+  gleich((await stand()).responses_alt.length, 0, 'und kennzeichnet nichts')
+
+  // Eine Stunde ist die Grenze, zwei liegen darüber.
+  await verschieben(120)
+  const verlegt = await stand()
+  stimmt(verlegt.verlegt_am !== '', 'zwei Stunden sind eine Verlegung')
+  gleich(verlegt.responses_alt.length, 1, 'eine Rückmeldung vom alten Termin')
+  gleich(verlegt.responses_alt[0], spieler.satz.id, 'und zwar seine')
+
+  // Der Aushang sagt dem Spieler dasselbe.
+  const board = await (await alsMitglied(spielerJar)('/api/board')).json()
+  const imAushang = board.fixtures.find((x) => x.id === spieltag.id)
+  gleich(imAushang.responses_alt.length, 1, 'auch im Aushang')
+  gleich(imAushang.responses[spieler.satz.id], 'yes', 'die Zusage steht weiterhin')
+
+  // Wer erneut antwortet, ist wieder aktuell — ohne dass jemand etwas zurücksetzt. Und zwar auch
+  // dann, wenn er dieselbe Antwort noch einmal gibt: Genau das ist der Normalfall, „gilt weiter".
+  await alsMitglied(spielerJar)(`/api/response/${spieltag.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ status: 'yes' }),
+  })
+  gleich((await stand()).responses_alt.length, 0, 'nach dem Bestätigen ist nichts mehr offen')
+
+  // Eine zweite Verlegung kennzeichnet erneut.
+  await verschieben(180)
+  gleich((await stand()).responses_alt.length, 1, 'die zweite Verlegung zählt genauso')
+})
+
 // ── I6 · Der Standard-Treffpunkt einer Mannschaft ──────────────────────────────────────────
 // Er ist bei fast jeder Mannschaft immer derselbe, stand aber an jedem Spieltag einzeln — und
 // ein Import bringt dreißig auf einmal. Geprüft wird beides: der Weg über das Formular und der

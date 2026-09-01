@@ -36,6 +36,10 @@ routerAdd('PUT', '/api/response/{fixtureId}', (e) => {
     // Aus der Sitzung, nicht aus dem Body (R3).
     satz.set('member', sitzung.mitglied.id)
     satz.set('status', status)
+    // Ausdrücklich, nicht über den Änderungszeitpunkt: Wer nach einer Verlegung dieselbe Antwort
+    // noch einmal gibt, ändert am Datensatz nichts — bestätigt hat er sie trotzdem, und genau
+    // darauf kommt es an.
+    satz.set('bestaetigt_am', new DateTime())
     e.app.save(satz)
   }
 

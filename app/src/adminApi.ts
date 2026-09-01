@@ -48,6 +48,10 @@ export type AdminSpieltag = {
   rides: { id: string; member: string; seats: number; taken: number }[]
   /** Wer in welchem Auto sitzt — für die Rechnung „wie viele Zusagen haben keinen Platz". */
   seat_claims: Record<string, string>
+  /** Wann zuletzt verlegt. Leer = nie. */
+  verlegt_am: string
+  /** Wessen Rückmeldung noch vom alten Termin stammt. */
+  responses_alt: string[]
 }
 
 export type AdminMitglied = {
@@ -103,6 +107,8 @@ export type Mannschaft = {
 
 /** Was der Spielplan-Import geschrieben hat — die Rückmeldung nach dem Übernehmen. */
 export type ImportErgebnis = {
+  /** Von den geänderten die, deren Termin sich nennenswert verschoben hat. */
+  verlegt: number
   neu: number
   geaendert: number
   unveraendert: number

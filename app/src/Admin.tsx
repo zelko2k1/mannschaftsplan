@@ -603,6 +603,14 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
                 )}
               </>
             )}
+            {(s.responses_alt ?? []).length > 0 && !s.locked && (
+              <>
+                {' · '}
+                <span className="satz__warnung">
+                  {(s.responses_alt ?? []).length} vom alten Termin
+                </span>
+              </>
+            )}
             {zugesagt(s) >= s.needed_players && <span className="satz__voll">vollzählig</span>}
           </p>
 
@@ -761,7 +769,12 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
               ) : (
                 (spieler ?? []).map((m) => (
                   <div key={m.id} className="rueckmeldung">
-                    <span className="rueckmeldung__wer">{m.name}</span>
+                    <span className="rueckmeldung__wer">
+                      {m.name}
+                      {(s.responses_alt ?? []).includes(m.id) && (
+                        <span className="satz__warnung"> · alter Termin</span>
+                      )}
+                    </span>
                     <div className="knopfreihe">
                       {ANTWORTEN.map(({ wert, text, klasse }) => (
                         <button
@@ -1565,7 +1578,9 @@ function SpielplanImport({
         <div className="token" role="status">
           <p className="token__hinweis">Übernommen</p>
           <p className="token__text">
-            {ergebnis.neu} neu, {ergebnis.geaendert} geändert, {ergebnis.unveraendert} unverändert
+            {ergebnis.neu} neu, {ergebnis.geaendert} geändert
+            {ergebnis.verlegt > 0 && ` (davon ${ergebnis.verlegt} verlegt)`},{' '}
+            {ergebnis.unveraendert} unverändert
             {ergebnis.gesperrt > 0 && `, ${ergebnis.gesperrt} gesperrt und deshalb unberührt`}.{' '}
             {ergebnis.neu > 0 &&
               'Ort, Kilometer und Treffpunkt stehen nicht im Export — die trägt jeder Kapitän bei seinen Auswärtsspielen nach.'}
@@ -3182,6 +3197,7 @@ const WAS: Record<string, string> = {
   'member.create': 'Mitglied angelegt',
   'member.update': 'Mitglied geändert',
   'fixture.create': 'Spieltag angelegt',
+  'fixture.move': 'Spieltag verlegt',
   'fixture.update': 'Spieltag geändert',
   'fixture.delete': 'Spieltag gelöscht',
   'settings.update': 'Einstellung geändert',
