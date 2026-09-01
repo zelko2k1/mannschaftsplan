@@ -27,6 +27,10 @@ export type Spieltag = {
   /** Vom Server gerechnet (Abschnitt 6.3). Bei Heimspielen null. */
   departure: string | null
   responses: Record<string, Status>
+  /** Wann zuletzt verlegt. Leer = nie. */
+  verlegt_am: string
+  /** Wessen Rückmeldung noch vom alten Termin stammt — älter als die Verlegung. */
+  responses_alt: string[]
   rides: Fahrt[]
   /** Mitglieds-ID → ID des Autos, in dem es sitzt. */
   seat_claims: Record<string, string>

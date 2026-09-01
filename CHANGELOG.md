@@ -9,6 +9,25 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- **Ein verlegter Spieltag kennzeichnet seine Rückmeldungen.** Ein Spieltag fällt in der Praxis
+  nicht aus, er wird verschoben — anderer Tag, andere Uhrzeit oder beides. Bisher blieb dabei jede
+  Zusage unverändert stehen: Wer für Samstag zugesagt hatte, stand am neuen Mittwoch weiter als
+  „Dabei" da, an einem Termin, den er nie gesehen hatte. Der Kapitän zählte zehn Zusagen und hatte
+  keine einzige, die sich auf das neue Datum bezog.
+
+  **Die Zusagen bleiben** — sie wegzuwerfen hieße, zehn Leute neu einzusammeln, auch wenn sich für
+  neun nichts ändert. Stattdessen trägt der Spieltag jetzt, wann er zuletzt verlegt wurde, und
+  jede Rückmeldung, wann sie zuletzt gegeben wurde. Was älter ist, gilt als unbestätigt: Die Zeile
+  trägt „verlegt", die eigene Antwort steht als „du: dabei — bitte bestätigen", und der Kapitän
+  sieht „3 vom alten Termin", in der Rückmeldeliste an den Namen. Ein einziges Antippen macht eine
+  Antwort wieder aktuell, auch dieselbe wie vorher; sobald niemand mehr offen ist, verschwindet
+  der Hinweis von selbst.
+
+  **Als Verlegung zählt ein anderer Kalendertag oder mindestens eine Stunde.** Eine halbe Stunde
+  später ist kein Grund, zehn Leute neu zu fragen — ein anderer Wochentag immer. Beide Wege sind
+  abgedeckt: die Änderung von Hand und der Spielplan-Import, der Verlegungen des Verbands nachzieht
+  und im Ergebnis jetzt sagt, wie viele davon Verlegungen waren.
+
 - **Die Sicherungsliste sagt, wie alt sie ist.** Sie zeigte Dateiname und Größe — und damit
   ausgerechnet die eine Angabe nicht, auf die es ankommt. Jetzt steht über der Liste „Zuletzt
   gesichert vor 12 Tagen", an jedem Eintrag sein Datum, und wenn die jüngste älter als 30 Tage ist

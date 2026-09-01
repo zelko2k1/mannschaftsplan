@@ -106,6 +106,17 @@ export default function Zeile({
   const ohneFahrer = !spieltag.is_home && fahrten.length === 0
   const ohneAntwort = meineAntwort === null
 
+  /**
+   * Ein verlegter Spieltag behält seine Rückmeldungen — bestätigt sind sie damit nicht.
+   *
+   * Wer vor der Verlegung geantwortet hat, hat den neuen Termin nie gesehen. Die Zusage bleibt
+   * stehen, weil sie für die meisten weiter gilt; sie trägt aber ein Kennzeichen, bis derjenige
+   * sie noch einmal angetippt hat. Sobald niemand mehr offen ist, verschwindet der Hinweis von
+   * selbst — dann ist die Verlegung erledigt und keine Nachricht mehr.
+   */
+  const offeneVerlegung = spieltag.responses_alt.length > 0 && !spieltag.locked && !vorbei
+  const meineAntwortAlt = spieltag.responses_alt.indexOf(board.me) !== -1
+
   const klassen = [
     'zeile',
     spieltag.is_home ? 'zeile--heim' : 'zeile--auswaerts',
@@ -142,6 +153,7 @@ export default function Zeile({
             </span>
             {/* Heim und Auswärts stehen im Text, nicht nur in der Papierfarbe. Rot bekommt
                 nur die Entfernung — „Heim" ist keine Warnung. */}
+            {offeneVerlegung && <span className="zeile__warnung">verlegt</span>}
             <span className={`zeile__km${spieltag.is_home ? '' : ' zeile__km--weit'}`}>
               {spieltag.is_home ? 'Heim' : `${spieltag.km} km`}
             </span>
@@ -206,8 +218,9 @@ export default function Zeile({
               : (
                   <>
                     {' · '}
-                    <span className="zeile__ich">
+                    <span className={meineAntwortAlt && offeneVerlegung ? 'zeile__warnung' : 'zeile__ich'}>
                       du: {ANTWORTEN.find((a) => a.wert === meineAntwort)?.text.toLowerCase()}
+                      {meineAntwortAlt && offeneVerlegung && ' — bitte bestätigen'}
                     </span>
                   </>
                 )}
@@ -221,6 +234,21 @@ export default function Zeile({
       <div id={bereichId} hidden={!offen}>
         {offen && (
           <div className="detail">
+            {/* Ganz oben, vor Abfahrt und Treffpunkt: Wer den Spieltag öffnet und nicht weiß,
+                dass der Termin sich geändert hat, liest alles darunter falsch. */}
+            {offeneVerlegung && (
+              <p className="detail__treffpunkt">
+                <span className="zeile__warnung">
+                  {meineAntwortAlt
+                    ? 'Der Termin wurde verlegt. Deine Rückmeldung stammt vom alten — tippe sie noch einmal an, wenn sie weiter gilt.'
+                    : `Der Termin wurde verlegt. ${
+                        spieltag.responses_alt.length === 1
+                          ? 'Eine Rückmeldung stammt'
+                          : `${spieltag.responses_alt.length} Rückmeldungen stammen`
+                      } noch vom alten Termin.`}
+                </span>
+              </p>
+            )}
             {/* Der Treffpunkt stand bislang nur in der Kapitänsansicht: Er wurde eingegeben, vom
                 Board mitgeliefert — und hier fallengelassen. Wer gemeinsam losfährt, muss wissen,
                 wohin. Bei Heimspielen fährt niemand los, dort bleibt die Zeile weg. */}

@@ -346,6 +346,44 @@ module.exports = {
     return new DateTime().string().replace(/[-:]/g, '').replace(' ', '_').slice(0, 15)
   },
 
+  /**
+   * Ab wann eine Verschiebung eine Verlegung ist: eine Stunde.
+   *
+   * Eine halbe Stunde später ist kein Grund, zehn Leute neu zu fragen — ein anderer Wochentag
+   * immer. Die Grenze kommt vom Betreiber, nicht aus der Technik.
+   */
+  VERLEGUNG_MINUTEN: 60,
+
+  /**
+   * Hält fest, dass dieser Spieltag verlegt wurde — wenn es denn eine ist.
+   *
+   * Gezählt wird als Verlegung: ein anderer Kalendertag, oder eine Verschiebung um mindestens
+   * VERLEGUNG_MINUTEN. Beides zusammen ist derselbe Fall. Was darunter bleibt, ist eine
+   * Korrektur und lässt die Rückmeldungen in Ruhe.
+   *
+   * Der Zeitpunkt selbst ist das Kennzeichen: Jede Rückmeldung, die älter ist, stammt vom alten
+   * Termin. Deshalb wird er auch bei einer ZWEITEN Verlegung neu gesetzt — sonst gälten Antworten
+   * als bestätigt, die nur die erste Verschiebung gesehen haben.
+   *
+   * Gibt zurück, ob etwas vermerkt wurde; die Route schreibt es ins Protokoll.
+   */
+  verlegungVermerken(satz, altesDatum) {
+    const alsDatum = (wert) => {
+      const d = new Date(String(wert || '').trim().replace(' ', 'T'))
+      return isNaN(d.getTime()) ? null : d
+    }
+    const vorher = alsDatum(altesDatum)
+    const nachher = alsDatum(satz.getDateTime('date').string())
+    if (!vorher || !nachher) return false
+
+    const minuten = Math.abs(nachher.getTime() - vorher.getTime()) / 60000
+    const andererTag = vorher.toISOString().slice(0, 10) !== nachher.toISOString().slice(0, 10)
+    if (!andererTag && minuten < module.exports.VERLEGUNG_MINUTEN) return false
+
+    satz.set('verlegt_am', new DateTime())
+    return true
+  },
+
   /** R4 · Whitelist. Was nicht in SPIELTAG_FELDER steht, wird ignoriert — nicht abgelehnt. */
   spieltagUebernehmen(satz, koerper) {
     for (const feld of SPIELTAG_FELDER) {

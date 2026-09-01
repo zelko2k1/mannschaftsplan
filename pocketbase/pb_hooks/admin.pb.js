@@ -371,6 +371,21 @@ routerAdd('GET', '/manage/api/fixtures', (e) => {
       })(),
       needed_players: s.getInt('needed_players'),
       locked: s.getBool('locked'),
+      // Wann zuletzt verlegt, und welche Rückmeldungen noch vom alten Termin stammen. Leer bzw.
+      // leere Liste heißt: nie verlegt oder alle haben seitdem geantwortet.
+      verlegt_am: s.getDateTime('verlegt_am').string(),
+      responses_alt: (() => {
+        const verlegtAm = s.getDateTime('verlegt_am').string()
+        if (!verlegtAm) return []
+        return (rMap[s.id] || [])
+          .filter((r) => {
+            const bestaetigt = r.getDateTime('bestaetigt_am').string()
+            // Leer heißt „von vor der Einführung dieses Feldes" — und damit älter als jede
+            // Verlegung, die es erst seitdem gibt.
+            return !bestaetigt || bestaetigt < verlegtAm
+          })
+          .map((r) => r.getString('member'))
+      })(),
       // Aus dem Spielplan übernommen? Der Kapitän soll sehen, welche Spieltage noch auf ihn
       // warten: Ort, Kilometer und Treffpunkt stehen in keinem Verbands-Export. Der Schlüssel
       // selbst geht bewusst NICHT hinaus — er ist eine Innerei des Imports, und für die
@@ -486,10 +501,17 @@ routerAdd('PATCH', '/manage/api/fixtures/{id}', (e) => {
   if (!a.darfTeam(kontext, satz.getString('team'))) {
     return e.json(400, { message: 'Ungültige Angabe.' })
   }
+  // Vor der Übernahme merken, damit die Verlegung danach erkennbar ist.
+  const datumVorher = satz.getDateTime('date').string()
   const fehler = a.spieltagUebernehmen(satz, e.requestInfo().body || {})
   if (fehler) return e.json(400, { message: fehler })
 
+  const verlegt = a.verlegungVermerken(satz, datumVorher)
+
   e.app.save(satz)
+  if (verlegt) {
+    a.protokoll(e, 'fixture.move', satz.id, datumVorher, satz.getDateTime('date').string())
+  }
   a.protokoll(e, 'fixture.update', satz.id, '', satz.getString('opponent_town'))
   return e.json(200, { ok: true })
 })
@@ -567,6 +589,9 @@ routerAdd('POST', '/admin/api/fixtures/import', (e) => {
   let geaendert = 0
   let unveraendert = 0
   let gesperrt = 0
+  // Von den geänderten die, bei denen sich der Termin nennenswert verschoben hat. Der Kapitän
+  // soll nach dem Import wissen, ob er hinter Rückmeldungen her muss.
+  let verlegt = 0
 
   for (let i = 0; i < anzahl; i++) {
     const z = zeilen[i] || {}
@@ -618,6 +643,7 @@ routerAdd('POST', '/admin/api/fixtures/import', (e) => {
           String(satz.getInt('km')),
         ].join(' ')
       const vorher = abbild(alt)
+      const datumVorher = alt.getDateTime('date').string()
       alt.set('team', team)
       alt.set('date', datum)
       alt.set('opponent_club', gegner)
@@ -632,6 +658,9 @@ routerAdd('POST', '/admin/api/fixtures/import', (e) => {
         unveraendert++
         continue
       }
+      // Genau dafür ist der Nachimport da: Der Verband verschiebt, und die Datei sagt es als
+      // Erstes. Die Rückmeldungen zum alten Termin gelten ab hier als nicht bestätigt.
+      if (a.verlegungVermerken(alt, datumVorher)) verlegt++
       e.app.save(alt)
       geaendert++
       continue
@@ -660,7 +689,7 @@ routerAdd('POST', '/admin/api/fixtures/import', (e) => {
   }
 
   a.protokoll(e, 'fixture.import', '', '', `${neu} neu, ${geaendert} geändert, ${gesperrt} gesperrt`)
-  return e.json(200, { neu, geaendert, unveraendert, gesperrt })
+  return e.json(200, { neu, geaendert, unveraendert, gesperrt, verlegt })
 })
 
 // ── Mitglieder ──────────────────────────────────────────────────────────────────────────────
@@ -1013,6 +1042,9 @@ routerAdd('PUT', '/manage/api/response/{fixtureId}/{memberId}', (e) => {
     satz.set('fixture', spieltagId)
     satz.set('member', mitgliedId)
     satz.set('status', status)
+    // Wie beim Mitglied selbst: Was der Kapitän einträgt, ist eine Bestätigung für den Termin,
+    // der gerade gilt.
+    satz.set('bestaetigt_am', new DateTime())
     e.app.save(satz)
   }
 

@@ -84,6 +84,21 @@ routerAdd('GET', '/api/board', (e) => {
       meeting_point: s.getString('meeting_point'),
       needed_players: s.getInt('needed_players'),
       locked: s.getBool('locked'),
+      // Ein verlegter Spieltag behält seine Rückmeldungen — sie sind nur nicht mehr bestätigt.
+      // Wessen Antwort älter ist als die Verlegung, hat den neuen Termin nie gesehen. Es geht
+      // die ganze Liste hinaus und nicht nur der eigene Fall: Die Zeile sagt dem Kapitän wie
+      // dem Spieler, wie viele noch offen sind.
+      verlegt_am: s.getDateTime('verlegt_am').string(),
+      responses_alt: (() => {
+        const verlegtAm = s.getDateTime('verlegt_am').string()
+        if (!verlegtAm) return []
+        return (rMap[s.id] || [])
+          .filter((r) => {
+            const bestaetigt = r.getDateTime('bestaetigt_am').string()
+            return !bestaetigt || bestaetigt < verlegtAm
+          })
+          .map((r) => r.getString('member'))
+      })(),
       // Berechnet, nicht gespeichert (Abschnitt 6.3). Bei Heimspielen null — dort zeigt die
       // Zeitspalte den Anwurf mit dem Label „ANWURF" statt „ABFAHRT".
       // Eine von Hand eingetragene Abfahrt schlägt die Formel. Leer heißt rechnen (6.3) —
