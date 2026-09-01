@@ -111,11 +111,32 @@ unterwegs an, aus dem Mobilnetz. Was nur im heimischen WLAN erreichbar ist, hilf
 niemandem.
 
 ### 🚀 Einrichten
+
+**Zuerst eine Weiche: Läuft auf deinem Server schon ein Reverse Proxy?**
+
+Das ist ein Webserver, der die Anfragen aus dem Internet entgegennimmt und an die richtige
+Anwendung weiterreicht — nginx, Traefik, Apache oder ein Caddy. Wer bisher nur eine Anwendung auf
+dem Server betreibt oder mit einem frisch bestellten Server anfängt, hat in aller Regel **keinen**.
+
+| | |
+|---|---|
+| **Weg A · Ohne** | Der mitgelieferte Caddy übernimmt HTTPS, Zertifikat und die Sicherheitsregeln. **Das ist der Weg, den die neun Schritte unten beschreiben.** Nichts weiter zu entscheiden — lies einfach ab Schritt 1 weiter. |
+| **Weg B · Schon einer da** | Die App läuft ohne eigenen Proxy und belegt dann keinen einzigen Port. Deinen vorhandenen Webserver stellst du davor. Der Ablauf ist derselbe, aber vier Stellen sind anders — sie stehen unten jeweils als Kasten **„Weg B"** an Ort und Stelle, und der fertige Konfigurationsblock liegt unter [Wenn schon ein Reverse Proxy läuft](#-wenn-schon-ein-reverse-proxy-läuft). |
+
+> **Wenn du unsicher bist, nimm Weg A.** Zwei Reverse Proxies auf demselben Server streiten sich um
+> Port 443, und dann startet einer von beiden nicht. Und falls du dich später anders entscheidest:
+> Der Wechsel in beide Richtungen ist ein Befehl, kein Neuaufsetzen — siehe [Später doch auf einen
+> eigenen Reverse Proxy umsteigen](#-später-doch-auf-einen-eigenen-reverse-proxy-umsteigen) und
+> [Noch einen Dienst hinter denselben Proxy hängen](#-noch-einen-dienst-hinter-denselben-proxy-hängen).
+
 **1 · Den Namen auf den Server zeigen lassen**
 
 Bei deinem Domain-Anbieter einen sogenannten A-Record anlegen: `dart.mein-verein.de` → die
 IP-Adresse deines Servers. Das dauert je nach Anbieter ein paar Minuten, bis es überall bekannt
 ist. Ohne diesen Schritt bekommt die App im nächsten Schritt kein Sicherheitszertifikat.
+
+> **Weg B — schon ein Proxy vorhanden:** Der Name zeigt auf deinen Proxy, nicht auf die App; das
+> Zertifikat besorgt er, nicht sie. Steht der Eintrag schon, bist du hier fertig.
 
 **2 · Docker einrichten**
 
@@ -178,6 +199,13 @@ Vor `/admin` — deinem Bereich mit Konten, Mannschaften und Sicherungen — fra
 nach einem Passwort, bevor die App überhaupt antwortet. Eine zusätzliche Tür vor der eigentlichen
 Anmeldung.
 
+> **Weg B — schon ein Proxy vorhanden:** Diese Tür steckt beim Weg A im mitgelieferten Caddy.
+> Ohne ihn **musst du sie in deinem Proxy nachbilden** — sonst steht dein Admin-Gebiet mit nur
+> einem Passwort im Internet. Nichts hält dich davon ab, und niemand sagt es dir: Der Stack fährt
+> ohne Gate klaglos an, weil er es nicht kennt. Den fertigen Block samt Erklärung findest du in
+> [`deploy/Caddyfile.homelab.example`](deploy/Caddyfile.homelab.example); den Hash erzeugst du
+> genauso wie hier beschrieben.
+
 > **Deine Kapitäne brauchen dieses Passwort nicht.** Sie kommen über `/manage` herein, und davor
 > steht keine Tür — nur die Anmeldung in der App. Das ist Absicht: Ein Passwort, das sich acht
 > Leute teilen, lässt sich weder widerrufen noch einer einzelnen Person entziehen. Mehr dazu
@@ -206,6 +234,10 @@ ADMIN_PASSWORD_HASH=$2a$14$…die Zeile von eben…
 Mehr ist es nicht. In der Datei stehen keine Vorgaben, die du übernehmen könntest — jeder Wert ist
 deiner.
 
+> **Weg B — schon ein Proxy vorhanden:** Diese vier Werte liest **nur der mitgelieferte Caddy**.
+> Ohne ihn kannst du sie leer lassen; dieselben Angaben stehen dann in der Konfiguration deines
+> eigenen Proxys. Die Anwendung selbst braucht aus der `.env` nichts.
+
 > **`ADMIN_USER` ist kein Konto in der App.** Es ist nur der Benutzername, den der Browser beim
 > Gate-Fenster abfragt, zusammen mit dem Passwort von eben. Du darfst dort hineinschreiben, was
 > du willst — `gate`, `verwaltung`, dein Vorname. Mit den Kapitänen, ihren Anmeldenamen und
@@ -227,6 +259,18 @@ sie sich danach selbst; du musst dich darum nie kümmern, auch nicht um die Verl
 
 Fehlt einer der vier Werte, startet nichts und du bekommst gesagt, welcher fehlt. Das ist Absicht:
 lieber gar nicht starten als halb eingerichtet im Internet stehen.
+
+> **Weg B — schon ein Proxy vorhanden:** Das Overlay bleibt weg, und der Container deines Proxys
+> muss die App finden können:
+>
+> ```bash
+> docker compose -f docker-compose.yaml up -d
+> docker network connect mannschaftsplan <name-deines-proxy-containers>
+> ```
+>
+> Danach ist sie für ihn unter `http://mannschaftsplan:8090` erreichbar. **Das gilt ab hier für
+> jeden weiteren `docker compose`-Befehl in dieser Anleitung** — Aktualisieren, Protokolle,
+> Neustarts: überall entfällt das `-f docker-compose.caddy.yaml`.
 
 **7 · Deinen Admin-Zugang anlegen**
 
