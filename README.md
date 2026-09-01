@@ -694,6 +694,30 @@ Das löscht nur, was kein Container mehr benutzt — deine Daten sind davon nie 
 > **Wenn du Werte in der `.env` geändert hast**, gilt dasselbe wie bei der Einrichtung: Erst
 > `… up -d` (mit oder ohne `--build`) macht sie wirksam, ein `restart` nicht.
 
+> **Und wenn sich `deploy/Caddyfile` geändert hat**, braucht der Proxy einen eigenen Anstoß. Die
+> Datei ist in den Caddy-Container eingehängt und wird **nur beim Start gelesen** — `up -d --build`
+> fasst diesen Container aber nicht an, weil sich an seiner Service-Definition nichts geändert hat.
+> Der neue Stand liegt dann auf der Platte, während der Proxy weiter nach der alten Fassung
+> arbeitet. Ohne Fehlermeldung, wie bei `--build` — nur trifft es hier die Schutzregeln vor
+> `/admin` und der Superuser-Anmeldung, also ausgerechnet das, was man von außen nicht sieht.
+>
+> ```bash
+> docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml up -d --force-recreate caddy
+> ```
+>
+> Das dauert Sekunden, baut nichts und ist unschädlich, wenn sich nichts geändert hat — **lass es
+> einfach bei jedem Aktualisieren mitlaufen**, statt nachzusehen, ob es diesmal nötig war.
+>
+> **Nachmessen von außen**, ob die Regeln greifen — aus jedem Terminal, auch vom eigenen Rechner:
+>
+> ```bash
+> curl -s -o /dev/null -w '%{http_code}\n' https://dart.mein-verein.de/api/collections/_superusers/auth-refresh
+> ```
+>
+> Antwort **`401`**: Das Gate steht davor, alles in Ordnung. Antwort `200` oder `403`: Die Anfrage
+> ist am Gate vorbei bis zur App durchgelaufen — dann läuft der Proxy noch auf einer alten
+> Fassung, und der Befehl von oben fehlt.
+
 ### 💾 Sicherungen
 Es gibt zwei Wege, und du brauchst beide.
 

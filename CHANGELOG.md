@@ -69,6 +69,16 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   darunter; „Bearbeiten" ist ein Umschalter geworden wie „Rückmeldungen" daneben. Oben steht nur
   noch das Formular für einen **neuen** Spieltag. Betrifft Admin und Kapitän gleichermaßen.
 
+- **Die Anleitung verschwieg, dass der Proxy beim Aktualisieren stehenbleibt.** `deploy/Caddyfile`
+  ist in den Caddy-Container eingehängt und wird nur beim Start gelesen; `up -d --build` fasst
+  diesen Container aber nicht an, weil sich an seiner Service-Definition nichts ändert. Wer
+  aktualisiert, holt damit zwar neue Schutzregeln, fährt aber weiter nach den alten — und
+  betroffen sind ausgerechnet die Stellen, die man von außen nicht sieht: das Gate vor `/admin`
+  und der Präfix aus R13c. **Auf der eigenen Instanz ist genau das passiert**: Die Anmeldung als
+  Superuser stand offen, obwohl der Block seit dem 27.08. im Repo steht, weil der Caddy-Container
+  seit der Einrichtung durchlief. Der Abschnitt *Aktualisieren* nennt jetzt den einen Befehl, der
+  fehlte, samt einer Zeile zum Nachmessen von außen.
+
 ## [0.2.0] – 2026-08-31
 
 ### Hinzugefügt
