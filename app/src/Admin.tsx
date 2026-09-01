@@ -408,6 +408,21 @@ const zugesagt = (s: AdminSpieltag) =>
 const freiePlaetze = (s: AdminSpieltag) =>
   (s.rides ?? []).reduce((summe, f) => summe + (f.seats - f.taken), 0)
 const ohneFahrer = (s: AdminSpieltag) => !s.is_home && (s.rides ?? []).length === 0
+/**
+ * Wie viele Zusagen ohne Mitfahrgelegenheit dastehen — wörtlich dieselbe Rechnung wie in
+ * `Zeile.tsx`. „Keine Plätze frei" beantwortet die Frage nicht: Es sagt, dass die Autos voll
+ * sind, nicht, ob sie gereicht haben.
+ */
+const ohnePlatz = (s: AdminSpieltag) => {
+  if (s.is_home) return 0
+  const braucht = Object.entries(s.responses ?? {}).filter(
+    ([wer, status]) =>
+      status === 'yes' &&
+      !(s.rides ?? []).some((f) => f.member === wer) &&
+      !(s.seat_claims ?? {})[wer],
+  ).length
+  return Math.max(0, braucht - freiePlaetze(s))
+}
 
 /**
  * Ein eingelesener Auswärtsspieltag, dem noch die Reiseangaben fehlen.
@@ -419,6 +434,24 @@ const ohneFahrer = (s: AdminSpieltag) => !s.is_home && (s.rides ?? []).length ==
  */
 const nachzutragen = (s: AdminSpieltag) =>
   s.aus_spielplan && !s.is_home && (!s.opponent_town.trim() || s.km <= 0)
+
+/**
+ * Der Text, den der Kapitän in die Mannschaftsgruppe stellt.
+ *
+ * Bewusst OHNE Link: Einladungslinks sind persönlich (R14) — einer in der Gruppe wäre der Zugang
+ * eines Einzelnen für alle. Und bewusst mit Namen: „Es fehlen noch drei Rückmeldungen" liest
+ * jeder als „nicht ich".
+ */
+const erinnerungstext = (s: AdminSpieltag, fehlende: string[]) => {
+  const gegner = s.opponent_club || s.opponent_town
+  const wann = systemDatum(s.date)
+  const wer =
+    fehlende.length === 1
+      ? fehlende[0]
+      : `${fehlende.slice(0, -1).join(', ')} und ${fehlende[fehlende.length - 1]}`
+  const was = fehlende.length === 1 ? 'fehlt noch die Rückmeldung' : 'fehlen noch Rückmeldungen'
+  return `Für ${wann}${gegner ? ` gegen ${gegner}` : ''} ${was} von ${wer}. Bitte kurz im Plan antworten.`
+}
 
 function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string }) {
   const { items, fehler, setFehler, laden } = useListe(
@@ -433,6 +466,8 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
   const [entwurf, setEntwurf] = useState<Partial<AdminSpieltag> | null>(null)
   /** Welcher Spieltag aufgeklappt ist. Immer höchstens einer, wie im Aushang. */
   const [offen, setOffen] = useState('')
+  /** Für welchen Spieltag zuletzt eine Erinnerung in die Zwischenablage ging. */
+  const [kopiert, setKopiert] = useState('')
   const [frage, setFrage] = useState<Nachfrage | null>(null)
   // Welcher Spieltag gerade bearbeitet wird. „Abschließen" ist ein Umschalter: Zweimal geklickt
   // — und auf einer trägen Verbindung klickt man zweimal — sperrt der erste Ruf und entsperrt
@@ -554,6 +589,12 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
                 <span className={ohneFahrer(s) ? 'satz__warnung' : undefined}>
                   {ohneFahrer(s) ? 'kein Fahrer' : plaetze(freiePlaetze(s))}
                 </span>
+                {!ohneFahrer(s) && ohnePlatz(s) > 0 && (
+                  <>
+                    {' · '}
+                    <span className="satz__warnung">{ohnePlatz(s)} ohne Platz</span>
+                  </>
+                )}
               </>
             )}
             {zugesagt(s) >= s.needed_players && <span className="satz__voll">vollzählig</span>}
@@ -667,6 +708,46 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
                   dieselbe Rücknahme durch nochmaliges Antippen. Wer telefonisch zusagt, wird
                   hier eingetragen — dafür ist die Route gebaut, und sie lässt das ausdrücklich
                   auch an abgeschlossenen Spieltagen zu. */}
+              {/* Wer noch nicht geantwortet hat, steht hier ohnehin — nur musste der Kapitän die
+                  Namen bisher selbst abschreiben, um in der Gruppe nachzufragen. Der Knopf legt
+                  den fertigen Satz in die Zwischenablage; verschickt wird er von Hand, im
+                  Messenger, den die Mannschaft ohnehin benutzt. Keine Benachrichtigung, kein
+                  Mailserver, keine Anbindung an irgendetwas. */}
+              {(() => {
+                const fehlende = (spieler ?? []).filter((m) => !s.responses?.[m.id])
+                if (!fehlende.length || s.locked) return null
+                return (
+                  <div className="satz__aktionen">
+                    <button
+                      type="button"
+                      className="knopf"
+                      onClick={async () => {
+                        const text = erinnerungstext(
+                          s,
+                          fehlende.map((m) => m.name),
+                        )
+                        try {
+                          await navigator.clipboard.writeText(text)
+                          setKopiert(s.id)
+                        } catch {
+                          // Die Zwischenablage verlangt einen sicheren Kontext und kann trotzdem
+                          // abgelehnt werden. Dann bekommt er wenigstens den Text zu sehen.
+                          setKopiert('')
+                          setFehler(`Kopieren hat nicht geklappt. Der Text lautet: ${text}`)
+                        }
+                      }}
+                    >
+                      Erinnerung kopieren
+                    </button>
+                    <span className="satz__zusatz" style={{ alignSelf: 'center' }} role="status">
+                      {kopiert === s.id
+                        ? 'In der Zwischenablage — in die Mannschaftsgruppe einfügen.'
+                        : `${fehlende.length} ohne Rückmeldung`}
+                    </span>
+                  </div>
+                )
+              })()}
+
               {(spieler ?? []).length === 0 ? (
                 <p className="namen">
                   Noch keine Spieler in dieser Mannschaft — anzulegen im Reiter „Mannschaft".
@@ -2303,7 +2384,8 @@ function Mannschaftseinstellungen({
   if (!satz || !entwurf) return <p className="namen">Einen Moment …</p>
 
   const name = entwurf.name.trim()
-  const veraendert = name !== satz.name
+  const startort = entwurf.startort.trim()
+  const veraendert = name !== satz.name || startort !== satz.startort
 
   const speichern = async (ereignis: React.FormEvent) => {
     ereignis.preventDefault()
@@ -2311,7 +2393,7 @@ function Mannschaftseinstellungen({
     setLaeuft(true)
     setFehler('')
     try {
-      await adminApi.mannschaftAendern(satz.id, { name })
+      await adminApi.mannschaftAendern(satz.id, { name, startort })
       setGespeichert(true)
       await laden()
       // Der Kopf zeigt den Namen — er muss den neuen zeigen, nicht den alten.
@@ -2345,6 +2427,25 @@ function Mannschaftseinstellungen({
             value={entwurf.name}
             onChange={(x) => {
               setEntwurf({ ...entwurf, name: x.target.value })
+              setGespeichert(false)
+            }}
+          />
+        </label>
+      </div>
+
+      {/* Der Treffpunkt ist bei fast jeder Mannschaft immer derselbe, stand aber an jedem
+          Spieltag einzeln — und ein eingelesener Spielplan bringt dreißig auf einmal. Was hier
+          steht, ist die Vorbelegung für NEUE Auswärtsspiele; am Spieltag selbst lässt er sich
+          weiterhin überschreiben, und vorhandene Spieltage rührt es nicht an. */}
+      <div className="satz__aktionen">
+        <label className="feld feld--zeile">
+          <span>Treffpunkt</span>
+          <input
+            maxLength={120}
+            value={entwurf.startort}
+            placeholder="z. B. Parkplatz am Vereinsheim"
+            onChange={(x) => {
+              setEntwurf({ ...entwurf, startort: x.target.value })
               setGespeichert(false)
             }}
           />

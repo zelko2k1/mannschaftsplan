@@ -2274,6 +2274,74 @@ await pruefe('I1', 'Der Import legt Spieltage an und lässt Ort, km und Treffpun
   gleich(nachHand.items.find((s) => s.id === vonHand.id).aus_spielplan, false, 'von Hand angelegt')
 })
 
+// ── I6 · Der Standard-Treffpunkt einer Mannschaft ──────────────────────────────────────────
+// Er ist bei fast jeder Mannschaft immer derselbe, stand aber an jedem Spieltag einzeln — und
+// ein Import bringt dreißig auf einmal. Geprüft wird beides: der Weg über das Formular und der
+// über den Spielplan, dazu die beiden Fälle, in denen er NICHT greifen darf.
+await pruefe('I6', 'Der Treffpunkt der Mannschaft füllt neue Auswärtsspiele vor', async () => {
+  const jar = await adminSitzung()
+  const ruf = alsKapitaen(jar)
+  const team = (await zweiteMannschaft()).id
+
+  gleich(
+    (
+      await ruf(`/manage/api/teams/${team}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ startort: 'test-Parkplatz-Standard' }),
+      })
+    ).status,
+    200,
+    'Treffpunkt der Mannschaft gesetzt',
+  )
+
+  const anlegen = async (koerper) => {
+    const antwort = await ruf('/manage/api/fixtures', {
+      method: 'POST',
+      body: JSON.stringify({
+        team,
+        date: jetzt(),
+        opponent_town: 'test-Ort-Standard',
+        venue: 'test-Halle',
+        km: 30,
+        ...koerper,
+      }),
+    })
+    gleich(antwort.status, 200, 'Spieltag angelegt')
+    const { id } = await antwort.json()
+    aufraeumen.push(['fixtures', id])
+    const liste = await (await ruf(`/manage/api/fixtures?team=${team}`)).json()
+    return liste.items.find((x) => x.id === id)
+  }
+
+  gleich((await anlegen({ is_home: false })).meeting_point, 'test-Parkplatz-Standard', 'auswärts ohne eigene Angabe')
+  // Eine eigene Angabe schlägt den Standard — sonst wäre er eine Vorschrift, keine Vorbelegung.
+  gleich(
+    (await anlegen({ is_home: false, meeting_point: 'test-Woanders' })).meeting_point,
+    'test-Woanders',
+    'eigene Angabe bleibt',
+  )
+  // Beim Heimspiel fährt niemand gemeinsam los.
+  gleich((await anlegen({ is_home: true })).meeting_point, '', 'Heimspiel bleibt leer')
+
+  // Und derselbe Standard über den Spielplan-Import.
+  const antwort = await ruf('/admin/api/fixtures/import', {
+    method: 'POST',
+    body: JSON.stringify({
+      zeilen: [
+        importZeile(91, { team, date: '2026-10-02T18:00:00.000Z' }),
+        importZeile(92, { team, is_home: true, date: '2026-10-09T18:00:00.000Z' }),
+      ],
+    }),
+  })
+  gleich(antwort.status, 200, 'Import')
+  const liste = await (await ruf(`/manage/api/fixtures?team=${team}`)).json()
+  const eingelesen = liste.items.filter((x) => x.opponent_club === `test-Gegner-${importSchluessel}`)
+  for (const x of eingelesen) aufraeumen.push(['fixtures', x.id])
+  gleich(eingelesen.length, 2, 'eingelesene Spieltage')
+  gleich(eingelesen.find((x) => !x.is_home).meeting_point, 'test-Parkplatz-Standard', 'auswärts aus dem Import')
+  gleich(eingelesen.find((x) => x.is_home).meeting_point, '', 'Heimspiel aus dem Import')
+})
+
 await pruefe('I2', 'Ein zweiter Import verdoppelt nichts und zieht eine Verlegung nach', async () => {
   const jar = await adminSitzung()
   const ruf = alsKapitaen(jar)

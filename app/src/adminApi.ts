@@ -44,6 +44,8 @@ export type AdminSpieltag = {
    */
   responses: Record<string, 'yes' | 'maybe' | 'no'>
   rides: { id: string; member: string; seats: number; taken: number }[]
+  /** Wer in welchem Auto sitzt — für die Rechnung „wie viele Zusagen haben keinen Platz". */
+  seat_claims: Record<string, string>
 }
 
 export type AdminMitglied = {
@@ -89,8 +91,10 @@ export type Mannschaft = {
   name: string
   sort: number
   /**
-   * Bleibt im Schema, erscheint aber nirgends mehr: Er war für eine Routenberechnung gedacht,
-   * die zurückgestellt wurde. Ein leeres Feld ohne Wirkung verwirrt mehr, als die Spalte kostet.
+   * Der Ort, an dem sich diese Mannschaft trifft. Ursprünglich für eine Routenberechnung gedacht,
+   * die zurückgestellt wurde — und danach ein Feld, das nichts tat. Jetzt ist er der Standard für
+   * den Treffpunkt neuer Auswärtsspiele: Er ist bei fast jeder Mannschaft immer derselbe, und ein
+   * eingelesener Spielplan bringt dreißig Spieltage, in die ihn sonst jemand einzeln einträgt.
    */
   startort: string
 }

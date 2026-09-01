@@ -396,6 +396,15 @@ routerAdd('GET', '/manage/api/fixtures', (e) => {
           taken: belegung[f.id] || 0,
         }))
       })(),
+      // Wer in welchem Auto sitzt. Der Kapitän braucht es für dieselbe Rechnung wie der Aushang:
+      // Wie viele Zusagen haben am Ende keinen Platz. Aus `rides` allein geht das nicht hervor —
+      // `taken` zählt belegte Plätze, sagt aber nicht, WER sie belegt, und ein Platz kann auch an
+      // jemanden gehen, der gar nicht zugesagt hat.
+      seat_claims: (() => {
+        const platz = {}
+        for (const p of pMap[s.id] || []) platz[p.getString('member')] = p.getString('ride')
+        return platz
+      })(),
     })),
   })
 })
@@ -428,8 +437,9 @@ routerAdd('POST', '/manage/api/fixtures', (e) => {
   // mit "Failed to find all relation records with the provided ids.": englischer Rohtext aus der
   // Datenbank, genau das, was der Kommentar oben zu verhindern verspricht. Dieselbe Meldung wie
   // oben, damit „darfst du nicht" und „gibt es nicht" von außen gleich aussehen (R6).
+  let mannschaft
   try {
-    e.app.findRecordById('teams', team)
+    mannschaft = e.app.findRecordById('teams', team)
   } catch {
     return e.json(400, { message: 'Ungültige Angabe.' })
   }
@@ -446,6 +456,13 @@ routerAdd('POST', '/manage/api/fixtures', (e) => {
   satz.set('locked', false)
   const fehler = a.spieltagUebernehmen(satz, koerper)
   if (fehler) return e.json(400, { message: fehler })
+
+  // Der Treffpunkt einer Mannschaft ist fast immer derselbe — das Vereinsheim, ein Parkplatz.
+  // Steht er bei der Mannschaft, gilt er für neue Auswärtsspiele; wer im Formular etwas eingibt,
+  // behält es. Heimspiele bekommen keinen: Dort fährt niemand gemeinsam los.
+  if (!satz.getBool('is_home') && !satz.getString('meeting_point')) {
+    satz.set('meeting_point', mannschaft.getString('startort'))
+  }
 
   e.app.save(satz)
   a.protokoll(e, 'fixture.create', satz.id, '', satz.getString('opponent_town'))
@@ -574,10 +591,11 @@ routerAdd('POST', '/admin/api/fixtures/import', (e) => {
       return e.json(400, { message: `Zeile ${i + 1}: unbrauchbare Kilometerangabe.` })
     }
     if (!team) return e.json(400, { message: `Zeile ${i + 1}: keine Mannschaft zugeordnet.` })
-    if (!bekannteTeams[team]) {
+    if (!(team in bekannteTeams)) {
       try {
-        e.app.findRecordById('teams', team)
-        bekannteTeams[team] = true
+        // Gemerkt wird der Standard-Treffpunkt, nicht nur ein Ja: Ein Spielplan bringt dreißig
+        // Auswärtsspiele auf einmal, und für jedes einzeln nachzusehen wären dreißig Abfragen.
+        bekannteTeams[team] = e.app.findRecordById('teams', team).getString('startort')
       } catch {
         return e.json(400, { message: `Zeile ${i + 1}: unbekannte Mannschaft.` })
       }
@@ -629,7 +647,9 @@ routerAdd('POST', '/admin/api/fixtures/import', (e) => {
     // Der Export kennt sie nicht — und PocketBase kennt keine Defaultwerte. Ohne diese Zeilen
     // stünde überall 0: ein Tempo von null und ein Spieltag ohne Abfahrtszeit.
     satz.set('opponent_town', ort)
-    satz.set('meeting_point', '')
+    // Ein Verbands-Export kennt keinen Treffpunkt. Steht bei der Mannschaft einer, kommt er hier
+    // hin — sonst trägt der Kapitän denselben Ort dreißigmal von Hand nach.
+    satz.set('meeting_point', z.is_home ? '' : bekannteTeams[team])
     satz.set('tempo_kmh', -1)
     satz.set('puffer_minuten', -1)
     satz.set('needed_players', 4)
