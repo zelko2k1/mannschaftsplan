@@ -826,7 +826,9 @@ relative Pfade gegen das Projektverzeichnis auflöst statt gegen den Ort der Dat
 ### 7.2 Caddyfile (Gerüst)
 
 Zwei Vorlagen liegen in `deploy/`: `Caddyfile` für den öffentlichen Betrieb mit eigener Domain und
-ACME, `Caddyfile.homelab.example` als Block für einen bereits vorhandenen Caddy. Wer nginx oder
+ACME, `Caddyfile.homelab.example` als Block für einen bereits vorhandenen Caddy. Dazu die Frage,
+die sich erst im Betrieb stellt: wie der mitgelieferte Proxy einen zweiten Dienst aufnimmt, ohne
+dass jemand eine Datei des Repos anfasst — weiter unten in diesem Abschnitt. Wer nginx oder
 Traefik betreibt, bildet dieselben vier Punkte dort nach — Kopfzeilen (R9), Admin-Sperre (R13),
 `/j/*` nicht protokollieren (R8), Query-Filter im Log.
 
@@ -897,6 +899,62 @@ versehentlich übernimmt.
 Rate limiting) — ein bewegliches Teil weniger als das `caddy-ratelimit`-Plugin, und es greift auch
 lokal ohne Caddy. Reichen die Regeln pro Route nicht, kommt der In-Memory-Zähler im Hook als zweite
 Linie dazu. Beim Bau gegen die tatsächlich installierte PocketBase-Version prüfen und dokumentieren.
+
+#### Der mitgelieferte Caddy muss erweiterbar sein
+
+**Das Problem.** Es gibt heute zwei Zustände und keinen Weg dazwischen. Wer schon einen Proxy hat,
+nimmt den Block aus `Caddyfile.homelab.example` in seine Konfiguration — alles Weitere ist seine
+Sache. Wer keinen hat, nimmt das Overlay; damit ist der Proxy aber ein **geschlossenes Gerät**:
+eine Datei, die dem Repo gehört, schreibgeschützt eingehängt, mit „wird NICHT editiert" im Kopf.
+
+Wächst der Server — ein zweiter Dienst, ntfy, irgendetwas —, hat dieser Betreiber keinen
+vorgesehenen Weg. Er kann die Vorlage anpassen und nach jedem `git pull` wieder einspielen. Das ist
+nicht nur lästig: `git pull` bricht mit einem Konflikt ab, sobald sich die Vorlage im Repo ändert,
+und dann steht jemand unter Zeitdruck vor der Datei, die die Regeln vor `/admin` und der
+Superuser-Anmeldung trägt (R13a–c). Das ist die letzte Datei, an der geraten werden sollte.
+
+**Der Weg: ein Verzeichnis, das dem Betreiber gehört.**
+
+- `deploy/conf.d/` wird in den Caddy-Container eingehängt, `deploy/Caddyfile` liest es am Ende ein.
+- Der Inhalt steht in `.gitignore`. `git pull` fasst ihn nie an, es gibt keinen Konflikt, und
+  niemand muss nach einem Update etwas „wieder einspielen".
+- Wer einen zweiten Dienst betreibt, legt dort `meindienst.caddy` ab, hängt dessen Container ans
+  Netz `mannschaftsplan` und startet Caddy neu (`up -d --no-deps --force-recreate caddy`).
+
+Dasselbe Muster fahren nginx und Apache seit zwanzig Jahren. Es löst nicht einen Fall, sondern die
+ganze Klasse: ntfy aus Abschnitt 9 ist danach der erste Anwendungsfall und kein Sonderfall.
+
+> **Offen, technisch:** ob Caddy ein Einlesemuster hinnimmt, auf das nichts passt — der leere
+> Normalfall. Entschieden wird das vom CI-Job „Caddy-Vorlagen", der gegen dieselbe Caddy-Version
+> validiert, in der die Datei später läuft, und nicht durch Nachdenken. Trägt es nicht, ist der
+> Ersatz eine erweiterte Vorlage, die das Overlay an die Stelle der bisherigen hängt.
+
+**Was in die Anleitung gehört, damit es niemand herausfinden muss:** Fremde Blöcke landen in
+demselben Caddy, der `/admin` bewacht. Gefährlich ist das nicht — Regeln gelten je Hostname, ein
+anderer Name kann die vorhandenen nicht überschreiben, und wer denselben Namen zweimal vergibt,
+bekommt keinen stillen Fehler, sondern einen Caddy, der gar nicht erst startet.
+
+#### Und der Ausstieg, für den es eines Tages doch nicht reicht
+
+Wer später wirklich seinen eigenen Proxy will, **muss nichts neu aufsetzen und nichts
+zurückspielen.** Der Anwendungscontainer hat mit Caddy nichts zu tun: Er veröffentlicht keinen
+Port, die Daten liegen im Volume `pb_data`, und beides bleibt beim Wechsel unberührt.
+
+    docker compose -f docker-compose.yaml up -d --remove-orphans
+
+Ohne das Overlay fehlt der Caddy-Service in der Konfiguration; `--remove-orphans` räumt seinen
+Container weg. Danach hängt der eigene Proxy sich ans Netz `mannschaftsplan` und findet den Dienst
+unter `mannschaftsplan:8090` — genau der Weg, den `Caddyfile.homelab.example` schon beschreibt.
+
+Der Umweg über Sicherung, Neuaufsetzen und Zurückspielen führt zum selben Ergebnis, kostet aber
+eine Ausfallzeit und stellt genau die Frage, die man an diesem Tag nicht stellen will: ob das
+Zurückspielen wirklich funktioniert. **Eine Sicherung vorher gehört trotzdem dazu** — als
+Rückweg, nicht als Verfahren.
+
+Zum Zertifikat: Es liegt im Volume `caddy_data`. Der neue Proxy holt sich sein eigenes; einmal ist
+das unproblematisch, die Grenzen von Let's Encrypt greifen erst, wenn jemand denselben Namen
+mehrfach in der Woche neu beantragt — also genau dann, wenn er den Umweg über „alles neu
+aufsetzen" wiederholt.
 
 ### 7.3 Server-Härtung
 - `ufw`: nur 22 (besser: nur über VPN), 80, 443
