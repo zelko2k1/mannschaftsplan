@@ -3,6 +3,7 @@ import {
   ausEingabe,
   ausISO,
   fuerEingabe,
+  nachReihenfolge,
   plaetze,
   systemDatum,
   systemDatumZeit,
@@ -146,5 +147,38 @@ describe('systemDatumZeit / systemDatum', () => {
   it('zeigt bei fehlendem Wert nichts an', () => {
     expect(systemDatumZeit(null)).toBe('')
     expect(systemDatum('')).toBe('')
+  })
+})
+
+describe('nachReihenfolge', () => {
+  const namen = (liste: string[]) =>
+    liste
+      .map((name) => ({ name }))
+      .sort(nachReihenfolge)
+      .map((x) => x.name)
+
+  it('sortiert deutsch statt nach Bytes', () => {
+    // Genau die Reihenfolge, die der Server liefert: Kleinbuchstaben und Umlaute hinter dem
+    // Großalphabet. Nachgemessen an einer PocketBase-Instanz.
+    expect(namen(['Zoe', 'Anna', 'miri', 'Örs', 'Bernd'])).toEqual([
+      'Anna',
+      'Bernd',
+      'miri',
+      'Örs',
+      'Zoe',
+    ])
+  })
+
+  it('stellt den Umlaut zum Grundbuchstaben', () => {
+    expect(namen(['Mustermann', 'Müller', 'Mayer'])).toEqual(['Mayer', 'Müller', 'Mustermann'])
+  })
+
+  it('lässt der gesetzten Reihenfolge den Vortritt', () => {
+    const liste = [
+      { name: 'Anna', sort: 2 },
+      { name: 'Zoe', sort: 1 },
+      { name: 'Bernd', sort: 2 },
+    ]
+    expect([...liste].sort(nachReihenfolge).map((x) => x.name)).toEqual(['Zoe', 'Anna', 'Bernd'])
   })
 })

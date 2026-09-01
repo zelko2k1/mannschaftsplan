@@ -135,6 +135,15 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Behoben
 
+- **Namenslisten waren nicht wirklich alphabetisch.** Der Server sortiert mit `sort,name`, aber
+  SQLite vergleicht Bytes: Kleinbuchstaben stehen hinter dem gesamten Großalphabet, Umlaute noch
+  dahinter. Nachgemessen kam `Anna · Bernd · Zoe · miri · Örs` heraus, und „Müller" landete hinter
+  „Mustermann" — für eine Mannschaftsliste sieht das aus wie gar keine Sortierung. Sortiert wird
+  jetzt im Browser mit `Intl.Collator('de')`: groß und klein gleichrangig, ä bei a, ö bei o.
+  Betrifft die Spielerliste, die Rückmeldungen eines Spieltags, die Auswahl „Spielt als", die
+  Mannschaftsliste des Admins samt der Auswahl im Kopf und die Namen im Aushang („Dabei: …",
+  „Keine Antwort: …", die Mitfahrer). Das Feld `sort` behält den Vortritt, wo eines gesetzt ist.
+
 - **`scripts/update.sh` ersetzte sich selbst, während es lief.** Es holt mit `git pull` das Repo,
   in dem es selbst liegt — und Bash liest ein Skript häppchenweise: Der Lauf, der eine neue
   Fassung des Skripts holt, arbeitete die alte weiter ab, und zwar an derselben Byte-Position in

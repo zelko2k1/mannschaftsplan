@@ -1,6 +1,8 @@
 // Zugriff auf die Routen aus Abschnitt 5. Same-Origin, deshalb keine Basis-URL und kein CORS:
 // im Betrieb liegt das Frontend in PocketBases pb_public, im Entwicklungsbetrieb proxyt Vite.
 
+import { nachReihenfolge } from './format'
+
 export type Status = 'yes' | 'maybe' | 'no'
 
 export type Fahrt = {
@@ -88,7 +90,13 @@ async function ruf<T>(pfad: string, optionen: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  board: () => ruf<Board>('/api/board'),
+  // Die Namensliste des Aushangs, deutsch sortiert — sie trägt „Dabei: …", „Keine Antwort: …"
+  // und die Namen der Mitfahrer. Warum das nicht der Server tut, steht bei `nachReihenfolge`.
+  board: () =>
+    ruf<Board>('/api/board').then((antwort) => ({
+      ...antwort,
+      members: [...antwort.members].sort(nachReihenfolge),
+    })),
 
   antwort: (spieltag: string, status: Status | null) =>
     ruf<unknown>(`/api/response/${spieltag}`, {
