@@ -69,15 +69,44 @@ fi
 
 # Nachmessen statt glauben: Der Präfix aus R13c ist die Stelle, an der ein stehengebliebener
 # Proxy auffällt — die Anfrage käme sonst unbeantwortet bis zur App durch.
+#
+# `--resolve` schickt die Anfrage an 127.0.0.1, behält aber Name und SNI: Dieses Skript läuft auf
+# dem Server, und dort ist der Umweg über die öffentliche Adresse unnötig und je nach Netz sogar
+# unmöglich — nicht jede Maschine erreicht ihre eigene öffentliche IP von innen. Das Zertifikat
+# passt weiterhin, weil der Name unverändert bleibt.
+#
+# Und ein Anlauf genügt nicht: Der Proxy ist gerade neu erstellt worden und braucht einen Moment,
+# bis er auf 443 hört. Vorher antwortet nichts, und curl schreibt 000.
+gate_messen() {
+  curl -s -o /dev/null -m 5 --resolve "$domain:443:127.0.0.1" -w '%{http_code}' \
+    "https://$domain/api/collections/_superusers/auth-refresh" || true
+}
+
 domain="$(sed -n 's/^DOMAIN=//p' .env | tail -n1 | tr -d "\"'\r ")"
 if [ "$MIT_CADDY" = 1 ] && [ -n "$domain" ]; then
   echo "── Nachmessen ───────────────────────────────────────────────────────"
-  code="$(curl -s -o /dev/null -m 10 -w '%{http_code}' \
-    "https://$domain/api/collections/_superusers/auth-refresh" || true)"
+  code=000
+  for versuch in 1 2 3 4 5 6; do
+    code="$(gate_messen)"
+    if [ "$code" != 000 ]; then
+      break
+    fi
+    sleep 2
+  done
   case "$code" in
-    401) echo "Gate vor der Superuser-Anmeldung: 401 — steht." ;;
-    "")  echo "Server nicht erreichbar. Läuft der Bau noch? ${compose[*]} logs -f mannschaftsplan" >&2 ;;
-    *)   echo "Gate: $code statt 401 — der Proxy arbeitet nicht nach deploy/Caddyfile (R13c)." >&2 ;;
+    401)
+      echo "Gate vor der Superuser-Anmeldung: 401 — steht."
+      ;;
+    000)
+      # 000 ist kein Status, sondern das Ausbleiben einer Antwort. Daraus lässt sich über R13c
+      # nichts folgern, und genau das soll hier auch nicht behauptet werden.
+      echo "Keine Antwort von https://$domain nach $versuch Versuchen — der Proxy ist noch nicht" >&2
+      echo "bereit, oder er ist von diesem Rechner aus nicht erreichbar. Das sagt NICHTS darüber," >&2
+      echo "ob das Gate steht; dann von einem anderen Rechner aus nachmessen." >&2
+      ;;
+    *)
+      echo "Gate: $code statt 401 — der Proxy arbeitet nicht nach deploy/Caddyfile (R13c)." >&2
+      ;;
   esac
 fi
 
