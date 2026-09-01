@@ -94,10 +94,43 @@ Drei Eigenheiten von PocketBase, die beim Anlegen zu beachten sind:
   Diese App benutzt sie nirgends (Mitglieder haben eigene Sessions, der Kapitän meldet sich gegen
   `_superusers` an), also gehört sie in der Baseline-Migration entfernt.
 
+### `teams`
+Seit dem Mehrmannschaften-Umbau (Abschnitt 12) hängt alles Sportliche hieran.
+
+| Feld | Typ | Anmerkung |
+|---|---|---|
+| `name` | text, required, max 60 | steht im Aushang und in der Kapitänsansicht — **nicht** auf der Einladungsseite (R6/R10) |
+| `sort` | number | Reihenfolge in Listen |
+| `startort` | text, max 120 | Treffpunkt dieser Mannschaft. Vorbelegung für **neue** Auswärtsspiele, im Formular wie im Import; eine Angabe am Spieltag schlägt sie |
+
+### `verwalter` (Auth-Collection)
+Die Konten der Kapitäne und des Admins — **keine Superuser** (R13d). Passwort, Sperre und
+Anmeldeversuche verwaltet PocketBase; die Rechte stehen hier.
+
+| Feld | Typ | Anmerkung |
+|---|---|---|
+| `email` | auth | Anmeldename **in E-Mail-Form, aber kein Kontaktweg** — die App hat keinen Mailserver |
+| `rolle` | select: `admin` / `kapitaen` | |
+| `team` | relation → teams | Pflicht für `kapitaen`, leer für `admin`: Wer verwaltet, ist in seiner eigenen Verwaltung nicht Partei |
+| `mitglied` | relation → members | optional; die Verknüpfung zum Spielereintrag, wenn der Kapitän selbst mitspielt (Abschnitt 12) |
+
+### `admin_totp`
+Der zweite Faktor. Eigene Tabelle statt eines Feldes am Konto, weil `validatePassword()` an
+PocketBases MFA vorbeigeht (R13, zweiter Faktor).
+
+| Feld | Typ | Anmerkung |
+|---|---|---|
+| `email` | text, unique | zu welchem Konto |
+| `secret` | text | Base32, RFC 6238 |
+| `confirmed` | bool | erst nach dem ersten richtigen Code aktiv |
+| `last_step` | number | zuletzt verbrauchter Zeitschritt — derselbe Code gilt kein zweites Mal |
+| `codes` | text | zehn Wiederherstellungscodes, gehasht, jeder einmal verwendbar |
+
 ### `members`
 | Feld | Typ | Anmerkung |
 |---|---|---|
 | `id` | auto | |
+| `team` | relation → teams, required | Abschnitt 12: Ein Mitglied gehört zu genau **einer** Mannschaft |
 | `name` | text, required | Anzeigename des Mitglieds |
 | `active` | bool, default true | inaktive Mitglieder erscheinen nicht mehr |
 | `sort` | number | Reihenfolge in Listen |
@@ -118,6 +151,7 @@ Drei Eigenheiten von PocketBase, die beim Anlegen zu beachten sind:
 ### `fixtures`
 | Feld | Typ | Anmerkung |
 |---|---|---|
+| `team` | relation → teams, required | Abschnitt 12 |
 | `date` | date, required | Datum + Anwurfzeit |
 | `opponent_club` | text | Name des gegnerischen Vereins — steht groß in der Zeile; fehlt er, rückt der Ort nach |
 | `opponent_town` | text | Ort des Gegners — steht klein unter dem Vereinsnamen. **Seit Schritt 8 nicht mehr Pflicht:** ein Verbands-Export kennt keinen Ort, sondern nur ein Spiellokal, und ein Lokalname („Vereinsheim") an dieser Stelle hilft niemandem beim Hinfinden. Beim Anlegen von Hand verlangt die Route ihn weiterhin. |
@@ -127,6 +161,10 @@ Drei Eigenheiten von PocketBase, die beim Anlegen zu beachten sind:
 | `meeting_point` | text | Treffpunkt für die Abfahrt |
 | `needed_players` | number, default 4 | |
 | `locked` | bool, default false | nach dem Spiel: keine Änderungen mehr |
+| `departure_manual` | date | von Hand gesetzte Abfahrt. Leer = die Formel rechnet (6.3) |
+| `tempo_kmh` | number | Tempo für **diesen** Spieltag; `-1` = erben. 0 wäre ein Tempo von null, deshalb `-1` |
+| `puffer_minuten` | number | Rüstzeit für diesen Spieltag; `-1` = erben |
+| `verlegt_am` | date | wann Datum oder Uhrzeit zuletzt **nennenswert** verschoben wurden — anderer Kalendertag oder mindestens `VERLEGUNG_MINUTEN` (60). Leer = nie verlegt |
 | `source_key` | text | Herkunft aus einem Verbands-Export, Teilindex `WHERE source_key != ''`. Leer = von Hand angelegt; solche Spieltage fasst der Import nie an. Nach außen geht nur `aus_spielplan: bool` — der Schlüssel selbst ist eine Innerei des Imports. |
 
 **Keine Obergrenze für die Mannschaftsgröße** — begrenzt ist allein, wie viele Zeilen eine
@@ -143,6 +181,7 @@ ab 80 Spielern.
 | `fixture` | relation → fixtures, cascade | |
 | `member` | relation → members, cascade | |
 | `status` | select: `yes` / `maybe` / `no` | |
+| `bestaetigt_am` | date | wann diese Rückmeldung zuletzt **gegeben** wurde. Älter als `fixtures.verlegt_am` (oder leer) heißt: stammt vom alten Termin. Ausdrücklich gesetzt und nicht aus dem Änderungszeitpunkt gelesen — der bewegt sich nicht, wenn jemand dieselbe Antwort noch einmal gibt, und genau das ist der Normalfall |
 | **Index** | UNIQUE(`fixture`, `member`) | |
 
 ### `rides` (Fahrer)
@@ -173,6 +212,7 @@ hinein.
 | `email` | text, required | Superuser-Adresse, steht so auch im Protokoll |
 | `created` | autodate | die 12 Stunden aus R13 werden dagegen geprüft |
 | `last_seen` | date | |
+| `dauer` | number, ≥ 0 | Laufzeit **dieser** Sitzung in Sekunden. 0 = die kurzen 12 Stunden; „angemeldet bleiben" setzt 90 Tage. Am Gerät und nicht am Konto: Am Handy angemeldet bleiben und am Vereins-PC nicht, ist der Fall, den man haben will |
 
 ### `audit_log`
 | Feld | Typ |
@@ -191,13 +231,16 @@ eine Whitelist (R4).
 
 | Feld | Typ | Anmerkung |
 |---|---|---|
-| `anzeigename` | text, required, max 60 | Überschrift der Einladungsseite und Titel der Linkvorschau. Standard `Mannschaftsplan` |
-| `tempo_kmh` | number, 20–200 | Durchschnittsgeschwindigkeit für die Fahrzeit (6.3). Standard 80 |
-| `puffer_minuten` | number, 0–180 | Zuschlag vor dem Anwurf (6.3). Standard 25 |
+| `anzeigename` | text, required, max 60 | Vereinsname: Überschrift der Einladungsseite, Titel der Linkvorschau, Herausgeber in der Authenticator-App. **Standard `Vereinsname`** — ein Platzhalter, der als Platzhalter erkennbar ist. Vorher stand dort der Name der Software, also die Antwort auf eine Frage, die niemand gestellt hatte |
 | `auto_sperre_stunden` | number, 0–168 | Frist, nach der ein Spieltag von selbst schließt. **0 = aus**, und das ist der Standard |
 | `impressum` | text, max 8000 | Freitext, kein HTML. Leer = die Seite gibt es nicht |
 | `datenschutz` | text, max 8000 | dito |
 | `updated` | autodate | |
+
+**Tempo und Rüstzeit standen einmal hier** und sind mit Migration `1788400000` ausgezogen: Es gab
+drei Stufen — zentral, Mannschaft, Spieltag —, und wer eine Abfahrtszeit erklären wollte, musste
+an drei Stellen nachsehen, zwei davon in verschiedenen Reitern. Jetzt gilt: **am Spieltag oder gar
+nicht**, siehe 6.3.
 
 **Impressum und Datenschutz sind Freitext, ausdrücklich kein HTML.** Die CSP aus R9 verbietet
 Inline-Skripte; ein Rich-Text-Feld wäre eine Einladung, daran zu rütteln. Der Text wird escaped
@@ -594,42 +637,85 @@ Zwei Fälle, in denen der Server bewusst NICHT entscheidet:
   stehen dann wieder ohne Auto da, was der Wahrheit entspricht — alles andere wäre eine stille
   Lüge im Fahrplan.
 
-### Admin
+### Verwaltung
+
+**Das Präfix ist die Aussage, nicht der Ort.** `/manage/api` steht offen und trägt alles, was ein
+Kapitän für seine eigene Mannschaft tut; `/admin/api` liegt hinter dem Gate (R13b) und trägt, was
+den ganzen Verein angeht oder an die Datenbank reicht. Wer eine Route von einem Präfix auf das
+andere schiebt, verschiebt damit ihre Sicherheitsstufe — siehe R13e.
+
+**`/manage/api` — Kapitän und Admin, ohne Gate**
 
 ```
-POST   /admin/api/login          { email, password, otp? }  → dz_admin Cookie
-POST   /admin/api/logout
-GET    /admin/api/fixtures
-POST   /admin/api/fixtures
-PATCH  /admin/api/fixtures/:id
-DELETE /admin/api/fixtures/:id
+POST   /manage/api/login         { email, password, otp?, bleiben? }  → dz_admin Cookie
+POST   /manage/api/logout
+GET    /manage/api/me            → { email, rolle, teams, mitglied, faktor }
+POST   /manage/api/spieleransicht   // der Kapitän in seine eigene Spieleransicht, ohne Token
+PATCH  /manage/api/passwort      { alt, neu }
+
+GET    /manage/api/fixtures[?team=]
+POST   /manage/api/fixtures
+PATCH  /manage/api/fixtures/:id
+DELETE /manage/api/fixtures/:id
+PUT    /manage/api/response/:fixtureId/:memberId    // Korrektur durch den Kapitän
+       // Auch an gesperrten Spieltagen — genau dafür ist sie da. Eine Absage räumt Fahrt und
+       // Platz mit weg, wie beim Mitglied selbst (utils.absageAufraeumen).
+
+GET    /manage/api/members[?team=]   → { items, gesamt, grenze }
+       // `gesamt` ist die WIRKLICHE Anzahl, `grenze` die Seitengröße (200, in utils.js). Beide
+       // stehen dabei, weil die Liste allein den Unterschied nicht zeigt: Bei 200 und bei 250
+       // Spielern kommen genau 200 Zeilen zurück.
+POST   /manage/api/members
+PATCH  /manage/api/members/:id
 DELETE /manage/api/members/:id      // nur ohne Rückmeldung, Fahrt und Kapitänskonto → sonst 409
-       // Bewusst unter /manage: Der Kapitän räumt seine eigene Mannschaft auf. Die Liste hier
-       // führt die Mitglieder-Routen noch unter dem alten Präfix — das ist Altbestand.
-POST   /admin/api/spieltage/aufraeumen  { bis: "YYYY-MM-DD", team? }
-                                    → { spieltage }
-       // Saisonende, NUR Rolle admin. Verglichen wird gegen den Anfang des Folgetags, damit die
-       // Vorschau in der Oberfläche dasselbe zählt, was der Server löscht.
+POST   /manage/api/members/:id/rotate-token   → { token: "<Klartext, einmalig>" }
+
+GET    /manage/api/teams
+PATCH  /manage/api/teams/:id     { name?, startort? }   // die eigene Mannschaft, Abschnitt 12
+GET    /manage/api/settings      → { anzeigename, auto_sperre_stunden,
+                                     impressum, datenschutz }
+GET    /manage/api/audit?limit=100[&team=]   // nur die eigene Mannschaft, R13d
+
+GET    /manage/api/totp          → { aktiv }
+POST   /manage/api/totp          → { secret, otpauth }      // einrichten
+POST   /manage/api/totp/confirm  { code }  → { codes: [...] } // zehn Wiederherstellungscodes
+POST   /manage/api/totp/codes    → { codes: [...] }         // zehn neue, die alten gelten nicht
+DELETE /manage/api/totp                                     // abschalten, nur für sich selbst
+```
+
+**`/admin/api` — nur Rolle `admin`, hinter dem Gate**
+
+```
+POST   /admin/api/spieltage/aufraeumen  { bis: "YYYY-MM-DD", team? }  → { spieltage }
+       // Saisonende. Verglichen wird gegen den Anfang des Folgetags, damit die Vorschau in der
+       // Oberfläche dasselbe zählt, was der Server löscht.
 POST   /admin/api/fixtures/import   { zeilen: [{ quelle, team, date, opponent_club,
                                                 is_home, venue,
                                                 opponent_town?, km? }] }
-                                    → { neu, geaendert, unveraendert, gesperrt }
+                                    → { neu, geaendert, unveraendert, gesperrt, verlegt }
        // NUR Rolle admin (R13d): der Export umfasst den ganzen Verein, ein Kapitän
        // schriebe damit in fremde Mannschaften. Wiedererkannt wird an `source_key`;
        // gesperrte und von Hand angelegte Spieltage bleiben unberührt. Höchstens
        // 600 Zeilen je Aufruf.
-GET    /admin/api/members   → { items, gesamt, grenze }
-       // `gesamt` ist die WIRKLICHE Anzahl, `grenze` die Seitengröße (200, in utils.js). Beide
-       // stehen dabei, weil die Liste allein den Unterschied nicht zeigt: Bei 200 und bei 250
-       // Spielern kommen genau 200 Zeilen zurück.
-POST   /admin/api/members
-PATCH  /admin/api/members/:id
-POST   /admin/api/members/:id/rotate-token   → { token: "<Klartext, einmalig>" }
-PUT    /admin/api/response/:fixtureId/:memberId    // Korrektur durch den Kapitän
-GET    /admin/api/settings   → { anzeigename, tempo_kmh, puffer_minuten, auto_sperre_stunden,
-                                 impressum, datenschutz }
-PATCH  /admin/api/settings     dieselben Felder, alle einzeln   // R4-Whitelist, je Feld eine
-                                                                // Protokollzeile
+
+POST   /admin/api/teams          { name }
+DELETE /admin/api/teams/:id      // nur eine leere Mannschaft
+PATCH  /admin/api/settings       dieselben Felder wie oben, alle einzeln  // R4-Whitelist, je
+                                                                         // Feld eine Protokollzeile
+
+GET    /admin/api/verwalter                     → Konten samt Rolle, Sperre und Faktor
+POST   /admin/api/verwalter      { email, rolle, team?, mitglied? }  → erzeugtes Passwort
+PATCH  /admin/api/verwalter/:id
+DELETE /admin/api/verwalter/:id
+DELETE /admin/api/verwalter/:id/totp            // zweiten Faktor abschalten, wenn das Handy weg
+POST   /admin/api/verwalter/:id/entsperren      // Anmeldesperre aufheben (R7)
+
+GET    /admin/api/backups        → { items: [{ name, groesse, geaendert }] }
+POST   /admin/api/backup
+GET    /admin/api/backup/:name                  // Download, gewöhnlicher Link
+POST   /admin/api/backup/upload                 // zurückgeben
+POST   /admin/api/backup/:name/restore          // einspielen; danach startet die App neu
+DELETE /admin/api/backup/:name
 ```
 
 Öffentlich, ohne Sitzung — beide nur, wenn hinterlegt, sonst 404:
@@ -637,7 +723,6 @@ PATCH  /admin/api/settings     dieselben Felder, alle einzeln   // R4-Whitelist,
 ```
 GET    /impressum
 GET    /datenschutz
-GET    /admin/api/audit?limit=100
 ```
 
 ---
@@ -696,8 +781,15 @@ Die Zeile bindet `--grau` und `--rot` auf diese Werte um; Komponenten müssen ni
 fahrzeit_min = km / tempo_kmh * 60 + puffer_minuten
 abfahrt      = anwurf − round(fahrzeit_min auf 5 min)
 ```
-`tempo_kmh` und `puffer_minuten` stehen in `settings` (Standard 80 und 25) und werden in der
-Kapitänsansicht gepflegt — auf dem Land trägt ein höheres Tempo, in der Stadt ein niedrigeres.
+`tempo_kmh` und `puffer_minuten` stehen **am Spieltag** (`fixtures`), nicht zentral: Auf dem Land
+trägt ein höheres Tempo, in der Stadt ein niedrigeres, und das unterscheidet sich von Fahrt zu
+Fahrt mehr als von Mannschaft zu Mannschaft. `-1` heißt „nicht gesetzt" und nimmt den eingebauten
+Standard — 80 km/h und 25 Minuten. Nicht 0: Das wäre ein Tempo von null und ein Spieltag ohne
+Abfahrtszeit.
+
+Es gab einmal drei Stufen (zentral, Mannschaft, Spieltag). Sie sind mit Migration `1788400000`
+verschwunden — gedacht als Bequemlichkeit, in der Bedienung das Gegenteil: Ein Wert, den niemand
+mehr sieht, aber jeder spürt, ist schlimmer als gar keiner.
 
 Bei Heimspielen entfällt die Abfahrt; die linke Spalte zeigt dann den Anwurf mit dem Label
 „ANWURF" statt „ABFAHRT". Die Formel gehört ins Backend, damit alle dasselbe sehen — auch das
