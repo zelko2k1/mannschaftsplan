@@ -1016,8 +1016,16 @@ routerAdd('PUT', '/manage/api/response/{fixtureId}/{memberId}', (e) => {
     e.app.save(satz)
   }
 
+  // Dieselbe Folge wie beim Mitglied selbst (mutations.pb.js): Wer abgesagt ist, faehrt nicht und
+  // sitzt nirgends mit. Der Kapitaen traegt hier ein, was ihm jemand am Telefon gesagt hat --
+  // dass dabei ein Auto verschwindet, ist die Nachricht und nicht eine Nebenwirkung.
+  const weg = status === 'no' ? u.absageAufraeumen(e, spieltagId, mitgliedId) : null
+  if (weg && weg.fahrt) {
+    a.protokoll(e, 'ride.correct', `${spieltagId}/${mitgliedId}`, 'faehrt', 'abgesagt')
+  }
+
   a.protokoll(e, 'response.correct', `${spieltagId}/${mitgliedId}`, alt, status || '')
-  return e.json(200, { ok: true })
+  return e.json(200, { ok: true, fahrt_zurueckgezogen: !!(weg && weg.fahrt), mitfahrer: weg ? weg.mitfahrer : 0 })
 })
 
 // ── Einstellungen ───────────────────────────────────────────────────────────────────────────

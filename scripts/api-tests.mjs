@@ -707,6 +707,101 @@ await pruefe('F4', 'Fahrt zurückziehen nimmt die Mitfahrer mit', async () => {
   gleich(uebrig.totalItems, 0, 'übrige Mitfahrer')
 })
 
+// ── F5 · Eine Absage räumt den Fahrdienst mit ───────────────────────────────────────────────
+// Ohne das bleibt das Auto eines Abgesagten im Fahrplan stehen und bietet Plätze an, die es nicht
+// gibt — und der Aushang rechnet mit ihnen, wenn er sagt, wie viele Zusagen ohne
+// Mitfahrgelegenheit dastehen. Geprüft werden alle drei Wege hinein: der Fahrer selbst, der
+// Mitfahrer selbst, und der Kapitän, der es für jemanden einträgt.
+await pruefe('F5', 'Wer absagt, fährt nicht mehr und sitzt nirgends mehr mit', async () => {
+  const plaetze = async (spieltag) =>
+    (
+      await pb(
+        `/api/collections/seat_claims/records?filter=${encodeURIComponent(`fixture="${spieltag.id}"`)}`,
+      )
+    ).totalItems
+  const autos = async (spieltag) =>
+    (
+      await pb(`/api/collections/rides/records?filter=${encodeURIComponent(`fixture="${spieltag.id}"`)}`)
+    ).totalItems
+
+  const einsteigen = async (spieltag, fahrerJar, mitJar) => {
+    await alsMitglied(fahrerJar)(`/api/ride/${spieltag.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ driving: true, seats: 3 }),
+    })
+    const board = await (await alsMitglied(mitJar)('/api/board')).json()
+    const fahrt = board.fixtures.find((f) => f.id === spieltag.id).rides[0]
+    await alsMitglied(mitJar)(`/api/seat/${spieltag.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ riding: true, ride: fahrt.id }),
+    })
+  }
+
+  // (1) Der Fahrer sagt ab: Auto weg, und mit ihm der Mitfahrer — dieselbe Folge wie beim
+  //     ausdrücklichen Zurückziehen, im Aushang wird vorher gefragt.
+  const a1 = await testMitglied('absage-fahrer')
+  const b1 = await testMitglied('absage-mit')
+  const s1 = await testSpieltag()
+  const a1Jar = (await anmelden(a1.klartext)).jar
+  const b1Jar = (await anmelden(b1.klartext)).jar
+  await einsteigen(s1, a1Jar, b1Jar)
+  gleich(await autos(s1), 1, 'Auto steht vor der Absage')
+  gleich(await plaetze(s1), 1, 'Mitfahrer sitzt vor der Absage')
+
+  const antwort = await alsMitglied(a1Jar)(`/api/response/${s1.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ status: 'no' }),
+  })
+  gleich(antwort.status, 200, 'Status der Absage')
+  const gemeldet = await antwort.json()
+  gleich(gemeldet.fahrt_zurueckgezogen, true, 'die Antwort sagt, dass ein Auto abging')
+  gleich(gemeldet.mitfahrer, 1, 'und wie viele es betrifft')
+  gleich(await autos(s1), 0, 'Auto nach der Absage')
+  gleich(await plaetze(s1), 0, 'Mitfahrer nach der Absage')
+
+  // (2) Der Mitfahrer sagt ab: nur sein Platz geht, das Auto bleibt stehen.
+  const a2 = await testMitglied('absage-fahrer-2')
+  const b2 = await testMitglied('absage-mit-2')
+  const s2 = await testSpieltag()
+  const a2Jar = (await anmelden(a2.klartext)).jar
+  const b2Jar = (await anmelden(b2.klartext)).jar
+  await einsteigen(s2, a2Jar, b2Jar)
+  await alsMitglied(b2Jar)(`/api/response/${s2.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ status: 'no' }),
+  })
+  gleich(await autos(s2), 1, 'das Auto bleibt')
+  gleich(await plaetze(s2), 0, 'der Platz ist frei')
+
+  // (3) Eine Zusage oder ein „Unsicher" fasst nichts an — nur die Absage tut das.
+  const a3 = await testMitglied('absage-fahrer-3')
+  const b3 = await testMitglied('absage-mit-3')
+  const s3 = await testSpieltag()
+  const a3Jar = (await anmelden(a3.klartext)).jar
+  const b3Jar = (await anmelden(b3.klartext)).jar
+  await einsteigen(s3, a3Jar, b3Jar)
+  for (const status of ['yes', 'maybe']) {
+    await alsMitglied(a3Jar)(`/api/response/${s3.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    })
+  }
+  gleich(await autos(s3), 1, 'Auto nach yes und maybe')
+  gleich(await plaetze(s3), 1, 'Mitfahrer nach yes und maybe')
+
+  // (4) Und derselbe Griff, wenn der Kapitän es für jemanden einträgt, der angerufen hat.
+  const jar = await adminSitzung()
+  const ruf = alsKapitaen(jar)
+  const korrigiert = await ruf(`/manage/api/response/${s3.id}/${a3.satz.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ status: 'no' }),
+  })
+  gleich(korrigiert.status, 200, 'Status der Korrektur')
+  gleich((await korrigiert.json()).fahrt_zurueckgezogen, true, 'auch hier ging ein Auto ab')
+  gleich(await autos(s3), 0, 'Auto nach der Korrektur')
+  gleich(await plaetze(s3), 0, 'Mitfahrer nach der Korrektur')
+})
+
 // ── Kapitänsansicht ────────────────────────────────────────────────────────────────────────
 // Anmerkung zu T8: „/admin von außerhalb des VPN → 404" ist eine Aussage über den Reverse Proxy
 // und bleibt eine Handprüfung. Hier steht die Hälfte, die die Anwendung selbst verantwortet:

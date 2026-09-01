@@ -17,8 +17,11 @@ import {
   ausEingabe,
   fuerEingabe,
   plaetze,
+  seit,
+  SICHERUNG_ALT_TAGE,
   systemDatum,
   systemDatumZeit,
+  tageSeit,
 } from './format'
 import { dekodiere } from './csv'
 import { leseSpielplan, vorlageCsv, type Spielplan } from './spielplan'
@@ -405,9 +408,12 @@ const LEER: Partial<AdminSpieltag> = {
 // für beide Ansichten aus derselben Quelle.
 const zugesagt = (s: AdminSpieltag) =>
   Object.values(s.responses ?? {}).filter((x) => x === 'yes').length
+/** Autos, deren Fahrer nicht abgesagt hat — wie im Aushang. Ein abgesagtes Auto ist keines. */
+const fahrten = (s: AdminSpieltag) =>
+  (s.rides ?? []).filter((f) => (s.responses ?? {})[f.member] !== 'no')
 const freiePlaetze = (s: AdminSpieltag) =>
-  (s.rides ?? []).reduce((summe, f) => summe + (f.seats - f.taken), 0)
-const ohneFahrer = (s: AdminSpieltag) => !s.is_home && (s.rides ?? []).length === 0
+  fahrten(s).reduce((summe, f) => summe + (f.seats - f.taken), 0)
+const ohneFahrer = (s: AdminSpieltag) => !s.is_home && fahrten(s).length === 0
 /**
  * Wie viele Zusagen ohne Mitfahrgelegenheit dastehen — wörtlich dieselbe Rechnung wie in
  * `Zeile.tsx`. „Keine Plätze frei" beantwortet die Frage nicht: Es sagt, dass die Autos voll
@@ -3035,10 +3041,32 @@ function Sicherungen({ abgemeldet }: { abgemeldet: () => void }) {
         </label>
       </div>
 
+      {/* Eine Sicherung altert still. Bis hierher stand in der Liste nur, wie eine Datei heißt und
+          wie groß sie ist — wie alt sie ist, war die eine Angabe, die niemand ablesen konnte, und
+          der Moment, in dem das auffällt, ist immer der falsche. Gerechnet wird auf dem jüngsten
+          Eintrag; die Liste kommt bereits nach Datum sortiert vom Server. */}
+      {liste !== null &&
+        liste.length > 0 &&
+        (() => {
+          const tage = tageSeit(liste[0].geaendert)
+          const alt = tage !== null && tage >= SICHERUNG_ALT_TAGE
+          const wann = seit(liste[0].geaendert)
+          if (!wann) return null
+          return (
+            <p className={alt ? 'satz__warnung' : 'namen'}>
+              Zuletzt gesichert <strong>{wann}</strong>
+              {alt && ' — das ist eine Weile her. Erstelle eine neue und lade sie herunter.'}
+            </p>
+          )
+        })()}
+
       {liste === null ? (
         <p className="namen">Einen Moment …</p>
       ) : liste.length === 0 ? (
-        <p className="namen">Noch keine Sicherung vorhanden.</p>
+        <p className="satz__warnung">
+          Noch keine Sicherung vorhanden. Die erste ist die wichtigste — sie ist der einzige
+          Rückweg, wenn etwas schiefgeht.
+        </p>
       ) : (
         <ul className="namen liste">
           {liste.map((x) => (
@@ -3047,7 +3075,7 @@ function Sicherungen({ abgemeldet }: { abgemeldet: () => void }) {
                   {x.name}
                 </a>
                 <span className="satz__zusatz">
-                  {Math.max(1, Math.round(x.groesse / 1024))} KB
+                  {systemDatum(x.geaendert) || '—'} · {Math.max(1, Math.round(x.groesse / 1024))} KB
                 </span>
                 <button
                   type="button"
@@ -3146,6 +3174,7 @@ const WAS: Record<string, string> = {
   'session.start': 'Link geöffnet',
   'response.set': 'Rückmeldung',
   'response.correct': 'Rückmeldung korrigiert',
+  'ride.correct': 'Fahrdienst nach Absage zurückgezogen',
   'ride.set': 'Fahrdienst',
   'seat.set': 'Mitfahrt',
   'token.rotate': 'Neues Token',

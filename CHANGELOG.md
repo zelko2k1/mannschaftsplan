@@ -9,6 +9,12 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- **Die Sicherungsliste sagt, wie alt sie ist.** Sie zeigte Dateiname und Größe — und damit
+  ausgerechnet die eine Angabe nicht, auf die es ankommt. Jetzt steht über der Liste „Zuletzt
+  gesichert vor 12 Tagen", an jedem Eintrag sein Datum, und wenn die jüngste älter als 30 Tage ist
+  oder gar keine existiert, sagt die Ansicht das deutlich. Eine Sicherung altert still; der
+  Moment, in dem das auffällt, ist sonst immer der falsche.
+
 - **Der Aushang sagt, wenn Zusagen ohne Platz bleiben.** Bisher stand dort, wie viele Plätze frei
   sind — nicht, ob sie reichen. Acht Zusagen und ein Auto mit drei belegten Plätzen lasen sich als
   „8/8 zugesagt · keine Plätze frei", und vier Leute standen am Samstag vor der Kneipe, ohne dass
@@ -134,6 +140,21 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   verwendet — und trotzdem in jedem Image ausgeliefert.
 
 ### Behoben
+
+- **Wer absagte, ließ sein Auto stehen.** Eine Rückmeldung fasste den Fahrdienst nicht an: Wer
+  „Ich fahre" gedrückt hatte und später auf „Kann nicht" wechselte, blieb mit einem Auto im
+  Fahrplan stehen, das nicht fuhr — mitsamt Plätzen, die es nicht gab. Umgekehrt blockierte ein
+  beanspruchter Platz weiter einen, den jemand anders gebraucht hätte. Beides sah aus wie ein
+  Fahrplan und war keiner, und seit es „N ohne Platz" gibt, rechnete die Zeile mit diesen
+  Geisterplätzen — sie meldete also **zu wenige** Leute ohne Mitfahrgelegenheit, ausgerechnet dort,
+  wo die Warnung am wichtigsten ist.
+
+  Eine Absage räumt jetzt beides weg, und zwar auf dem Server: Der Weg über den Aushang und der
+  über die Korrektur des Kapitäns sollen dieselbe Wirkung haben. Sitzen Leute im Auto, fragt der
+  Aushang vorher und nennt sie beim Namen — dieselbe Grenze wie beim ausdrücklichen Zurückziehen:
+  Ein leeres Auto betrifft niemanden und fragt nichts. Unabhängig davon rechnet die Anzeige nicht
+  mehr mit Autos, deren Fahrer abgesagt hat, und zeigt ein solches als „Fahrer hat abgesagt", statt
+  Mitfahren anzubieten — für Sätze aus der Zeit davor.
 
 - **Namenslisten waren nicht wirklich alphabetisch.** Der Server sortiert mit `sort,name`, aber
   SQLite vergleicht Bytes: Kleinbuchstaben stehen hinter dem gesamten Großalphabet, Umlaute noch

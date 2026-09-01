@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   ausEingabe,
   ausISO,
+  ausZeitangabe,
   fuerEingabe,
   nachReihenfolge,
+  seit,
   plaetze,
   systemDatum,
   systemDatumZeit,
@@ -180,5 +182,47 @@ describe('nachReihenfolge', () => {
       { name: 'Bernd', sort: 2 },
     ]
     expect([...liste].sort(nachReihenfolge).map((x) => x.name)).toEqual(['Zoe', 'Anna', 'Bernd'])
+  })
+})
+
+describe('ausZeitangabe', () => {
+  it('liest den ISO-Stand aus der Datenbank', () => {
+    expect(ausZeitangabe('2026-09-01 08:12:33.123Z')?.toISOString()).toBe('2026-09-01T08:12:33.123Z')
+  })
+
+  it('liest die Schreibweise der Go-Laufzeit aus dem Dateisystem', () => {
+    // So kommt der Änderungszeitpunkt einer Sicherungsdatei an. `ausISO` scheitert daran.
+    expect(ausZeitangabe('2026-09-01 08:12:33.123456 +0000 UTC')?.toISOString()).toBe(
+      '2026-09-01T08:12:33.000Z',
+    )
+  })
+
+  it('gibt bei Unsinn null zurück, statt etwas zu erfinden', () => {
+    expect(ausZeitangabe('gestern irgendwann')).toBeNull()
+    expect(ausZeitangabe('')).toBeNull()
+  })
+})
+
+describe('seit', () => {
+  const tageHer = (tage: number) => {
+    const d = new Date(2026, 8, 1, 12, 0, 0)
+    d.setDate(d.getDate() - tage)
+    return d.toISOString()
+  }
+  const jetzt = new Date(2026, 8, 1, 12, 0, 0)
+
+  it('benennt die nahe Vergangenheit', () => {
+    expect(seit(tageHer(0), jetzt)).toBe('heute')
+    expect(seit(tageHer(1), jetzt)).toBe('gestern')
+    expect(seit(tageHer(4), jetzt)).toBe('vor 4 Tagen')
+  })
+
+  it('wird gröber, je länger es her ist', () => {
+    expect(seit(tageHer(14), jetzt)).toBe('vor 2 Wochen')
+    expect(seit(tageHer(60), jetzt)).toBe('vor 2 Monaten')
+  })
+
+  it('schweigt bei unbekanntem Datum', () => {
+    expect(seit('', jetzt)).toBe('')
   })
 })
