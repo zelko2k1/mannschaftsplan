@@ -41,6 +41,14 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   Sicherheitsgefühl, das nicht trägt.
 
 ### Geändert
+
+- **Die Angaben neben dem Gegner stehen eine Spur größer.** Datum, „nächste Woche", Entfernung,
+  Ort und Zählstand waren die kleinste Schrift der Zeile — dabei ist genau das, was beim
+  Überfliegen gelesen wird; der Gegnername darüber wird ohnehin gefunden. Datum und Entfernung
+  stehen zudem in Schreibmaschinenschrift, die bei gleicher Größe kleiner wirkt als die Grotesk
+  daneben. Ein Schritt größer, mehr nicht: Der Gegner führt die Zeile weiterhin an. Mit
+  angehoben sind die beiden Beschriftungen in der Zeitspalte („ABFAHRT", „ANWURF 19:30"), die
+  sonst neben dem gewachsenen Kasten zu klein dagestanden hätten.
 - **Aus „Tor" wird „Gate".** Das zusätzliche Passwort vor `/admin` hieß im ganzen Projekt
   „Tor" — ein Wort, das bei einer Anwendung im Internet unweigerlich an das Tor-Netzwerk denken
   lässt, mit dem sie nichts zu tun hat. Der Zwischenschritt „Vortür" hielt nicht lange: Er
