@@ -53,6 +53,18 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   ein — ausgerechnet die Seite, auf der die Mitglieder als Erstes landen, blieb beim
   Standardsymbol des Browsers.
 
+- **`docs/erster-testlauf.md` sagt jetzt, was wirklich gelaufen ist.** Das Dokument behauptete
+  einleitend, es habe „nie" ein `docker compose up -d` auf einer Maschine im Internet gegeben und
+  die Einrichtungsanleitung sei deshalb „unbewiesen" — das stimmt seit dem Produktivgang Ende
+  August nicht mehr. Neu ist ein Abschnitt „Woran diese Installation steht" mit einer Tabelle über
+  alle sechs Handprüfungen: **T10 und T11 erledigt, T8c, T8d, A12 und T12 offen.** Jeder
+  betroffene Abschnitt trägt den Stand zusätzlich bei sich, damit er beim Nachholen an einer
+  Stelle geändert wird und nicht an zweien vergessen. Dass ausgerechnet die beiden schnellsten
+  Prüfungen offen sind — zwei `curl`-Aufrufe, die zeigen, ob `/_/` und `/admin` von außen
+  verschlossen sind —, steht ausdrücklich da, statt weggelassen zu werden. Außerdem richtet sich
+  das Dokument jetzt erkennbar an **zwei** Leser: an jeden, der die App für seinen Verein neu
+  aufsetzt, und an den Betreiber dieser Installation.
+
 ### Entfernt
 
 - **`app/public/icons.svg`**, der zweite Rest derselben Projektvorlage: sieben Symbole für
