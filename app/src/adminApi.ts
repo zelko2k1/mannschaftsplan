@@ -9,6 +9,8 @@
 // eine Funktion von einem Präfix auf das andere schiebt, verschiebt sie im Backend mit — sonst
 // antwortet der Server mit 404 und das Frontend meldet „bitte anmelden", obwohl man es ist.
 
+import { nachReihenfolge } from './format'
+
 export type AdminSpieltag = {
   id: string
   team: string
@@ -201,7 +203,13 @@ const ruf = <T>(pfad: string, optionen: RequestInit = {}) => rufen<T>(MANAGE, pf
 const rufAdmin = <T>(pfad: string, optionen: RequestInit = {}) => rufen<T>(ADMIN, pfad, optionen)
 
 export const adminApi = {
-  werBinIch: () => ruf<Wer>('/me'),
+  // Auch die Auswahl im Kopf: Sie zeigt dieselben Mannschaften wie die Liste im Reiter „Verein",
+  // und zwei Reihenfolgen für dieselbe Sache wären schlimmer als eine falsche.
+  werBinIch: () =>
+    ruf<Wer>('/me').then((antwort) => ({
+      ...antwort,
+      teams: [...antwort.teams].sort(nachReihenfolge),
+    })),
 
   /**
    * `bleiben` ist ein Wunsch, keine Zusage: Die langen 90 Tage gibt es nur mit zweitem Faktor.
@@ -314,10 +322,13 @@ export const adminApi = {
    * weil die Liste allein den Unterschied nicht zeigt: Bei 200 und bei 250 Spielern kommen
    * genau 200 Zeilen zurück.
    */
+  // Sortiert wird hier, wo die Liste ankommt — nicht in jeder Ansicht, die sie zeigt. Dieselben
+  // Spieler stehen im Reiter „Mannschaft", in den Rückmeldungen eines Spieltags und in der
+  // Auswahl „Spielt als"; dreimal dieselbe Zeile wären drei Stellen, an denen sie fehlen kann.
   mitglieder: (team: string) =>
     ruf<{ items: AdminMitglied[]; gesamt: number; grenze: number }>(
       `/members?team=${encodeURIComponent(team)}`,
-    ),
+    ).then((antwort) => ({ ...antwort, items: [...antwort.items].sort(nachReihenfolge) })),
   mitgliedAnlegen: (name: string, team: string) =>
     ruf<{ id: string }>('/members', { method: 'POST', body: JSON.stringify({ name, team }) }),
   mitgliedAendern: (id: string, daten: Partial<AdminMitglied>) =>
@@ -346,7 +357,10 @@ export const adminApi = {
   protokoll: (team = '') =>
     ruf<{ items: Protokollzeile[] }>(`/audit?limit=100&team=${encodeURIComponent(team)}`),
 
-  mannschaften: () => ruf<{ items: Mannschaft[] }>('/teams'),
+  mannschaften: () =>
+    ruf<{ items: Mannschaft[] }>('/teams').then((antwort) => ({
+      items: [...antwort.items].sort(nachReihenfolge),
+    })),
   mannschaftAnlegen: (name: string) =>
     rufAdmin<{ id: string }>('/teams', { method: 'POST', body: JSON.stringify({ name }) }),
   mannschaftAendern: (id: string, daten: Partial<Mannschaft>) =>

@@ -69,6 +69,28 @@ export const ANTWORTEN: { wert: 'yes' | 'maybe' | 'no'; text: string; klasse: st
   { wert: 'no', text: 'Kann nicht', klasse: 'knopf--nein' },
 ]
 
+/**
+ * Namenslisten alphabetisch — und zwar so, wie hier jemand das Alphabet meint.
+ *
+ * Der Server sortiert bereits mit `sort,name`, aber SQLite vergleicht Bytes: Kleinbuchstaben
+ * stehen hinter dem gesamten Großalphabet und Umlaute noch dahinter. Nachgemessen kam
+ * `Anna · Bernd · Zoe · miri · Örs` heraus — und „Müller" landete hinter „Mustermann". Für eine
+ * Mannschaftsliste sieht das aus wie gar keine Sortierung.
+ *
+ * `Intl.Collator('de')` kennt die Regeln: Groß und klein gleichrangig, ä bei a, ö bei o, ß bei
+ * ss. Der Vergleich läuft im Browser und braucht dafür nichts nachzuladen.
+ *
+ * Das Feld `sort` behält den Vortritt, wo es eines gibt — es heißt im Schema „Reihenfolge in
+ * Listen" und wäre sonst wirkungslos. Heute steht es überall auf 0, also entscheidet der Name.
+ */
+const namensfolge = new Intl.Collator('de')
+export function nachReihenfolge(
+  a: { sort?: number; name: string },
+  b: { sort?: number; name: string },
+): number {
+  return (a.sort ?? 0) - (b.sort ?? 0) || namensfolge.compare(a.name, b.name)
+}
+
 // ── Kapitänsansicht ─────────────────────────────────────────────────────────────────────────
 // Dort gilt das Gegenteil der Regel oben: der Aushang soll überall gleich aussehen, die
 // Verwaltung dagegen so, wie der Rechner des Kapitäns Datum und Uhrzeit schreibt. Reihenfolge,
