@@ -764,6 +764,11 @@ Das löscht nur, was kein Container mehr benutzt — deine Daten sind davon nie 
 > einfach bei jedem Aktualisieren mitlaufen**, statt nachzusehen, ob es diesmal nötig war.
 > `./scripts/update.sh` tut genau das von selbst.
 >
+> **Weg B:** Diese Zeile gilt für dich nicht — es gibt keinen `caddy`-Dienst, und der Befehl
+> bräche mit „no such service" ab. Deinen eigenen Proxy startest du nur dann neu, wenn du an
+> seiner Konfiguration etwas geändert hast. `update.sh` erkennt das selbst und lässt den Schritt
+> weg.
+>
 > **Nachmessen von außen**, ob die Regeln greifen — aus jedem Terminal, auch vom eigenen Rechner:
 >
 > ```bash
@@ -806,6 +811,11 @@ PB_URL=https://dart.mein-verein.de \
 > dahinter. Fehlen sie, sagt dir das Skript genau das, statt dich ein falsches
 > Superuser-Passwort suchen zu lassen.
 >
+> Auf **Weg B** heißen diese beiden Werte weiterhin so, meinen aber die Zugangsdaten des Gates,
+> das du in deinem eigenen Proxy gebaut hast. Hast du keines gebaut, lässt du sie weg — dann
+> steht die Superuser-Anmeldung allerdings ungeschützt im Netz, und das ist der eigentliche
+> Befund, nicht die fehlende Variable.
+>
 > Ein SSH-Tunnel ist für all das nicht nötig. Wer trotzdem einen benutzt und direkt auf 8090
 > geht, lässt `ADMIN_USER` und `ADMIN_PASSWORD` weg — hinter dem Tunnel steht kein Caddy.
 
@@ -821,9 +831,17 @@ startet die App neu und ist ein paar Sekunden nicht erreichbar.
 > dafür ein Wegwerf-Mitglied an, spiel eine ältere Sicherung ein und sieh nach, ob es verschwindet
 > — sonst weißt du hinterher nicht, ob überhaupt etwas passiert ist.
 
-### 🏠 Nur aus dem eigenen Netz erreichbar machen
+### 🏠 Nur aus dem eigenen Netz erreichbar machen (Weg A)
 Standardmäßig sind `/manage` und `/admin` von überall erreichbar — vom Handy im Mobilnetz, aus
 dem Urlaub, von unterwegs. Für die meisten Vereine ist das genau richtig.
+
+> **Das kann der mitgelieferte Caddy, nicht die App.** Die beiden Werte unten liest allein
+> `deploy/Caddyfile`. Wer auf **Weg B** unterwegs ist, trägt sie in die `.env` ein, startet neu und
+> bekommt **keinen Fehler — aber auch keine Wirkung**: Das Admin-Gebiet bleibt von überall
+> erreichbar, während die `.env` aussieht, als wäre es beschränkt. Baue die Einschränkung
+> stattdessen in deinem eigenen Proxy nach; in
+> [`deploy/Caddyfile.homelab.example`](deploy/Caddyfile.homelab.example) steht die Zeile dafür
+> (`@fremd not remote_ip …`).
 
 Wer eine **feste Internetadresse**, ein **VPN** (WireGuard, Tailscale) oder ein Vereins-WLAN mit
 fester Adresse hat, kann es enger machen: Dann beantwortet Caddy jede Anfrage von woanders mit
@@ -884,6 +902,9 @@ Du hast den mitgelieferten Caddy genommen, weil du keinen hattest — und jetzt 
 Server noch etwas laufen: ein Wiki, eine Cloud, ein Benachrichtigungsdienst. Dafür musst du weder
 umziehen noch die Vorlage anfassen.
 
+*(Auf **Weg B** brauchst du diesen Abschnitt nicht: Dort nimmst du den zweiten Dienst in deinem
+eigenen Proxy auf, so wie du es dort ohnehin tust.)*
+
 Lege den Site-Block als eigene Datei in **`deploy/conf.d/`** ab, Endung `.caddy`:
 
 ```
@@ -941,16 +962,21 @@ Let's Encrypt.
 
 **„Der Browser sagt, die Verbindung sei nicht sicher."** Meist zeigt der Name noch nicht auf den
 Server, oder er zeigt erst seit ein paar Minuten dorthin. Nachsehen, warum das Zertifikat nicht
-kommt:
+kommt (**Weg A**; auf Weg B holt dein eigener Proxy das Zertifikat, und seine Protokolle liegen
+dort, wo du sie sonst auch liest):
 
 ```bash
 docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml logs caddy
 ```
 
-> Die beiden `-f`-Angaben gehören bei **jedem** `docker compose`-Befehl dazu, sonst kennt Docker
-> nur die halbe Anlage. Wer das lästig findet, schreibt einmalig
+> **Weg A:** Die beiden `-f`-Angaben gehören bei **jedem** `docker compose`-Befehl dazu, sonst
+> kennt Docker nur die halbe Anlage. Wer das lästig findet, schreibt einmalig
 > `COMPOSE_FILE=docker-compose.yaml:docker-compose.caddy.yaml` in die `.env` — dann genügt
 > überall `docker compose …` ohne Angaben.
+>
+> **Weg B:** Dort gibt es nur eine Datei, und Docker findet sie von selbst — `docker compose …`
+> genügt ohne jede Angabe. Überall in dieser Anleitung, wo `-f docker-compose.caddy.yaml` steht,
+> lässt du es weg.
 
 **„Der Einladungslink tut nichts."** Die Links funktionieren nur über `https://`. Über eine nackte
 IP-Adresse oder über `http://` weigert sich der Browser, die nötige Sitzung zu speichern — das
@@ -961,9 +987,11 @@ schritt 4 im Browser-Fenster, dann das aus Schritt 7 auf der Seite. Nach fünf F
 die Anmeldung eine Viertelstunde gesperrt — auch für das richtige Passwort.
 
 **„Ein Kapitän kommt nicht auf `/manage`."** Dort gibt es kein Browser-Fenster, nur die Anmeldung
-auf der Seite. Kommt trotzdem ein 404, ist `MANAGE_ALLOW` gesetzt und er sitzt in einem Netz, das
-nicht eingetragen ist — siehe „Nur aus dem eigenen Netz erreichbar machen". Steht dagegen
-„Zu viele Versuche", hat er sich vertippt; unter **Konten** kannst du die Sperre aufheben.
+auf der Seite. Kommt trotzdem ein 404, ist auf **Weg A** `MANAGE_ALLOW` gesetzt und er sitzt in
+einem Netz, das nicht eingetragen ist — siehe „Nur aus dem eigenen Netz erreichbar machen". Auf
+**Weg B** kann es das nicht sein: Dort wirkt der Wert nicht, und ein 404 kommt aus deinem eigenen
+Proxy. Steht dagegen „Zu viele Versuche", hat er sich vertippt; unter **Konten** kannst du die
+Sperre aufheben.
 
 **„Bei mir steht: Für Admin-Konten ist der zweite Faktor Pflicht."** Stimmt — richte ihn unter
 **Mein Konto → Zweiter Faktor** ein, dann geht es weiter. Bis dahin kommst du an alles heran,
@@ -973,7 +1001,8 @@ was deine Mannschaften betrifft, nur nicht an Konten, Sicherungen und Vereinsein
 überschreibt den vorhandenen Zugang.
 
 **„Das Passwort aus Schritt 4 wird nicht angenommen."** Zwei Ursachen, beide sehen gleich aus: Das
-Browser-Fenster fragt endlos neu, ohne dass irgendwo ein Fehler steht.
+Browser-Fenster fragt endlos neu, ohne dass irgendwo ein Fehler steht. Beide betreffen **Weg A** —
+auf Weg B steht dieses Fenster in deinem eigenen Proxy, und die Ursache ist dort zu suchen.
 
 1. **Docker ist zu alt.** Prüfe `docker compose version`. Bei älteren Ausgaben als 2.24 verstümmelt
    Docker die Prüfsumme beim Einlesen — dann passt sie nicht mehr zu deinem Passwort. Abhilfe:
