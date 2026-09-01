@@ -164,6 +164,7 @@
 .zeile__uhr,
 .zeile__label,
 .zeile__anwurf,
+.zeile__antwort,
 .zeile__ziel,
 .zeile__ort,
 .zeile__stand {
@@ -251,6 +252,28 @@
   font-size: 0.95rem;
   font-weight: 500;
 }
+/* Die eigene Antwort — eine Zeile für sich, direkt unter dem Stand.
+
+   Sie hing zuletzt als fünfte Angabe hinten an der Standzeile und schob sie über die Breite eines
+   Handys hinaus; wo sie dann umbrach, entschied das Gerät. Als eigene Zeile bricht sie nicht mehr
+   zufällig, sondern steht, wo sie hingehört.
+
+   `white-space: normal` steht hier ausdrücklich: „du: dabei — bitte bestätigen" ist ein Satz und
+   soll umbrechen dürfen, anders als die kurzen Einwürfe in der Zeile darüber, die dafür `nowrap`
+   tragen. Gewicht 600 wie bisher — der Blick findet „du" damit immer an derselben Stelle. */
+.zeile__antwort {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  white-space: normal;
+}
+/* Rot ruft zum Handeln (6.2): „du fehlst noch" und eine Zusage, die noch vom alten Termin stammt,
+   tun das. Eine gegebene und gültige Antwort tut es nicht — die bleibt Tinte. */
+.zeile__antwort--offen {
+  color: var(--rot);
+}
+
 /* Die Zusagen bleiben zusammen. Ein Umbruch zwischen „4" und „nötig" wäre schlimmer als der
    Bruchstrich, den wir gerade losgeworden sind — dieselbe Vorsorge wie bei „kein Fahrer" und
    „du: dabei" darunter. Die Zeile als Ganzes darf weiterhin an den Trennpunkten umbrechen;
@@ -265,15 +288,6 @@
   /* Als Ganzes umbrechen, nicht nach dem ersten Wort („du / fehlst noch"). */
   white-space: nowrap;
 }
-/* Die eigene Antwort steht an derselben Stelle wie „du fehlst noch" und trägt dasselbe Gewicht —
-   nur kein Rot. Das ist der Unterschied, auf den es ankommt: Rot ruft zum Handeln (6.2), eine
-   gegebene Antwort tut das nicht. Gleiches Gewicht, damit der Blick „du" immer an derselben
-   Stelle findet, ob dort noch etwas zu tun ist oder nicht. */
-.zeile__ich {
-  font-weight: 600;
-  white-space: nowrap;
-}
-
 /* ── Stempel „KOMPLETT" ──────────────────────────────────────────────────────────────────── */
 /* Eigene Zeile, rechtsbündig — nicht absolut positioniert. Absolut lag er bei 320 px über
    dem Text „4/4 zugesagt · 1 Platz frei". Die Drehung wirkt sich auf das Layout nicht aus,

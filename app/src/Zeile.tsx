@@ -207,33 +207,36 @@ export default function Zeile({
                 )}
               </>
             )}
-            {/* Dieselbe Stelle, zwei Zustände. Die Zeile sagte, wie viele zugesagt haben, wie
-                viele Plätze frei sind und ob ein Fahrer fehlt — nur nicht, was man selbst
-                geantwortet hat. Sobald geantwortet war, verschwand „du fehlst noch" und nichts
-                trat an seine Stelle; wer nachsehen wollte, musste aufklappen. Grundsatz 2
-                verlangt genau das nicht, und es ist die Angabe, die der Betrachter garantiert
-                sucht.
-
-                Die Wörter kommen aus derselben Liste wie die Knöpfe, kleingeschrieben, weil sie
-                hier in einer laufenden Zeile stehen statt auf einem Knopf. */}
-            {ohneAntwort
-              ? !vorbei &&
-                !spieltag.locked && (
-                  <>
-                    {' · '}
-                    <span className="zeile__warnung">du fehlst noch</span>
-                  </>
-                )
-              : (
-                  <>
-                    {' · '}
-                    <span className={meineAntwortAlt && offeneVerlegung ? 'zeile__warnung' : 'zeile__ich'}>
-                      du: {ANTWORTEN.find((a) => a.wert === meineAntwort)?.text.toLowerCase()}
-                      {meineAntwortAlt && offeneVerlegung && ' — bitte bestätigen'}
-                    </span>
-                  </>
-                )}
           </span>
+
+          {/* Die eigene Antwort steht auf einer EIGENEN Zeile, nicht hinten an der Standzeile.
+              Dort hing sie zuletzt als fünfte Angabe und rutschte je nach Gerät irgendwohin um;
+              ein gewollter Zeilenwechsel liest sich ruhiger als ein zufälliger, und die Zeile
+              darüber bleibt damit fast immer einzeilig.
+
+              Dieselbe Stelle, zwei Zustände. Die Zeile sagte, wie viele zugesagt haben, wie viele
+              Plätze frei sind und ob ein Fahrer fehlt — nur nicht, was man selbst geantwortet hat.
+              Sobald geantwortet war, verschwand „du fehlst noch" und nichts trat an seine Stelle;
+              wer nachsehen wollte, musste aufklappen. Grundsatz 2 verlangt genau das nicht, und es
+              ist die Angabe, die der Betrachter garantiert sucht.
+
+              Die Wörter kommen aus derselben Liste wie die Knöpfe, kleingeschrieben, weil sie in
+              einer laufenden Zeile stehen statt auf einem Knopf. */}
+          {ohneAntwort
+            ? !vorbei &&
+              !spieltag.locked && (
+                <span className="zeile__antwort zeile__antwort--offen">du fehlst noch</span>
+              )
+            : (
+                <span
+                  className={`zeile__antwort${
+                    meineAntwortAlt && offeneVerlegung ? ' zeile__antwort--offen' : ''
+                  }`}
+                >
+                  du: {ANTWORTEN.find((a) => a.wert === meineAntwort)?.text.toLowerCase()}
+                  {meineAntwortAlt && offeneVerlegung && ' — bitte bestätigen'}
+                </span>
+              )}
 
           {vollzaehlig && <span className="stempel">Komplett</span>}
         </span>

@@ -113,6 +113,13 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   sie fehlt, und im guten Fall wird die Zeile damit kürzer als vorher. Wörtlich dieselbe Angabe in
   Aushang und Kapitänsansicht; zwischen „4" und „nötig" wird nie umgebrochen.
 
+  **Und die eigene Antwort steht jetzt auf einer eigenen Zeile.** Sie hing als fünfte Angabe
+  hinten an der Standzeile — „3 zugesagt, 4 nötig · 2 Plätze frei · 3 ohne Platz · du: dabei" —
+  und schob sie über die Breite eines Handys hinaus; wo sie dann umbrach, entschied das Gerät.
+  Ein gewollter Zeilenwechsel liest sich ruhiger als ein zufälliger, und die Zeile darüber bleibt
+  damit fast immer einzeilig. Rot bleibt dem vorbehalten, was zum Handeln ruft: „du fehlst noch"
+  und eine Zusage, die noch vom alten Termin stammt.
+
 - **Die Angaben neben dem Gegner stehen eine Spur größer.** Datum, „nächste Woche", Entfernung,
   Ort und Zählstand waren die kleinste Schrift der Zeile — dabei ist genau das, was beim
   Überfliegen gelesen wird; der Gegnername darüber wird ohnehin gefunden. Datum und Entfernung
