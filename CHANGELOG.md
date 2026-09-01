@@ -103,6 +103,16 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   seit der Einrichtung durchlief. Der Abschnitt *Aktualisieren* nennt jetzt den einen Befehl, der
   fehlte, samt einer Zeile zum Nachmessen von außen.
 
+- **`scripts/update.sh` meldete „der Proxy arbeitet nicht nach deploy/Caddyfile", wenn gar keine
+  Antwort kam.** `000` ist kein HTTP-Status, sondern das Ausbleiben einer Antwort — und es fiel in
+  den Sammelzweig, der daraus eine Aussage über R13c machte, die er nicht treffen konnte. Beim
+  ersten echten Lauf kam prompt genau diese Falschmeldung, während das Gate in Wahrheit stand.
+  Jetzt hat `000` einen eigenen Zweig, der sagt, was er weiß und was nicht. Zwei Ursachen sind
+  außerdem beseitigt: Die Messung läuft unmittelbar nach dem Neustart des Proxys, der ein paar
+  Sekunden braucht, bis er auf 443 hört — sie wird deshalb bis zu sechsmal wiederholt. Und sie
+  geht per `--resolve` an 127.0.0.1 statt über die öffentliche Adresse, die nicht jede Maschine
+  von innen erreicht; Name und SNI bleiben, das Zertifikat passt also weiterhin.
+
 ## [0.2.0] – 2026-08-31
 
 ### Hinzugefügt
