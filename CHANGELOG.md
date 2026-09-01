@@ -114,6 +114,19 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Behoben
 
+- **`scripts/update.sh` ersetzte sich selbst, während es lief.** Es holt mit `git pull` das Repo,
+  in dem es selbst liegt — und Bash liest ein Skript häppchenweise: Der Lauf, der eine neue
+  Fassung des Skripts holt, arbeitete die alte weiter ab, und zwar an derselben Byte-Position in
+  einer inzwischen anderen Datei. Das ist beim ersten Mal genau so aufgefallen, wie es sich in
+  Zukunft immer angefühlt hätte: Die eben behobene Falschmeldung erschien noch einmal, und es sah
+  aus wie ein Fehler am Server, obwohl nur die Meldung von gestern war.
+
+  Zwei Vorkehrungen. Das ganze Skript steckt jetzt in einer Funktion, die in der letzten Zeile
+  aufgerufen wird — eine Funktion muss bis zur schließenden Klammer gelesen sein, ehe etwas davon
+  läuft, also steht das Skript vollständig im Speicher, bevor der Pull beginnt. Und hat der Pull
+  das Skript verändert, startet es sich einmal neu und arbeitet ab da nach der neuen Fassung. Der
+  zweite Lauf zieht nichts mehr und kann sich nicht wiederholen.
+
 - **„Bearbeiten" sprang an den Anfang der Liste.** Das Formular für einen Spieltag stand immer
   ganz oben, ganz gleich, welchen Spieltag man bearbeitete. Wer den letzten von dreißig Terminen
   ändern wollte — und die interessanten sind die späten —, scrollte erst nach oben, tippte dort

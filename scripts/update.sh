@@ -27,89 +27,122 @@
 # Compose sie mit in die Neuerstellung — ein Aussetzer, den niemand bestellt hat.
 set -euo pipefail
 
-cd "$(dirname "$0")/.."
+# Alles steckt in dieser Funktion, und aufgerufen wird sie in der letzten Zeile. Der Grund ist
+# `git pull` weiter unten: Es ersetzt DIESE DATEI, während sie läuft. Bash liest ein Skript
+# häppchenweise und merkt sich dabei nur, wie weit es gekommen ist — nach einem Pull läse es an
+# derselben Byte-Position in einer anderen Datei weiter, also mitten in einem Wort. Eine Funktion
+# dagegen muss bis zur schließenden Klammer gelesen sein, ehe irgendetwas davon läuft: Damit
+# steht das ganze Skript im Speicher, bevor der Pull beginnt.
+haupt() {
 
-if [ ! -f .env ]; then
-  echo "Keine .env in $(pwd) gefunden — gehört dieses Skript zu deiner Installation?" >&2
-  exit 1
-fi
+  # Vor dem Wechsel ins Repo: der eigene Pfad, absolut. `$0` ist relativ zu dem Verzeichnis, aus
+  # dem aufgerufen wurde — nach dem `cd` zeigt es ins Leere, und der Neustart weiter unten
+  # bräuchte es genau dann.
+  SELBST="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+  SKRIPT_IM_REPO='scripts/update.sh'
 
-# Ohne Vorgabe: Es gibt ein Overlay, wenn es dessen Container gibt. `container_name` steht in
-# docker-compose.caddy.yaml fest, deshalb ist der Name eine verlässliche Auskunft.
-if [ -z "${MIT_CADDY:-}" ]; then
-  if docker ps -a --format '{{.Names}}' | grep -qx mannschaftsplan-caddy; then
-    MIT_CADDY=1
-  else
-    MIT_CADDY=0
-    echo "Kein Container mannschaftsplan-caddy — es wird ohne das Caddy-Overlay gearbeitet."
+  cd "$(dirname "$0")/.."
+
+  if [ ! -f .env ]; then
+    echo "Keine .env in $(pwd) gefunden — gehört dieses Skript zu deiner Installation?" >&2
+    exit 1
   fi
-fi
 
-compose=(docker compose -f docker-compose.yaml)
-if [ "$MIT_CADDY" = 1 ]; then
-  compose+=(-f docker-compose.caddy.yaml)
-fi
+  # Ohne Vorgabe: Es gibt ein Overlay, wenn es dessen Container gibt. `container_name` steht in
+  # docker-compose.caddy.yaml fest, deshalb ist der Name eine verlässliche Auskunft.
+  if [ -z "${MIT_CADDY:-}" ]; then
+    if docker ps -a --format '{{.Names}}' | grep -qx mannschaftsplan-caddy; then
+      MIT_CADDY=1
+    else
+      MIT_CADDY=0
+      echo "Kein Container mannschaftsplan-caddy — es wird ohne das Caddy-Overlay gearbeitet."
+    fi
+  fi
 
-echo "── Neuen Stand holen ────────────────────────────────────────────────"
-vorher="$(git rev-parse HEAD)"
-git pull
-if [ "$(git rev-parse HEAD)" = "$vorher" ]; then
-  echo "Nichts Neues im Repo — gebaut und neu gestartet wird trotzdem."
-else
-  git log --oneline "$vorher..HEAD"
-fi
+  compose=(docker compose -f docker-compose.yaml)
+  if [ "$MIT_CADDY" = 1 ]; then
+    compose+=(-f docker-compose.caddy.yaml)
+  fi
 
-echo "── Anwendung bauen und starten ──────────────────────────────────────"
-"${compose[@]}" up -d --build
+  echo "── Neuen Stand holen ────────────────────────────────────────────────"
+  vorher="$(git rev-parse HEAD)"
+  skript_vorher="$(git rev-parse "HEAD:$SKRIPT_IM_REPO" 2>/dev/null || true)"
+  git pull
+  if [ "$(git rev-parse HEAD)" = "$vorher" ]; then
+    echo "Nichts Neues im Repo — gebaut und neu gestartet wird trotzdem."
+  else
+    git log --oneline "$vorher..HEAD"
+  fi
 
-if [ "$MIT_CADDY" = 1 ]; then
-  echo "── Proxy auf die aktuelle deploy/Caddyfile bringen ──────────────────"
-  "${compose[@]}" up -d --no-deps --force-recreate caddy
-fi
+  # Hat der Pull dieses Skript selbst verändert, gilt ab hier die neue Fassung — also noch einmal
+  # von vorn. Ohne das arbeitet ausgerechnet der Lauf, der eine Verbesserung am Skript holt, sie
+  # noch nicht ab: Er baut und misst nach der alten. Genau das sah einmal aus wie ein Fehler am
+  # Server, obwohl nur die Meldung von gestern war. Der zweite Lauf zieht nichts mehr (der Pull
+  # ist dann ein Leerlauf) und kann sich nicht wiederholen, weil die Umgebungsvariable ihn beim
+  # zweiten Mal abfängt.
+  if [ "${UPDATE_ERNEUT:-}" != 1 ] &&
+     [ "$(git rev-parse "HEAD:$SKRIPT_IM_REPO" 2>/dev/null || true)" != "$skript_vorher" ]; then
+    echo "Dieses Skript hat sich geändert — noch einmal von vorn mit der neuen Fassung."
+    echo
+    UPDATE_ERNEUT=1 exec "$SELBST" "$@"
+  fi
 
-# Nachmessen statt glauben: Der Präfix aus R13c ist die Stelle, an der ein stehengebliebener
-# Proxy auffällt — die Anfrage käme sonst unbeantwortet bis zur App durch.
-#
-# `--resolve` schickt die Anfrage an 127.0.0.1, behält aber Name und SNI: Dieses Skript läuft auf
-# dem Server, und dort ist der Umweg über die öffentliche Adresse unnötig und je nach Netz sogar
-# unmöglich — nicht jede Maschine erreicht ihre eigene öffentliche IP von innen. Das Zertifikat
-# passt weiterhin, weil der Name unverändert bleibt.
-#
-# Und ein Anlauf genügt nicht: Der Proxy ist gerade neu erstellt worden und braucht einen Moment,
-# bis er auf 443 hört. Vorher antwortet nichts, und curl schreibt 000.
-gate_messen() {
-  curl -s -o /dev/null -m 5 --resolve "$domain:443:127.0.0.1" -w '%{http_code}' \
-    "https://$domain/api/collections/_superusers/auth-refresh" || true
+  echo "── Anwendung bauen und starten ──────────────────────────────────────"
+  "${compose[@]}" up -d --build
+
+  if [ "$MIT_CADDY" = 1 ]; then
+    echo "── Proxy auf die aktuelle deploy/Caddyfile bringen ──────────────────"
+    "${compose[@]}" up -d --no-deps --force-recreate caddy
+  fi
+
+  # Nachmessen statt glauben: Der Präfix aus R13c ist die Stelle, an der ein stehengebliebener
+  # Proxy auffällt — die Anfrage käme sonst unbeantwortet bis zur App durch.
+  #
+  # `--resolve` schickt die Anfrage an 127.0.0.1, behält aber Name und SNI: Dieses Skript läuft auf
+  # dem Server, und dort ist der Umweg über die öffentliche Adresse unnötig und je nach Netz sogar
+  # unmöglich — nicht jede Maschine erreicht ihre eigene öffentliche IP von innen. Das Zertifikat
+  # passt weiterhin, weil der Name unverändert bleibt.
+  #
+  # Und ein Anlauf genügt nicht: Der Proxy ist gerade neu erstellt worden und braucht einen Moment,
+  # bis er auf 443 hört. Vorher antwortet nichts, und curl schreibt 000.
+  gate_messen() {
+    curl -s -o /dev/null -m 5 --resolve "$domain:443:127.0.0.1" -w '%{http_code}' \
+      "https://$domain/api/collections/_superusers/auth-refresh" || true
+  }
+
+  domain="$(sed -n 's/^DOMAIN=//p' .env | tail -n1 | tr -d "\"'\r ")"
+  if [ "$MIT_CADDY" = 1 ] && [ -n "$domain" ]; then
+    echo "── Nachmessen ───────────────────────────────────────────────────────"
+    code=000
+    for versuch in 1 2 3 4 5 6; do
+      code="$(gate_messen)"
+      if [ "$code" != 000 ]; then
+        break
+      fi
+      sleep 2
+    done
+    case "$code" in
+      401)
+        echo "Gate vor der Superuser-Anmeldung: 401 — steht."
+        ;;
+      000)
+        # 000 ist kein Status, sondern das Ausbleiben einer Antwort. Daraus lässt sich über R13c
+        # nichts folgern, und genau das soll hier auch nicht behauptet werden.
+        echo "Keine Antwort von https://$domain nach $versuch Versuchen — der Proxy ist noch nicht" >&2
+        echo "bereit, oder er ist von diesem Rechner aus nicht erreichbar. Das sagt NICHTS darüber," >&2
+        echo "ob das Gate steht; dann von einem anderen Rechner aus nachmessen." >&2
+        ;;
+      *)
+        echo "Gate: $code statt 401 — der Proxy arbeitet nicht nach deploy/Caddyfile (R13c)." >&2
+        ;;
+    esac
+  fi
+
+  echo
+  echo "Fertig. Im Browser einmal hart neu laden (Strg+Umschalt+R), sonst hängt der alte Stand"
+  echo "der Oberfläche noch im Zwischenspeicher."
+
+  exit 0
 }
 
-domain="$(sed -n 's/^DOMAIN=//p' .env | tail -n1 | tr -d "\"'\r ")"
-if [ "$MIT_CADDY" = 1 ] && [ -n "$domain" ]; then
-  echo "── Nachmessen ───────────────────────────────────────────────────────"
-  code=000
-  for versuch in 1 2 3 4 5 6; do
-    code="$(gate_messen)"
-    if [ "$code" != 000 ]; then
-      break
-    fi
-    sleep 2
-  done
-  case "$code" in
-    401)
-      echo "Gate vor der Superuser-Anmeldung: 401 — steht."
-      ;;
-    000)
-      # 000 ist kein Status, sondern das Ausbleiben einer Antwort. Daraus lässt sich über R13c
-      # nichts folgern, und genau das soll hier auch nicht behauptet werden.
-      echo "Keine Antwort von https://$domain nach $versuch Versuchen — der Proxy ist noch nicht" >&2
-      echo "bereit, oder er ist von diesem Rechner aus nicht erreichbar. Das sagt NICHTS darüber," >&2
-      echo "ob das Gate steht; dann von einem anderen Rechner aus nachmessen." >&2
-      ;;
-    *)
-      echo "Gate: $code statt 401 — der Proxy arbeitet nicht nach deploy/Caddyfile (R13c)." >&2
-      ;;
-  esac
-fi
-
-echo
-echo "Fertig. Im Browser einmal hart neu laden (Strg+Umschalt+R), sonst hängt der alte Stand"
-echo "der Oberfläche noch im Zwischenspeicher."
+haupt "$@"
