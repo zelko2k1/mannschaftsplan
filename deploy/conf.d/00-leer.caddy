@@ -1,0 +1,35 @@
+# Hier hinein gehören eigene Site-Blöcke — für Dienste, die neben dem Mannschaftsplan auf
+# demselben Server laufen und denselben Reverse Proxy benutzen sollen.
+#
+# `deploy/Caddyfile` liest am Ende alles ein, was hier als `*.caddy` liegt. Der Vorteil gegenüber
+# einer Änderung an der Vorlage selbst: Was hier liegt, gehört DIR. `git pull` fasst es nie an, es
+# gibt keinen Konflikt, und nach einem Update ist nichts „wieder einzuspielen".
+#
+# Ein Beispiel — `wiki.deine-domain.de` auf einen Container namens `wiki`, Port 3000:
+#
+#     wiki.deine-domain.de {
+#     	encode zstd gzip
+#     	reverse_proxy wiki:3000
+#     }
+#
+# Dazu gehören drei Dinge, die diese Datei nicht für dich tun kann:
+#
+#   1. Ein DNS-Eintrag für den Namen. Das Zertifikat holt Caddy danach von selbst.
+#   2. Der Container muss im Netz `mannschaftsplan` hängen, sonst findet Caddy ihn nicht:
+#        docker network connect mannschaftsplan <container>
+#      Oder der andere Stack trägt das Netz gleich in seiner eigenen Compose-Datei ein.
+#   3. Caddy neu starten, damit er die neue Datei liest:
+#        docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml \
+#          up -d --no-deps --force-recreate caddy
+#
+# Was du hier NICHT tun solltest: einen Block für dieselbe Domain anlegen, unter der der
+# Mannschaftsplan läuft. Caddy verweigert dann den Start — laut und sofort, nicht still. Die
+# Regeln aus R13 (Dashboard zu, Gate vor /admin und der Superuser-Anmeldung) stehen in der
+# Vorlage und lassen sich von hier aus nicht aushebeln: Sie gelten je Domainname, und ein anderer
+# Name kann sie nicht überschreiben.
+#
+# ── Diese Datei bitte liegen lassen ─────────────────────────────────────────────────────────
+# Sie ist der Grund, warum das Einlesemuster oben immer auf mindestens eine Datei passt. Ob Caddy
+# ein Muster ohne jeden Treffer klaglos hinnimmt, ist nicht zugesichert — mit dieser Datei stellt
+# sich die Frage gar nicht erst. Eigene Blöcke kommen als weitere Dateien daneben, sie ersetzt
+# niemand durch sie.

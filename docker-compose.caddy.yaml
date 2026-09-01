@@ -59,6 +59,10 @@ services:
     volumes:
       # Die Vorlage wird nicht editiert, deshalb schreibgeschützt eingehängt.
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Und daneben das Verzeichnis, das dem Betreiber gehört: eigene Site-Blöcke für andere
+      # Dienste desselben Servers. Die Vorlage liest es am Ende ein. Ohne dieses Volume fände
+      # das `import` nichts und Caddy startete nicht — es gehört zur Vorlage, nicht zur Kür.
+      - ./deploy/conf.d:/etc/caddy/conf.d:ro
       # Zertifikate und ACME-Konto. OHNE dieses Volume holt Caddy nach jedem Redeploy neue
       # Zertifikate und läuft in die Ratenbegrenzung von Let's Encrypt.
       - caddy_data:/data

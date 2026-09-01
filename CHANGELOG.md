@@ -9,6 +9,23 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- **Der mitgelieferte Caddy nimmt jetzt weitere Dienste auf.** Wer ihn benutzt, weil er keinen
+  eigenen Proxy hatte, stand bisher vor einem geschlossenen Gerät: `deploy/Caddyfile` gehört dem
+  Repo und trägt „wird NICHT editiert" im Kopf. Wollte er auf demselben Server noch etwas
+  betreiben, blieb nur, die Vorlage anzupassen und nach jedem `git pull` wieder einzuspielen —
+  mit einem Konflikt an genau der Datei, die die Tür vor `/admin` trägt.
+
+  Neu ist **`deploy/conf.d/`**: ein Verzeichnis, das dem Betreiber gehört und in `.gitignore`
+  steht. Wer einen zweiten Dienst hat, legt dessen Site-Block als eigene `.caddy`-Datei dort ab,
+  hängt den Container ans Netz und startet Caddy neu. Dasselbe Muster, das nginx und Apache seit
+  jeher fahren. Die Vorlage bleibt unangetastet, und damit auch die Regeln aus R13 — Blöcke gelten
+  je Domainname, und wer denselben Namen zweimal vergibt, bekommt keinen stillen Fehler, sondern
+  einen Caddy, der nicht startet.
+
+  Dazu in der Anleitung der **Ausstieg**, den bisher nichts beschrieb: Wer später doch seinen
+  eigenen Proxy will, muss nichts neu aufsetzen und nichts zurückspielen. Die App hängt nicht an
+  Caddy — ein Start ohne das Overlay mit `--remove-orphans` genügt.
+
 - **Ein verlegter Spieltag kennzeichnet seine Rückmeldungen.** Ein Spieltag fällt in der Praxis
   nicht aus, er wird verschoben — anderer Tag, andere Uhrzeit oder beides. Bisher blieb dabei jede
   Zusage unverändert stehen: Wer für Samstag zugesagt hatte, stand am neuen Mittwoch weiter als

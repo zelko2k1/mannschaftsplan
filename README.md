@@ -834,6 +834,65 @@ Konfigurationsblock für Caddy findest du in
 bildest du dieselben vier Punkte nach — Sicherheitskopfzeilen, die Tür vor `/admin`, Einladungs-
 links nicht mitschreiben, und keine Adresszusätze im Protokoll.
 
+### ➕ Noch einen Dienst hinter denselben Proxy hängen
+
+Du hast den mitgelieferten Caddy genommen, weil du keinen hattest — und jetzt soll auf demselben
+Server noch etwas laufen: ein Wiki, eine Cloud, ein Benachrichtigungsdienst. Dafür musst du weder
+umziehen noch die Vorlage anfassen.
+
+Lege den Site-Block als eigene Datei in **`deploy/conf.d/`** ab, Endung `.caddy`:
+
+```
+wiki.mein-verein.de {
+	encode zstd gzip
+	reverse_proxy wiki:3000
+}
+```
+
+Dazu drei Handgriffe:
+
+1. **DNS:** ein Eintrag für den neuen Namen auf dieselbe Server-Adresse. Das Zertifikat holt Caddy
+   danach von selbst.
+2. **Netz:** der andere Container muss für Caddy erreichbar sein —
+   `docker network connect mannschaftsplan <container>`, oder der andere Stack trägt das Netz
+   gleich in seiner eigenen Compose-Datei ein.
+3. **Caddy neu starten**, damit er die Datei liest:
+
+```bash
+docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml up -d --no-deps --force-recreate caddy
+```
+
+> **Warum ein eigenes Verzeichnis und nicht die Vorlage selbst?** Weil `deploy/Caddyfile` zum Repo
+> gehört. Änderst du sie, bricht das nächste `git pull` mit einem Konflikt ab — ausgerechnet an
+> der Datei, die die Tür vor `/admin` trägt. Was in `conf.d/` liegt, gehört dir: Es steht in
+> `.gitignore` und wird von keinem Update angefasst. `00-leer.caddy` gehört dem Repo und bleibt
+> liegen; deine Blöcke kommen als weitere Dateien daneben.
+
+Einen Block für **dieselbe** Domain, unter der der Mannschaftsplan läuft, solltest du dort nicht
+anlegen — Caddy verweigert dann den Start. Das ist die einzige Falle, und sie meldet sich laut.
+
+### 🔁 Später doch auf einen eigenen Reverse Proxy umsteigen
+
+Falls dir der mitgelieferte Caddy irgendwann nicht mehr reicht: **Du musst nichts neu aufsetzen
+und nichts zurückspielen.** Die App hängt nicht an ihm — sie veröffentlicht keinen Port, ihre
+Daten liegen in einem eigenen Volume, und beides bleibt unberührt.
+
+```bash
+docker compose -f docker-compose.yaml up -d --remove-orphans
+```
+
+Ohne das Caddy-Overlay fehlt der Proxy in der Konfiguration; `--remove-orphans` räumt seinen
+Container weg. Danach hängst du deinen eigenen Webserver ins Netz `mannschaftsplan` und gehst vor
+wie oben unter *Wenn schon ein Reverse Proxy läuft*.
+
+**Zieh vorher eine Sicherung** — nicht weil dieser Weg sie braucht, sondern weil jeder Eingriff am
+laufenden Betrieb einen Rückweg haben soll.
+
+Zum Zertifikat: Das alte liegt im Volume `caddy_data` und bleibt dort. Dein neuer Proxy holt sich
+sein eigenes; einmal ist das unproblematisch. Wer denselben Namen mehrmals in derselben Woche neu
+beantragt — etwa weil er den Server wiederholt neu aufsetzt —, läuft dagegen in die Grenzen von
+Let's Encrypt.
+
 ### Wenn etwas nicht klappt
 
 **„Der Browser sagt, die Verbindung sei nicht sicher."** Meist zeigt der Name noch nicht auf den
