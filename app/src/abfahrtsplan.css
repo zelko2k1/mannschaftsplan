@@ -93,6 +93,8 @@
   --grau: var(--grau-auf-gelb);
   --rot: var(--rot-auf-gelb);
   --tinte-still: var(--tinte-still-auf-gelb);
+  --ja: var(--ja-auf-gelb);
+  --vielleicht: var(--vielleicht-auf-gelb);
 }
 
 /* Eine Zeile, an der nichts mehr zu tun ist, wird in stiller Tinte gesetzt statt abgeblendet.
@@ -161,6 +163,7 @@
    sich trotzdem wie Blöcke setzen, brauchen sie display: block. */
 .zeile__uhr,
 .zeile__label,
+.zeile__anwurf,
 .zeile__ziel,
 .zeile__ort,
 .zeile__stand {
@@ -179,6 +182,23 @@
   /* 0.08em zerlegte „ABFAHRT" optisch in „ABF AHRT" — bei einer schmalen Schrift in dieser
      Größe trägt viel weniger Sperrung. */
   letter-spacing: 0.05em;
+  color: var(--grau);
+}
+
+/* Die zweite Uhrzeit eines Auswärtsspiels. Sie steht unter der Abfahrt, durch dieselbe
+   gestrichelte Linie getrennt, die sonst innerhalb einer Zeile trennt: zwei Angaben, eine
+   Spalte. Klein und in Grau, weil die Abfahrt die Zeit ist, nach der man sich richtet — der
+   Anwurf ist die, die man wissen will. Sie darf umbrechen; auf 320 px steht dann „ANWURF" über
+   der Uhrzeit, was immer noch lesbar ist. */
+.zeile__anwurf {
+  margin-top: 0.4rem;
+  padding-top: 0.35rem;
+  border-top: var(--linie-innen);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
   color: var(--grau);
 }
 
@@ -329,6 +349,40 @@
   opacity: 0.4;
 }
 .knopf--schmal { flex: 0 0 auto; min-width: 44px; }
+
+/* Die drei Rückmeldungen tragen ihre Farbe, sonst nichts: Rand und Schrift in der Farbe,
+   gefüllt, sobald sie gewählt ist — dasselbe Muster wie beim schwarzen Knopf, nur eben bunt.
+   `--ja` und `--vielleicht` sind auf gelbem Papier umgebunden (siehe `.zeile--auswaerts`), `rot`
+   war es schon; die Regeln hier müssen davon nichts wissen.
+
+   Es sind ausdrücklich nur diese drei. „Ich fahre", „Mitfahren" und die Plätze bleiben Tinte —
+   sie sind Handgriffe, keine Aussagen, und ein Aushang voller bunter Knöpfe wäre genau das, was
+   Abschnitt 6.2 nicht will. */
+.knopf--ja { border-color: var(--ja); color: var(--ja); }
+.knopf--vielleicht { border-color: var(--vielleicht); color: var(--vielleicht); }
+.knopf--nein { border-color: var(--rot); color: var(--rot); }
+
+.knopf--ja[aria-pressed='true'] { background: var(--ja); border-color: var(--ja); color: var(--papier); }
+.knopf--vielleicht[aria-pressed='true'] {
+  background: var(--vielleicht);
+  border-color: var(--vielleicht);
+  color: var(--papier);
+}
+.knopf--nein[aria-pressed='true'] { background: var(--rot); border-color: var(--rot); color: var(--papier); }
+
+/* Der Schwebezustand des Grundknopfs mischt Tinte bei; hier gehört die eigene Farbe hinein.
+   Der gewählte Knopf ist ausgenommen — er ist bereits gefüllt und würde sonst aufhellen. */
+@media (hover: hover) {
+  .knopf--ja:hover:not(:disabled):not([aria-pressed='true']) {
+    background: color-mix(in srgb, var(--ja) 12%, transparent);
+  }
+  .knopf--vielleicht:hover:not(:disabled):not([aria-pressed='true']) {
+    background: color-mix(in srgb, var(--vielleicht) 12%, transparent);
+  }
+  .knopf--nein:hover:not(:disabled):not([aria-pressed='true']) {
+    background: color-mix(in srgb, var(--rot) 12%, transparent);
+  }
+}
 
 .fahrdienst { display: flex; flex-direction: column; gap: 0.5rem; }
 

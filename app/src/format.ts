@@ -63,10 +63,10 @@ export function plaetze(frei: number): string {
  * zwei Wahrheiten, und die Kapitänsansicht liegt in einem eigenen Bündelteil — ein Import
  * aus `Zeile.tsx` zöge den ganzen Aushang mit hinüber.
  */
-export const ANTWORTEN: { wert: 'yes' | 'maybe' | 'no'; text: string }[] = [
-  { wert: 'yes', text: 'Dabei' },
-  { wert: 'maybe', text: 'Unsicher' },
-  { wert: 'no', text: 'Kann nicht' },
+export const ANTWORTEN: { wert: 'yes' | 'maybe' | 'no'; text: string; klasse: string }[] = [
+  { wert: 'yes', text: 'Dabei', klasse: 'knopf--ja' },
+  { wert: 'maybe', text: 'Unsicher', klasse: 'knopf--vielleicht' },
+  { wert: 'no', text: 'Kann nicht', klasse: 'knopf--nein' },
 ]
 
 // ── Kapitänsansicht ─────────────────────────────────────────────────────────────────────────

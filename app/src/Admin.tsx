@@ -676,11 +676,11 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
                   <div key={m.id} className="rueckmeldung">
                     <span className="rueckmeldung__wer">{m.name}</span>
                     <div className="knopfreihe">
-                      {ANTWORTEN.map(({ wert, text }) => (
+                      {ANTWORTEN.map(({ wert, text, klasse }) => (
                         <button
                           key={wert}
                           type="button"
-                          className="knopf"
+                          className={`knopf ${klasse}`}
                           aria-pressed={s.responses?.[m.id] === wert}
                           aria-label={`${m.name}: ${text}`}
                           disabled={laeuft === s.id}

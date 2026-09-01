@@ -9,6 +9,27 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- **Bei Auswärtsspielen steht jetzt auch der Anwurf.** Die Zeitspalte zeigt dort die Abfahrt —
+  die Zeit, nach der man sich richtet —, und damit fehlte die zweite, die zu einem
+  Auswärtsspiel gehört: wann es losgeht. Sie stand nirgends in der Zeile, obwohl sie im Spieltag
+  hinterlegt ist. Jetzt steht sie klein unter der Abfahrt, durch dieselbe gestrichelte Linie
+  getrennt, die sonst innerhalb einer Zeile trennt, und im aufgeklappten Bereich neben Abfahrt
+  und Treffpunkt. Wo kein Abfahrtszeitpunkt eingetragen ist, zeigt die Spalte ohnehin schon den
+  Anwurf — dort ändert sich nichts, und doppelt steht er nie.
+- **Die drei Rückmeldeknöpfe tragen Farbe.** Grün für „Dabei", Ocker für „Unsicher", Rot für
+  „Kann nicht" — als Rand und Schrift, und gefüllt, sobald eine Antwort gewählt ist. Bisher
+  unterschieden sich die drei nur durch ihr Wort, und welches gewählt war, sagte allein die
+  schwarze Füllung. Ocker statt Gelb, weil Gelb die Papierfarbe der Auswärtsspiele ist und ein
+  gelber Knopf auf gelbem Papier verschwände. Alle Töne sind gegen beide Papierfarben gemessen
+  (5,2:1 bis 6,2:1, verlangt sind 4,5:1) und liegen auf gelbem Papier in einer eigenen, dunkleren
+  Fassung vor — wie `grau` und `rot` das schon taten.
+
+  **Farbe bekommen ausdrücklich nur diese drei.** „Ich fahre", „Mitfahren" und die Plätze bleiben
+  Tinte: Sie sind Handgriffe, keine Aussagen. Und die Papierfarbe, an der man beim Scrollen Heim
+  von Auswärts unterscheidet, bleibt unangetastet — die Knöpfe stehen im aufgeklappten Bereich,
+  nicht in der Liste. Dass Rot und Grün nicht jeder unterscheiden kann, ist hier verkraftbar:
+  Auf jedem Knopf steht sein Wort, und gewählt ist der gefüllte.
+
 - **`scripts/update.sh`** — der Ablauf aus dem Abschnitt *Aktualisieren* in einem Befehl: holen,
   bauen, starten, und danach den Proxy auf die aktuelle `deploy/Caddyfile` bringen. Der letzte
   Schritt ist der Grund für das Skript: Er wird von Hand zuverlässig vergessen, und man merkt es

@@ -19,6 +19,29 @@
   --grau-auf-gelb: #584400;
   --rot-auf-gelb: #8e0d17;
 
+  /* Die drei Rückmeldungen. Farbe steht hier ausdrücklich NICHT im Widerspruch zur Regel oben:
+     Sie liegt auf den drei Knöpfen im aufgeklappten Bereich, nicht auf einer Fläche, an der man
+     beim Scrollen Heim von Auswärts unterscheidet. Und sie sagt etwas, das vorher nur als Wort
+     dastand.
+
+     „Kann nicht" nimmt `--rot` — die Farbe ist ohnehin die für „hier stimmt etwas nicht", und
+     eine zweite rote Familie wäre eine Farbe zu viel. Grün und Ocker sind neu; Ocker statt Gelb,
+     weil Gelb die Papierfarbe für Auswärtsspiele ist und ein gelber Knopf auf gelbem Papier
+     verschwände.
+
+     Beide brauchen wie `grau` und `rot` einen eigenen Ton für das gelbe Papier. Gemessen gegen
+     die jeweilige Papierfarbe: Grün 6,2:1 auf Creme und 5,2:1 auf Gelb, Ocker 6,2:1 und 5,7:1 —
+     Fließtext verlangt 4,5:1. Im gedrückten Zustand ist die Farbe die Fläche und die Schrift
+     wird Papier; das ist dasselbe Verhältnis von der anderen Seite und damit ebenfalls gedeckt.
+
+     Rot und Grün nebeneinander sind für einen Teil der Betrachter nicht zu unterscheiden. Das
+     ist hier hinnehmbar, weil die Farbe nichts allein trägt: Auf jedem Knopf steht sein Wort,
+     und gewählt ist der gefüllte. */
+  --ja: #1c6b3a;
+  --vielleicht: #8f4c00;
+  --ja-auf-gelb: #0c5230;
+  --vielleicht-auf-gelb: #663400;
+
   /* Ein vergangener oder abgeschlossener Eintrag tritt zurück. Vorher stand dafür `opacity`,
      und die erfasst die ganze Rendergruppe — auch die Kante und das Wort „abgeschlossen", die
      den Zustand ja gerade unabhängig von der Blässe tragen sollten. Beides blasste mit ab, und
