@@ -991,59 +991,102 @@ bleibt der Weg offen, weil ntfy beides kann.
 Der Nachrichtenspeicher wird **kurz** gehalten (Größenordnung: ein halber Tag). Was zugestellt
 ist, muss auf dem Server nicht liegen bleiben — es sind Namenslisten.
 
-### 9.3 Phase 1 — nur der Admin
+### 9.3 Was zum Produkt gehört — und was nicht
 
-Ein Empfänger, ein Thema, kein neues Feld in der Datenbank. Was dazu zu tun ist:
+Die Anwendung liefert **die Fähigkeit**, nicht den Dienst: „schicke die Erinnerung an diese
+Adresse". Wohin, ist Sache des Betreibers. Zum Kern gehören deshalb nur vier Dinge:
 
-1. **Compose:** Service `ntfy` mit gepinnter Version, eigenes Volume für seine Datenbank,
-   `restart: unless-stopped`, **kein** `ports` — erreichbar nur über den Proxy. Er gehört ins
-   Caddy-Overlay, nicht in `docker-compose.yaml`: Wer einen eigenen Reverse Proxy betreibt,
-   richtet ihn selbst ein.
-2. **Caddy:** ein zweiter Site-Block für `ntfy.{$DOMAIN}` mit `reverse_proxy ntfy:80`. Eigene
-   Subdomain statt Unterpfad, weil ntfy seine Wurzel selbst belegt und `/` auf der Hauptdomain dem
-   Aushang gehört. Dafür ein zusätzlicher DNS-Eintrag; das Zertifikat holt Caddy von selbst.
-3. **`.env`:** `NTFY_URL` (vollständige Adresse des Themas) und `NTFY_TOKEN`. Beide leer lassen ist
-   der Normalfall — ohne sie passiert nichts, und der Stack fährt unverändert.
-4. **Umgebung des App-Containers:** ein `environment:`-Block mit **genau diesen beiden** Werten.
-   Ausdrücklich nicht `env_file: .env` — dort stehen das Superuser-Passwort und der Gate-Hash, die
-   die Anwendung nichts angehen.
-5. **Code:** `cron.pb.js` schickt `Authorization: Bearer` mit, wenn `NTFY_TOKEN` gesetzt ist. Das
-   ist die einzige Änderung am Programm in dieser Phase.
-6. **Einrichtung auf dem Server:** ntfy-Token anlegen, Thema wählen (zufällig), auf dem Handy die
-   ntfy-App installieren und das Thema abonnieren.
-7. **Anleitung:** ein optionaler Abschnitt in der README — was es tut, was es kostet (ein
-   Container, eine Subdomain), und der ausdrückliche Hinweis, dass `ntfy.sh` hier nicht in Frage
-   kommt und warum.
-8. **Datenschutzhinweis:** ein Satz, dass die Anwendung zur Erinnerung an offene Rückmeldungen
-   Namen an einen Benachrichtigungsdienst **auf demselben Server** übergibt.
-9. **Prüfung:** den Cron von Hand auslösen (`POST /api/crons/erinnerung` als Superuser durch den
+1. **Zwei Werte in der `.env`:** `NTFY_URL` (vollständige Adresse eines Themas) und `NTFY_TOKEN`.
+   Beide leer ist der Auslieferungszustand — dann tut der Cron nichts, und niemand merkt, dass es
+   ihn gibt.
+2. **Ein `environment:`-Block am App-Service** mit **genau diesen beiden** Werten. Ausdrücklich
+   nicht `env_file: .env`: Dort stehen das Superuser-Passwort und der Gate-Hash, die die Anwendung
+   nichts angehen, und sie ist der einzige Container, der von außen erreichbar ist.
+3. **Ein `Authorization: Bearer` im Cron**, wenn `NTFY_TOKEN` gesetzt ist. Die einzige Änderung am
+   Programm.
+4. **Ein optionaler Abschnitt in der README** und ein Hinweis, dass der Datenschutzhinweis der
+   Installation um einen Satz zu ergänzen ist, sobald das eingeschaltet wird.
+
+**Was NICHT zum Kern gehört: der ntfy-Server selbst.** Kein Container im Standardstart, keine
+Subdomain, kein zusätzlicher Port, keine Zeile mehr in der Anleitung, die jemand befolgen *muss*.
+Wer das nicht will, liest den Abschnitt und überspringt ihn.
+
+### 9.4 Drei Wege zu einem ntfy
+
+**(a) Es läuft schon eines.** Dann braucht es aus diesem Repo gar nichts außer den zwei Werten.
+Adresse und Token eintragen, fertig — Themen, Konten und Rechte bleiben, wie der Betreiber sie
+ohnehin führt; die Anwendung will nur auf ein Thema schreiben dürfen.
+
+Läuft das vorhandene ntfy auf **demselben Server in einem anderen Stack**, hängt es sich an das
+benannte Netz `mannschaftsplan` (`docker-compose.yaml`), und die Adresse lautet
+`http://ntfy:80/<thema>`. Dann verlässt die Nachricht die Maschine überhaupt nicht — kein
+Zertifikat, kein Umweg über das Internet, kein Token nötig, wenn das Netz die Grenze ist. Dieser
+Weg steht schon für einen fremden Caddy offen; das Netz heißt genau deshalb, wie es heißt.
+
+**(b) Es soll eines dazukommen.** Dafür ein **drittes, optionales Overlay**
+`docker-compose.ntfy.yaml` — dieselbe Bauweise wie das Caddy-Overlay:
+
+```
+docker compose -f docker-compose.yaml -f docker-compose.caddy.yaml -f docker-compose.ntfy.yaml up -d
+```
+
+Wer es weglässt, bekommt keinen Container, keine Subdomain und kein Zertifikat. Es bringt mit:
+den ntfy-Service mit gepinnter Version, ein Volume für seine Datenbank, **kein** `ports` — und den
+Caddy-Block für `ntfy.{$DOMAIN}`.
+
+> **Offen, technisch:** Wie dieser Block in die Konfiguration des laufenden Caddy kommt, ohne
+> `deploy/Caddyfile` für alle anderen zu verändern. Zwei Kandidaten: ein `import` auf ein
+> Verzeichnis, das ohne das Overlay leer bleibt — dann muss Caddy ein Muster hinnehmen, auf das
+> nichts passt —, oder das Overlay hängt eine erweiterte Vorlage an die Stelle der bisherigen,
+> die ihrerseits die Basis importiert. Der zweite Weg kommt ohne Annahme über Caddy aus, wirft
+> aber die Frage auf, ob der globale Optionsblock nach einem `import` noch am Anfang steht.
+> **Entschieden wird das nicht durch Nachdenken, sondern durch den CI-Job „Caddy-Vorlagen"**, der
+> beide Vorlagen gegen dieselbe Caddy-Version validiert, in der sie später laufen. Bis dahin steht
+> hier keine Behauptung.
+
+**(c) Gar keines.** Der Normalfall. Werte leer lassen, alles bleibt wie bisher.
+
+### 9.5 Phase 1 — ein Thema, nur für den Admin
+
+Der Weg des Betreibers dieser Installation, über (b). Ein Empfänger, ein Thema, kein neues Feld in
+der Datenbank:
+
+1. Overlay dazunehmen, Subdomain im DNS anlegen — das Zertifikat holt Caddy von selbst.
+2. ntfy mit `NTFY_AUTH_DEFAULT_ACCESS=read-only` betreiben, ein Token für die Anwendung anlegen,
+   ein langes zufälliges Thema wählen.
+3. `NTFY_URL` und `NTFY_TOKEN` in die `.env`, Stack neu starten.
+4. Auf dem Handy die ntfy-App installieren, das Thema abonnieren.
+5. Datenschutzhinweis der Installation um den Satz ergänzen.
+6. **Prüfen:** den Cron von Hand auslösen (`POST /api/crons/erinnerung` als Superuser durch den
    SSH-Tunnel) und nachsehen, ob die Nachricht ankommt — und ob sie **ausbleibt**, wenn nichts
    offen ist.
 
 *Fertig, wenn:* an einem Spieltag mit offener Rückmeldung um 18 Uhr eine Nachricht auf dem Handy
-liegt, und `curl` auf das Thema ohne Token ein `403` bekommt.
+liegt, ein `curl` ohne Token auf das Thema `403` bekommt — und ein Start **ohne** das Overlay
+unverändert durchläuft.
 
-### 9.4 Phase 2 — je Kapitän
+### 9.6 Phase 2 — ein Thema je Mannschaft
 
-Erst bauen, wenn Phase 1 im Betrieb steht. Der Zuschnitt ist aber jetzt schon festzulegen, damit
-Phase 1 nichts verbaut:
+Erst bauen, wenn Phase 1 im Betrieb steht. Der Zuschnitt steht aber jetzt schon fest, damit
+Phase 1 nichts verbaut — und er gilt für alle drei Wege aus 9.4 gleichermaßen, weil er nur von
+Adressen handelt und nicht davon, wer den Server betreibt:
 
 - **Ein Thema je Mannschaft**, als Feld an `teams` (`ntfy_thema`), von der Anwendung zufällig
-  erzeugt wie ein Einladungstoken — nicht von Hand vergeben. Nicht am Konto: Die Erinnerung handelt
-  von den Spieltagen einer Mannschaft, und eine Mannschaft kann mehrere Kapitäne haben.
+  erzeugt wie ein Einladungstoken — nicht von Hand vergeben. Nicht am Konto: Die Erinnerung
+  handelt von den Spieltagen einer Mannschaft, und eine Mannschaft kann mehrere Kapitäne haben.
 - **Das zentrale Thema bleibt** und bekommt weiterhin alles. Der Admin sieht den ganzen Verein,
   jeder Kapitän nur seine Mannschaft — dieselbe Abschottung wie überall sonst (Abschnitt 12).
 - **Der Cron gruppiert** seine Zeilen künftig nach Mannschaft: eine Anfrage je gesetztem Thema,
   eine an das zentrale. Heute läuft er über alle Spieltage und nennt die Mannschaft im Text; das
   bleibt für das zentrale Thema richtig.
-- **Verteilt wird wie ein Einladungslink:** In der Kapitänsansicht ein Knopf „Adresse kopieren"
-  neben der Mannschaft, den der Admin dem Kapitän im Einzelchat schickt. Und „Neue Adresse", wenn
-  jemand aufhört — dieselbe Bewegung wie „Neues Token" beim Spieler.
-- **Kein Zwang:** Ein Kapitän ohne ntfy-App verpasst nichts, was er nicht auch vorher verpasst
-  hätte. Ohne gesetztes Thema wird für seine Mannschaft nichts verschickt.
+- **Verteilt wird wie ein Einladungslink:** in der Kapitänsansicht ein Knopf „Adresse kopieren"
+  neben der Mannschaft, den der Admin im Einzelchat weitergibt. Und „Neue Adresse", wenn jemand
+  aufhört — dieselbe Bewegung wie „Neues Token" beim Spieler.
+- **Kein Zwang:** Ohne gesetztes Thema wird für diese Mannschaft nichts verschickt, und ein
+  Kapitän ohne ntfy-App verpasst nichts, was er nicht auch vorher verpasst hätte.
 
 Was diese Phase **nicht** bringt: Nachrichten an Spieler. Die Erinnerung geht an den, der handeln
-kann — nicht an die vierzig, die ohnehin schon einen Link auf dem Handy haben.
+kann — nicht an die vierzig, die ohnehin einen Link auf dem Handy haben.
 
 ---
 
@@ -1129,10 +1172,13 @@ T8c, T8d, T10, T11 und T12.
 wird — und der Weg mit vorhandenem Proxy unverändert weiter funktioniert.
 
 **Schritt 10 — Erinnerungen einschalten**
-ntfy als eigener Container am Caddy-Overlay, Phase 1 aus Abschnitt 9.3: ein Thema für den Admin.
-Phase 2 (ein Thema je Mannschaft, 9.4) erst danach und nur, wenn Phase 1 sich bewährt.
-*Fertig, wenn:* eine Erinnerung auf dem Handy des Admins ankommt und das Thema ohne Token nicht
-beschreibbar ist.
+Zum Produkt gehören zwei Werte in der `.env` und ein Header im Cron (9.3), nicht der ntfy-Server.
+Wer schon einen betreibt, trägt seine Adresse ein; wer keinen will, lässt die Werte leer und merkt
+nichts. Für den, der bei null anfängt, ein **drittes, optionales Overlay** (9.4 b). Dann Phase 1
+aus 9.5: ein Thema für den Admin. Phase 2 (ein Thema je Mannschaft, 9.6) erst danach und nur, wenn
+Phase 1 sich bewährt.
+*Fertig, wenn:* eine Erinnerung auf dem Handy des Admins ankommt, das Thema ohne Token nicht
+beschreibbar ist — und ein Start ohne das Overlay unverändert durchläuft.
 
 ---
 
