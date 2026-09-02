@@ -398,6 +398,7 @@ const LEER: Partial<AdminSpieltag> = {
   km: 0,
   meeting_point: '',
   hinweis: '',
+  adresse: '',
   ohne_fahrdienst: false,
   // -1 = noch nicht gespielt. Die Null wäre ein 0:0.
   ergebnis_wir: -1,
@@ -946,6 +947,16 @@ function Spieltagformular({
             value={entwurf.km ?? 0}
             onChange={(x) => setze('km', Number(x.target.value))}
           />
+        </label>
+        <label className="feld">
+          <span>Anschrift des Spielorts</span>
+          <input
+            maxLength={200}
+            value={entwurf.adresse || ''}
+            placeholder="Musterstraße 5, 12345 Beispielstadt"
+            onChange={(x) => setze('adresse', x.target.value)}
+          />
+          <span className="feld__hinweis">Leer: keine Karten-Box im Spieltag</span>
         </label>
         <label className="feld">
           <span>Treffpunkt</span>

@@ -50,6 +50,8 @@ export type AdminSpieltag = {
   seat_claims: Record<string, string>
   /** Freitext des Kapitäns zu diesem Spieltag. Leer = kein Hinweis. */
   hinweis: string
+  /** Anschrift des Spielorts. Leer = keine Karten-Box. */
+  adresse: string
   /** Anreise ohne Autos — Bus, Bahn, zu Fuß. Dann gibt es keinen Fahrdienst. */
   ohne_fahrdienst: boolean
   /** Eigenes Ergebnis, `-1` = nicht eingetragen. Die Null ist ein gültiges Ergebnis. */

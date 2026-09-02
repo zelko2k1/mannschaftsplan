@@ -36,6 +36,7 @@ const SPIELTAG_FELDER = [
   'ergebnis_wir',
   'ergebnis_gegner',
   'hinweis',
+  'adresse',
 ]
 
 module.exports = {
@@ -401,6 +402,8 @@ module.exports = {
         const zahl = Number(koerper[feld])
         if (!isFinite(zahl) || zahl < 0) return 'Ungültige Angabe.'
         satz.set(feld, Math.round(zahl))
+      } else if (feld === 'adresse') {
+        satz.set(feld, String(koerper[feld] === null || koerper[feld] === undefined ? '' : koerper[feld]).slice(0, 200))
       } else if (feld === 'hinweis') {
         // Abgeschnitten und nicht abgelehnt: Wer zu viel schreibt, hat sich nicht vertippt,
         // sondern zu viel zu sagen — und soll seinen Text nicht verlieren, weil das Formular
