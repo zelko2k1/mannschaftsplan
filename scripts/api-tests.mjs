@@ -753,6 +753,77 @@ await pruefe('F6', 'Ohne Fahrdienst wird keine Abfahrtszeit erfunden', async () 
   gleich(mitBahn.ohne_fahrdienst, true, 'und der Spieltag bleibt ohne Fahrdienst')
 })
 
+// ── F7 · „Ich bin dabei, aber ich komme selbst" ─────────────────────────────────────────────
+// Manche fahren mit dem eigenen Auto zum Spiellokal oder kommen direkt von der Arbeit. Für den
+// Fahrdienst ist das dieselbe Auskunft — braucht keinen Platz, bietet keinen an —, und der
+// Kapitän liest daran ab, wer am Samstag ohnehin dort steht.
+await pruefe('F7', 'Wer selbst kommt, gibt seinen Platz frei und bleibt es auch', async () => {
+  const fahrer = await testMitglied('selbst-fahrer')
+  const gast = await testMitglied('selbst-gast')
+  const spieltag = await testSpieltag()
+  const fahrerJar = (await anmelden(fahrer.klartext)).jar
+  const gastJar = (await anmelden(gast.klartext)).jar
+
+  const seinStand = async () => {
+    const board = await (await alsMitglied(gastJar)('/api/board')).json()
+    const s = board.fixtures.find((x) => x.id === spieltag.id)
+    return {
+      selbst: s.selbst_anreise.includes(gast.satz.id),
+      platz: !!s.seat_claims[gast.satz.id],
+      status: s.responses[gast.satz.id],
+    }
+  }
+
+  // Er sagt zu und steigt bei jemandem ein.
+  await alsMitglied(fahrerJar)(`/api/ride/${spieltag.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ driving: true, seats: 3 }),
+  })
+  await alsMitglied(gastJar)(`/api/response/${spieltag.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ status: 'yes' }),
+  })
+  const board = await (await alsMitglied(gastJar)('/api/board')).json()
+  const fahrt = board.fixtures.find((x) => x.id === spieltag.id).rides[0]
+  await alsMitglied(gastJar)(`/api/seat/${spieltag.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ riding: true, ride: fahrt.id }),
+  })
+  gleich((await seinStand()).platz, true, 'er sitzt zunächst mit')
+
+  // Dann doch selbst: Der Platz wird frei für jemanden, der einen sucht.
+  gleich(
+    (
+      await alsMitglied(gastJar)(`/api/response/${spieltag.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'yes', selbst: true }),
+      })
+    ).status,
+    200,
+    'Status',
+  )
+  const selbst = await seinStand()
+  gleich(selbst.selbst, true, 'er kommt selbst')
+  gleich(selbst.platz, false, 'und sein Platz ist frei')
+
+  // Ein gewöhnliches Antippen von „Dabei" schickt das Feld nicht mit — es darf die Angabe nicht
+  // stillschweigend zurücksetzen.
+  await alsMitglied(gastJar)(`/api/response/${spieltag.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ status: 'yes' }),
+  })
+  gleich((await seinStand()).selbst, true, 'nach nochmaligem Zusagen unverändert')
+
+  // Wer absagt, kommt auch nicht selbst.
+  await alsMitglied(gastJar)(`/api/response/${spieltag.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ status: 'no' }),
+  })
+  const nachAbsage = await seinStand()
+  gleich(nachAbsage.status, 'no', 'abgesagt')
+  gleich(nachAbsage.selbst, false, 'und die Selbstanreise ist weg')
+})
+
 // ── F5 · Eine Absage räumt den Fahrdienst mit ───────────────────────────────────────────────
 // Ohne das bleibt das Auto eines Abgesagten im Fahrplan stehen und bietet Plätze an, die es nicht
 // gibt — und der Aushang rechnet mit ihnen, wenn er sagt, wie viele Zusagen ohne

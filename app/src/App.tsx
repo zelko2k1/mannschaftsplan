@@ -218,6 +218,38 @@ function Abfahrtsplan() {
       'antwort',
     )
 
+  /**
+   * „Ich komme selbst" — ein Schalter am Fahrdienst, keine vierte Antwort.
+   *
+   * Ob jemand kommt und wie er hinkommt, sind zwei Fragen; die zweite gibt es nur auswärts. Eine
+   * vierte Antwort („dabei, komme direkt") hätte beide vermengt und in jeder Zählung, jeder
+   * Korrekturmaske und jeder Namensliste einen Sonderfall hinterlassen.
+   */
+  const setzeSelbst = (spieltag: Spieltag, selbst: boolean) =>
+    aendern(
+      spieltag.id,
+      (s) => {
+        const liste = s.selbst_anreise.filter((id) => id !== board.me)
+        if (selbst) liste.push(board.me)
+        // Wer selbst kommt, gibt seinen Platz frei — der Server tut dasselbe.
+        const seat_claims = { ...s.seat_claims }
+        const vorher = seat_claims[board.me]
+        if (selbst) delete seat_claims[board.me]
+        return {
+          ...s,
+          selbst_anreise: liste,
+          seat_claims,
+          rides: s.rides.map((f) => ({
+            ...f,
+            taken: f.taken - (selbst && f.id === vorher ? 1 : 0),
+          })),
+        }
+      },
+      () => api.antwort(spieltag.id, 'yes', selbst),
+      selbst ? 'Gespeichert: du kommst selbst.' : 'Gespeichert: du brauchst eine Mitfahrgelegenheit.',
+      'fahrt',
+    )
+
   const setzeFahrt = (spieltag: Spieltag, faehrt: boolean, plaetze?: number) =>
     aendern(
       spieltag.id,
@@ -355,6 +387,7 @@ function Abfahrtsplan() {
                 setOffen(offen === spieltag.id ? null : spieltag.id)
               }}
               setzeAntwort={(status) => void setzeAntwort(spieltag, status)}
+              setzeSelbst={(selbst) => void setzeSelbst(spieltag, selbst)}
               setzeFahrt={(faehrt, plaetze) => void setzeFahrt(spieltag, faehrt, plaetze)}
               setzeMitfahrt={(fahrt) => void setzeMitfahrt(spieltag, fahrt)}
             />
@@ -376,6 +409,7 @@ function Abfahrtsplan() {
                 setOffen(offen === spieltag.id ? null : spieltag.id)
               }}
               setzeAntwort={(status) => void setzeAntwort(spieltag, status)}
+              setzeSelbst={(selbst) => void setzeSelbst(spieltag, selbst)}
               setzeFahrt={(faehrt, plaetze) => void setzeFahrt(spieltag, faehrt, plaetze)}
               setzeMitfahrt={(fahrt) => void setzeMitfahrt(spieltag, fahrt)}
             />

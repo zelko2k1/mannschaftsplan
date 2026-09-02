@@ -50,6 +50,8 @@ export type AdminSpieltag = {
   seat_claims: Record<string, string>
   /** Anreise ohne Autos — Bus, Bahn, zu Fuß. Dann gibt es keinen Fahrdienst. */
   ohne_fahrdienst: boolean
+  /** Wer zugesagt hat und selbst zum Spielort kommt. */
+  selbst_anreise: string[]
   /** Wann zuletzt verlegt. Leer = nie. */
   verlegt_am: string
   /** Wessen Rückmeldung noch vom alten Termin stammt. */

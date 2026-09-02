@@ -16,6 +16,7 @@ type Props = {
   laeuft: boolean
   aufklappen: () => void
   setzeAntwort: (status: Status | null) => void
+  setzeSelbst: (selbst: boolean) => void
   setzeFahrt: (faehrt: boolean, plaetze?: number) => void
   setzeMitfahrt: (fahrt: string | null) => void
 }
@@ -65,6 +66,7 @@ export default function Zeile({
   laeuft,
   aufklappen,
   setzeAntwort,
+  setzeSelbst,
   setzeFahrt,
   setzeMitfahrt,
 }: Props) {
@@ -118,11 +120,15 @@ export default function Zeile({
    * Gezählt wird, wer zugesagt hat und weder selbst fährt noch einen Platz beansprucht; davon
    * finden die freien Plätze noch unter.
    */
+  const kommtSelbst = (wer: string) => spieltag.selbst_anreise.includes(wer)
   const brauchtPlatz = Object.entries(spieltag.responses).filter(
     ([wer, status]) =>
       status === 'yes' &&
       !spieltag.rides.some((f) => f.member === wer) &&
-      !spieltag.seat_claims[wer],
+      !spieltag.seat_claims[wer] &&
+      // Wer selbst kommt, sucht nichts. Ohne diese Zeile zählte er in „N ohne Platz" mit — die
+      // Warnung stand also zu hoch, und zwar genau bei der Angabe, die zum Handeln auffordert.
+      !kommtSelbst(wer),
   ).length
   const ohnePlatz = mitFahrdienst ? Math.max(0, brauchtPlatz - freiGesamt) : 0
   const vorbei = wannUngefaehr(spieltag.date) === 'vorbei'
@@ -430,6 +436,25 @@ export default function Zeile({
                           Ich fahre
                         </button>
 
+                        {/* „Ich komme selbst" — für den, der mit dem eigenen Auto hinfährt oder
+                            direkt von der Arbeit kommt. Für den Fahrdienst ist das dieselbe
+                            Auskunft: braucht keinen Platz, bietet keinen an.
+
+                            Nur wer zugesagt hat: Wer absagt, kommt gar nicht, und wer unsicher
+                            ist, weiß es noch nicht. Und nur, wer nicht ohnehin fährt — ein Auto
+                            anzubieten sagt das schon. */}
+                        {meineAntwort === 'yes' && !meineFahrt && (
+                          <button
+                            type="button"
+                            className="knopf"
+                            aria-pressed={kommtSelbst(board.me)}
+                            disabled={laeuft}
+                            onClick={() => setzeSelbst(!kommtSelbst(board.me))}
+                          >
+                            Ich komme selbst
+                          </button>
+                        )}
+
                         {meineFahrt && (
                           <span className="plaetze">
                             <button
@@ -521,6 +546,19 @@ export default function Zeile({
 
                       {spieltag.rides.length === 0 && (
                         <p className="namen">Noch fährt niemand.</p>
+                      )}
+
+                      {/* Die Frage des Kapitäns: „wer steht am Samstag ohnehin dort?" Sie gehört
+                          hierher und nicht zu den Zusagen — es ist eine Auskunft über die
+                          Anreise, nicht über das Kommen. */}
+                      {spieltag.selbst_anreise.length > 0 && (
+                        <p className="namen">
+                          <strong>Kommen selbst:</strong>{' '}
+                          {board.members
+                            .filter((m) => spieltag.selbst_anreise.includes(m.id))
+                            .map((m) => m.name)
+                            .join(', ')}
+                        </p>
                       )}
 
                       {/* Hier steht der Satz, nicht nur die Zahl: An dieser Stelle entscheidet

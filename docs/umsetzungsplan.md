@@ -182,6 +182,7 @@ ab 80 Spielern.
 | `fixture` | relation → fixtures, cascade | |
 | `member` | relation → members, cascade | |
 | `status` | select: `yes` / `maybe` / `no` | |
+| `selbst_anreise` | bool, default false | Kommt selbst zum Spielort — eigenes Auto, direkt von der Arbeit. Braucht keinen Platz und bietet keinen an. Gilt nur zusammen mit `status = yes`; jede andere Antwort setzt ihn zurück |
 | `bestaetigt_am` | date | wann diese Rückmeldung zuletzt **gegeben** wurde. Älter als `fixtures.verlegt_am` (oder leer) heißt: stammt vom alten Termin. Ausdrücklich gesetzt und nicht aus dem Änderungszeitpunkt gelesen — der bewegt sich nicht, wenn jemand dieselbe Antwort noch einmal gibt, und genau das ist der Normalfall |
 | **Index** | UNIQUE(`fixture`, `member`) | |
 

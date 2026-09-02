@@ -25,6 +25,12 @@ routerAdd('PUT', '/api/response/{fixtureId}', (e) => {
     return e.json(400, { message: 'Ungültige Angabe.' })
   }
 
+  // „Ich bin dabei, aber ich komme selbst." Optional — fehlt das Feld im Body, bleibt der
+  // bisherige Wert stehen, damit ein gewöhnliches Antippen der Antwort ihn nicht stillschweigend
+  // zurücksetzt. Nur bei „dabei" ergibt er einen Sinn: Wer absagt, kommt gar nicht.
+  const selbst =
+    'selbst' in koerper ? !!koerper.selbst : null
+
   const vorhanden = u.eigenerSatz(e, 'responses', spieltag.id, sitzung.mitglied.id)
   const alt = vorhanden ? vorhanden.getString('status') : ''
 
@@ -36,6 +42,10 @@ routerAdd('PUT', '/api/response/{fixtureId}', (e) => {
     // Aus der Sitzung, nicht aus dem Body (R3).
     satz.set('member', sitzung.mitglied.id)
     satz.set('status', status)
+    if (selbst !== null) satz.set('selbst_anreise', selbst && status === 'yes')
+    // Wer nicht mehr zusagt, kommt auch nicht mehr selbst. Ohne das bliebe die Angabe an einer
+    // Absage hängen und der Kapitän läse sie als „steht trotzdem dort".
+    if (status !== 'yes') satz.set('selbst_anreise', false)
     // Ausdrücklich, nicht über den Änderungszeitpunkt: Wer nach einer Verlegung dieselbe Antwort
     // noch einmal gibt, ändert am Datensatz nichts — bestätigt hat er sie trotzdem, und genau
     // darauf kommt es an.
@@ -46,6 +56,13 @@ routerAdd('PUT', '/api/response/{fixtureId}', (e) => {
   // Eine Absage betrifft den Fahrdienst, nicht nur die Zählung. Das gehört hierher und nicht in
   // den Aushang: Der Kapitän korrigiert über eine andere Route, und beide Wege sollen dieselbe
   // Wirkung haben.
+  // Wer selbst kommt, braucht keinen Platz mehr — der wird frei für jemanden, der einen sucht.
+  // Das eigene Auto bleibt: Wer fährt, kommt ohnehin selbst und bietet dabei Plätze an.
+  if (selbst === true && status === 'yes') {
+    const platz = u.eigenerSatz(e, 'seat_claims', spieltag.id, sitzung.mitglied.id)
+    if (platz) e.app.delete(platz)
+  }
+
   const weg = status === 'no' ? u.absageAufraeumen(e, spieltag.id, sitzung.mitglied.id) : null
   if (weg && weg.fahrt) {
     u.protokollieren(e.app, `member:${sitzung.mitglied.id}`, 'ride.set', spieltag.id, 'fährt', 'abgesagt')
