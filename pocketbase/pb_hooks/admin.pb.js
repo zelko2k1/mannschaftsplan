@@ -399,6 +399,11 @@ routerAdd('GET', '/manage/api/fixtures', (e) => {
         for (const satz of rMap[s.id] || []) r[satz.getString('member')] = satz.getString('status')
         return r
       })(),
+      // Wer zugesagt hat und selbst zum Spielort kommt — die Frage des Kapitäns: „wer steht am
+      // Samstag dort?". Dieselbe Gestalt wie im Aushang.
+      selbst_anreise: (rMap[s.id] || [])
+        .filter((satz) => satz.getString('status') === 'yes' && satz.getBool('selbst_anreise'))
+        .map((satz) => satz.getString('member')),
       rides: (() => {
         const belegung = {}
         for (const p of pMap[s.id] || []) {
@@ -1048,6 +1053,8 @@ routerAdd('PUT', '/manage/api/response/{fixtureId}/{memberId}', (e) => {
     satz.set('fixture', spieltagId)
     satz.set('member', mitgliedId)
     satz.set('status', status)
+    // Wer nicht mehr zusagt, kommt auch nicht mehr selbst — dieselbe Regel wie im Aushang.
+    if (status !== 'yes') satz.set('selbst_anreise', false)
     // Wie beim Mitglied selbst: Was der Kapitän einträgt, ist eine Bestätigung für den Termin,
     // der gerade gilt.
     satz.set('bestaetigt_am', new DateTime())

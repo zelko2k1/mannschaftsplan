@@ -9,6 +9,24 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- **„Ich bin dabei — aber ich komme selbst."** Aus der Kapitänsecke: Manche fahren mit dem eigenen
+  Auto zum Spiellokal oder kommen direkt von der Arbeit. Für den Fahrdienst ist beides dieselbe
+  Auskunft — die Person braucht keinen Platz und bietet keinen an —, und für den Kapitän ist es
+  die Antwort auf „wer steht am Samstag ohnehin dort?".
+
+  Im Fahrdienst gibt es dafür jetzt **„Ich komme selbst"**, neben „Ich fahre". Sichtbar nur, wer
+  zugesagt hat und nicht ohnehin fährt: Wer absagt, kommt gar nicht, und ein angebotenes Auto sagt
+  es schon. Wer den Schalter setzt, **gibt einen belegten Platz frei** — er wird für jemanden
+  frei, der einen sucht. Wer später absagt, verliert die Angabe wieder.
+
+  **Das war nebenbei ein Rechenfehler.** „N ohne Platz" zählte bisher jeden Zusager ohne Auto und
+  ohne Platz — auch den, der längst selbst hinfährt. Die Warnung stand also zu hoch, und zwar
+  ausgerechnet dort, wo sie zum Handeln auffordert.
+
+  Bewusst **keine vierte Antwort**: Ob jemand kommt und wie er hinkommt, sind zwei Fragen, und die
+  zweite gibt es nur auswärts. Eine vierte Antwort hätte beide vermengt und in jeder Zählung,
+  jeder Korrekturmaske und jeder Namensliste einen Sonderfall hinterlassen.
+
 - **Auswärts heißt nicht immer Auto.** Aus der Mannschaft: „Es kann auch sein, dass wir für
   Auswärtsspiele keine Fahrer benötigen, wir können mit dem ÖPNV fahren." Die App nahm das
   Gegenteil an — sie zählte freie Plätze, rief in Rot „kein Fahrer" und rechnete eine Abfahrtszeit

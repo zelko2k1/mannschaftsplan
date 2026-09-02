@@ -428,7 +428,9 @@ const ohnePlatz = (s: AdminSpieltag) => {
     ([wer, status]) =>
       status === 'yes' &&
       !(s.rides ?? []).some((f) => f.member === wer) &&
-      !(s.seat_claims ?? {})[wer],
+      !(s.seat_claims ?? {})[wer] &&
+      // Wer selbst kommt, sucht nichts — wie im Aushang.
+      !(s.selbst_anreise ?? []).includes(wer),
   ).length
   return Math.max(0, braucht - freiePlaetze(s))
 }
@@ -790,6 +792,11 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
                       {m.name}
                       {(s.responses_alt ?? []).includes(m.id) && (
                         <span className="satz__warnung"> · alter Termin</span>
+                      )}
+                      {/* Wer selbst zum Spielort kommt — die Angabe, um derentwillen es das Feld
+                          gibt. Grau: eine Auskunft, keine Aufforderung. */}
+                      {(s.selbst_anreise ?? []).includes(m.id) && (
+                        <span className="satz__zusatz"> · kommt selbst</span>
                       )}
                       {/* Die Quittung steht an der Zeile, an der getippt wurde. Der Kasten ist
                           immer da, auch leer — sonst meldet eine Bildschirmleseanwendung die

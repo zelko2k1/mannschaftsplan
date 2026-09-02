@@ -29,6 +29,8 @@ export type Spieltag = {
   responses: Record<string, Status>
   /** Anreise ohne Autos — Bus, Bahn, zu Fuß. Dann gibt es keinen Fahrdienst. */
   ohne_fahrdienst: boolean
+  /** Wer zugesagt hat und selbst zum Spielort kommt — braucht keinen Platz und bietet keinen an. */
+  selbst_anreise: string[]
   /** Wann zuletzt verlegt. Leer = nie. */
   verlegt_am: string
   /** Wessen Rückmeldung noch vom alten Termin stammt — älter als die Verlegung. */
@@ -104,10 +106,14 @@ export const api = {
       members: [...antwort.members].sort(nachReihenfolge),
     })),
 
-  antwort: (spieltag: string, status: Status | null) =>
+  /**
+   * `selbst` bleibt weg, wenn es nicht gemeint ist: Der Server lässt den bisherigen Wert dann
+   * stehen. Sonst setzte jedes gewöhnliche Antippen von „Dabei" die Selbstanreise still zurück.
+   */
+  antwort: (spieltag: string, status: Status | null, selbst?: boolean) =>
     ruf<unknown>(`/api/response/${spieltag}`, {
       method: 'PUT',
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(selbst === undefined ? { status } : { status, selbst }),
     }),
 
   fahren: (spieltag: string, faehrt: boolean, plaetze?: number) =>

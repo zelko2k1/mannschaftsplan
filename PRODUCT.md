@@ -72,7 +72,9 @@ Quelle sportlicher Personen, Konten davon getrennt und optional damit verknüpft
 - **Berechnete Abfahrtszeit** für Auswärtsspiele — im Backend gerechnet, damit alle dieselbe Zeit
   sehen. Tempo und Rüstzeit lassen sich je Spieltag überschreiben, die Abfahrt selbst von Hand
   setzen; leer heißt jeweils: der eingebaute Standard rechnet.
-- Rückmeldung pro Spieler und Spieltag: dabei / unsicher / kann nicht.
+- Rückmeldung pro Spieler und Spieltag: dabei / unsicher / kann nicht. Wer zusagt und **selbst
+  zum Spielort kommt**, sagt das am Fahrdienst — er sucht dann keinen Platz, und der Kapitän
+  sieht, wer am Spieltag ohnehin dort steht.
 - **Verlegte Spieltage behalten ihre Rückmeldungen und kennzeichnen sie.** Ein Spieltag fällt
   selten aus, er wird verschoben; wer vor der Verschiebung geantwortet hat, hat den neuen Termin
   nie gesehen. Die Zusage bleibt stehen und gilt als unbestätigt, bis derjenige sie noch einmal

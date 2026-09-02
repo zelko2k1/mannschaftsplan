@@ -52,8 +52,15 @@ routerAdd('GET', '/api/board', (e) => {
     const heim = s.getBool('is_home')
 
     const responses = {}
+    // Wer zugesagt hat und selbst zum Spielort kommt. Eine Liste und kein Feld je Antwort: Der
+    // Aushang fragt sie als Gruppe ab („wer kommt selbst?"), und die Antwortkarte bleibt so
+    // schmal, wie sie ist.
+    const selbst_anreise = []
     for (const r of rMap[s.id] || []) {
       responses[r.getString('member')] = r.getString('status')
+      if (r.getString('status') === 'yes' && r.getBool('selbst_anreise')) {
+        selbst_anreise.push(r.getString('member'))
+      }
     }
 
     // Belegung pro Auto zählen, nicht über alle Autos zusammen — seit der Mitfahrer den Fahrer
@@ -104,6 +111,7 @@ routerAdd('GET', '/api/board', (e) => {
       // Auswärts ohne Autos: Bus, Bahn, zu Fuß. Der Fahrdienst entfällt, und die Zeile hört auf,
       // Plätze zu zählen und „kein Fahrer" zu rufen.
       ohne_fahrdienst: s.getBool('ohne_fahrdienst'),
+      selbst_anreise,
       // Eine von Hand eingetragene Abfahrt schlägt die Formel. Leer heißt rechnen (6.3) —
       // nur so erreicht eine spätere Änderung an Tempo oder Puffer auch alte Spieltage.
       //
