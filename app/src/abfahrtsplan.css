@@ -519,6 +519,14 @@
 /* Die Bestätigung nach dem Antippen. Sie steht dort, wo auch die Fehlerzeile steht, und sieht
    aus wie ihr ruhiges Gegenstück: dieselbe Stelle, dieselbe Größe, aber Tinte statt Rot und
    eine Kante statt eines Rahmens — es ist keine Warnung, es ist eine Quittung. */
+/* Der Platz der Quittung. Er bleibt leer, bis etwas zu sagen ist — reserviert wird nichts:
+   Ein dauerhaft freigehaltener Streifen unter den Knöpfen sähe aus wie ein vergessenes Feld. */
+.quittung {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--grau);
+}
+
 .gemeldet {
   margin: 0.6rem 0 0;
   padding: 0.3rem 0 0.3rem 0.6rem;
