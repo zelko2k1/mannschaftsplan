@@ -37,6 +37,8 @@ export type Spieltag = {
   selbst_anreise: string[]
   /** Wann zuletzt verlegt. Leer = nie. */
   verlegt_am: string
+  /** Der Termin, der vor der letzten Verlegung galt. Leer = nie verlegt. */
+  verlegt_von: string
   /** Wessen Rückmeldung noch vom alten Termin stammt — älter als die Verlegung. */
   responses_alt: string[]
   rides: Fahrt[]

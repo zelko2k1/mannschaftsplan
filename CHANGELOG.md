@@ -9,6 +9,22 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- **Ein verlegter Spieltag sagt jetzt auch, woher.** Der Hinweis stand seit dem 01.09.2026 in der
+  Zeile („verlegt") und im aufgeklappten Bereich — nur *was* sich geändert hatte, stand nirgends:
+  In der Zeile steht der neue Termin, der alte war weg. Wer nicht auswendig wusste, dass es
+  Samstag um 19:30 war, erfuhr nur, dass etwas anders ist. Jetzt steht dort **„Der Termin wurde
+  verlegt — vorher Sa 12.09., 19:30 Uhr."**, und in der Kapitänsansicht dieselbe Angabe an der
+  Zeile des Spieltags.
+
+  **Und „verlegt" ist jetzt ein gefüllter Kasten statt eines roten Wortes.** In dieser Zeile stehen
+  Datum, „nächste Woche" und die Entfernung in derselben Schreibmaschinenschrift — ein rotes Wort
+  dazwischen las sich wie ein weiterer Wert und ging unter. Papier auf Rot, Ecken bei 0 px, kein
+  Schatten: ein Stempelaufdruck, kein Etikett aus einer App. Er erscheint nur, solange wirklich
+  jemand seine Zusage noch nicht bestätigt hat.
+
+  Festgehalten wird nur der **letzte** alte Termin. Eine Kette von Verschiebungen wäre eine
+  Historie; die braucht hier niemand, und der Löschjob räumte sie ohnehin weg.
+
 - **Abgeschlossene Spieltage zeigen, wie sie ausgingen.** Der Kapitän trägt zwei Zahlen ein, in
   der Zeile steht ein Stempel wie „Komplett": `SIEG 6:2`, `NIEDERLAGE 2:6`, `UNENTSCHIEDEN 4:4`.
   Sieg in Grün, alles andere in Tinte — Rot ist den Dingen vorbehalten, die zum Handeln

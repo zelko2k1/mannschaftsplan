@@ -209,7 +209,12 @@ export default function Zeile({
             </span>
             {/* Heim und Auswärts stehen im Text, nicht nur in der Papierfarbe. Rot bekommt
                 nur die Entfernung — „Heim" ist keine Warnung. */}
-            {offeneVerlegung && <span className="zeile__warnung">verlegt</span>}
+            {/* Ein gefüllter Kasten und kein bloßes Wort: In dieser Zeile stehen Datum, „nächste
+                Woche" und die Entfernung, alles in derselben Schreibmaschinenschrift — ein rotes
+                Wort dazwischen ging unter. Der Kasten ist die Ausnahme, die es hier braucht, und
+                er bleibt es: Er erscheint nur, solange wirklich jemand seine Zusage noch nicht
+                bestätigt hat, und verschwindet, sobald alle durch sind. */}
+            {offeneVerlegung && <span className="zeile__verlegt">verlegt</span>}
             <span className={`zeile__km${spieltag.is_home ? '' : ' zeile__km--weit'}`}>
               {spieltag.is_home ? 'Heim' : `${spieltag.km} km`}
             </span>
@@ -339,9 +344,16 @@ export default function Zeile({
             {offeneVerlegung && (
               <p className="detail__treffpunkt">
                 <span className="zeile__warnung">
+                  {/* Was sich geändert hat, nicht nur dass. Der neue Termin steht oben in der
+                      Zeile; ohne den alten daneben erfährt man nur, DASS etwas anders ist. */}
+                  {spieltag.verlegt_von
+                    ? `Der Termin wurde verlegt — vorher ${tag(spieltag.verlegt_von)}, ${uhrzeit(
+                        spieltag.verlegt_von,
+                      )} Uhr.`
+                    : 'Der Termin wurde verlegt.'}{' '}
                   {meineAntwortAlt
-                    ? 'Der Termin wurde verlegt. Deine Rückmeldung stammt vom alten — tippe sie noch einmal an, wenn sie weiter gilt.'
-                    : `Der Termin wurde verlegt. ${
+                    ? 'Deine Rückmeldung stammt vom alten — tippe sie noch einmal an, wenn sie weiter gilt.'
+                    : `${
                         spieltag.responses_alt.length === 1
                           ? 'Eine Rückmeldung stammt'
                           : `${spieltag.responses_alt.length} Rückmeldungen stammen`

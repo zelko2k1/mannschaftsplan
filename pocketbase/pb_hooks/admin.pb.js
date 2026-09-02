@@ -379,6 +379,7 @@ routerAdd('GET', '/manage/api/fixtures', (e) => {
       // Wann zuletzt verlegt, und welche Rückmeldungen noch vom alten Termin stammen. Leer bzw.
       // leere Liste heißt: nie verlegt oder alle haben seitdem geantwortet.
       verlegt_am: s.getDateTime('verlegt_am').string(),
+      verlegt_von: s.getDateTime('verlegt_von').string(),
       responses_alt: (() => {
         const verlegtAm = s.getDateTime('verlegt_am').string()
         if (!verlegtAm) return []
