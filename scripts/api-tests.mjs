@@ -824,6 +824,83 @@ await pruefe('F7', 'Wer selbst kommt, gibt seinen Platz frei und bleibt es auch'
   gleich(nachAbsage.selbst, false, 'und die Selbstanreise ist weg')
 })
 
+// ── E1 · Das Ergebnis eines gespielten Spieltags ────────────────────────────────────────────
+// Ein Hinweis am Spieltag, keine Statistik: Der Kapitän trägt zwei Zahlen ein, alle sehen sie.
+// -1 heißt „nicht eingetragen", weil die Null ein gültiges Ergebnis ist.
+await pruefe('E1', 'Der Kapitän trägt ein Ergebnis ein, der Aushang zeigt es', async () => {
+  const jar = await adminSitzung()
+  const ruf = alsKapitaen(jar)
+  const spieler = await testMitglied('ergebnis')
+  const spielerJar = (await anmelden(spieler.klartext)).jar
+
+  // Über die Route angelegt, nicht direkt in die Collection: Nur so greift der Standard -1.
+  const antwort = await ruf('/manage/api/fixtures', {
+    method: 'POST',
+    body: JSON.stringify({
+      team: await testTeam(),
+      date: jetzt(),
+      opponent_town: 'test-Ort-Ergebnis',
+      opponent_club: 'test-Gegner-Ergebnis',
+      is_home: true,
+      venue: 'test-Halle',
+    }),
+  })
+  gleich(antwort.status, 200, 'Spieltag angelegt')
+  const { id } = await antwort.json()
+  aufraeumen.push(['fixtures', id])
+
+  const imAushang = async () => {
+    const board = await (await alsMitglied(spielerJar)('/api/board')).json()
+    return board.fixtures.find((x) => x.id === id)
+  }
+
+  const frisch = await imAushang()
+  gleich(frisch.ergebnis_wir, -1, 'frisch angelegt: nichts eingetragen')
+  gleich(frisch.ergebnis_gegner, -1, 'auch beim Gegner')
+
+  gleich(
+    (
+      await ruf(`/manage/api/fixtures/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ ergebnis_wir: 6, ergebnis_gegner: 2 }),
+      })
+    ).status,
+    200,
+    'Ergebnis eingetragen',
+  )
+  const gespielt = await imAushang()
+  gleich(gespielt.ergebnis_wir, 6, 'eigenes Ergebnis')
+  gleich(gespielt.ergebnis_gegner, 2, 'Ergebnis des Gegners')
+
+  // Ein 0:0 ist ein Unentschieden und kein leeres Feld.
+  await ruf(`/manage/api/fixtures/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ ergebnis_wir: 0, ergebnis_gegner: 0 }),
+  })
+  gleich((await imAushang()).ergebnis_wir, 0, 'die Null bleibt stehen')
+
+  // Ein leeres Feld aus dem Formular heißt „doch nicht" und kommt als leerer String an.
+  await ruf(`/manage/api/fixtures/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ ergebnis_wir: '', ergebnis_gegner: '' }),
+  })
+  gleich((await imAushang()).ergebnis_wir, -1, 'wieder ohne Ergebnis')
+
+  // R4 · Unsinn wird abgelehnt, nicht stillschweigend zurechtgebogen.
+  for (const wert of [7.5, 200, -5]) {
+    gleich(
+      (
+        await ruf(`/manage/api/fixtures/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ ergebnis_wir: wert }),
+        })
+      ).status,
+      400,
+      `abgelehnt: ${wert}`,
+    )
+  }
+})
+
 // ── F5 · Eine Absage räumt den Fahrdienst mit ───────────────────────────────────────────────
 // Ohne das bleibt das Auto eines Abgesagten im Fahrplan stehen und bietet Plätze an, die es nicht
 // gibt — und der Aushang rechnet mit ihnen, wenn er sagt, wie viele Zusagen ohne

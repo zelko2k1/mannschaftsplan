@@ -165,6 +165,8 @@ PocketBases MFA vorbeigeht (R13, zweiter Faktor).
 | `tempo_kmh` | number | Tempo für **diesen** Spieltag; `-1` = erben. 0 wäre ein Tempo von null, deshalb `-1` |
 | `puffer_minuten` | number | Rüstzeit für diesen Spieltag; `-1` = erben |
 | `ohne_fahrdienst` | bool, default false | Anreise ohne Autos (Bus, Bahn, zu Fuß). Blendet den Fahrdienst aus; die Abfahrtszeit wird dann **nicht** gerechnet, weil die Formel eine Autofahrt beschreibt. Eine von Hand gesetzte Abfahrt gilt weiter. Verneinend benannt, damit `false` — der Wert jedes bestehenden Spieltags — „mit Fahrdienst" heißt |
+| `ergebnis_wir` | number, -1–99 | Eigenes Ergebnis, `-1` = nicht eingetragen. Die Null taugt nicht als Leerwert: Ein 0:0 ist ein Unentschieden |
+| `ergebnis_gegner` | number, -1–99 | dito für den Gegner. Sieg, Niederlage und Unentschieden ergeben sich aus den beiden Zahlen — niemand kreuzt etwas an |
 | `verlegt_am` | date | wann Datum oder Uhrzeit zuletzt **nennenswert** verschoben wurden — anderer Kalendertag oder mindestens `VERLEGUNG_MINUTEN` (60). Leer = nie verlegt |
 | `source_key` | text | Herkunft aus einem Verbands-Export, Teilindex `WHERE source_key != ''`. Leer = von Hand angelegt; solche Spieltage fasst der Import nie an. Nach außen geht nur `aus_spielplan: bool` — der Schlüssel selbst ist eine Innerei des Imports. |
 

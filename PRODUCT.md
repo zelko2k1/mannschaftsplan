@@ -35,6 +35,13 @@ zwischen 40 Nachrichten verlorengeht. Erfolg heißt: Der Kapitän sieht auf eine
 Mannschaft vollzählig ist und ob genug Autos da sind — ohne selbst nachzuzählen und ohne jemanden
 einzeln anzuschreiben.
 
+**Aus dem Ausrollen (01.–02.09.2026) ist das schärfer geworden**, und zwar von den Mitgliedern her:
+*Alles, was zu einem Spieltag gehört, kompakt an einem Ort — für die kommenden wie für die
+abgeschlossenen. Kein großes Gelaber mehr in WhatsApp.* Der Spieltag ist die Einheit, nicht der
+Fahrdienst; was man über ihn wissen will, gehört an ihn, davor wie danach. Daran ist zu messen,
+was dazukommt — und was nicht: **Es geht um Information zum Spieltag, nicht um Auswertung
+darüber.**
+
 ## Positioning
 
 Der Unterschied zu jeder Umfrage-App: **Für den Spieler kein Konto, keine Anmeldung, keine
@@ -46,7 +53,9 @@ Der Unterschied zu sieben Einzelinstanzen: **ein Verein, eine Instanz.** Einmal 
 aktualisieren, ein Satz Rechtstexte — und die Mannschaften sehen einander trotzdem nicht.
 
 **Nicht zu verwechseln** mit DartsZentrale — der großen Vereins-App mit Darts-Counter,
-Ligabetrieb und Statistik. Zwei getrennte Produkte. Das Rollenmodell (Spielerliste als einzige
+Ligabetrieb und Statistik. Zwei getrennte Produkte. Dass der Mannschaftsplan seit dem 02.09.2026
+das Ergebnis eines Spieltags anzeigt, ändert daran nichts: Es steht dort als Hinweis am Termin und
+wird nirgends zusammengezählt. Das Rollenmodell (Spielerliste als einzige
 Quelle sportlicher Personen, Konten davon getrennt und optional damit verknüpft) ist von dort
 übernommen, weil es sich bewährt hat — nicht als Schritt zur Zusammenführung.
 
@@ -72,6 +81,9 @@ Quelle sportlicher Personen, Konten davon getrennt und optional damit verknüpft
 - **Berechnete Abfahrtszeit** für Auswärtsspiele — im Backend gerechnet, damit alle dieselbe Zeit
   sehen. Tempo und Rüstzeit lassen sich je Spieltag überschreiben, die Abfahrt selbst von Hand
   setzen; leer heißt jeweils: der eingebaute Standard rechnet.
+- **Das Ergebnis eines gespielten Spieltags** — der Kapitän trägt zwei Zahlen ein, in der Zeile
+  steht ein Stempel: `SIEG 6:2`, `NIEDERLAGE 2:6`, `UNENTSCHIEDEN 4:4`. Als Hinweis, nicht als
+  Auswertung: Es hängt am Spieltag und verschwindet mit ihm nach 365 Tagen.
 - Rückmeldung pro Spieler und Spieltag: dabei / unsicher / kann nicht. Wer zusagt und **selbst
   zum Spielort kommt**, sagt das am Fahrdienst — er sucht dann keinen Platz, und der Kapitän
   sieht, wer am Spieltag ohnehin dort steht.
@@ -100,9 +112,18 @@ Quelle sportlicher Personen, Konten davon getrennt und optional damit verknüpft
 
 **Heute nicht gebaut — als Stand, nicht als Schwur:**
 
-Ergebnisse, Statistiken und Averages; Push-Nachrichten; WhatsApp-Anbindung; Mehrsprachigkeit;
+Tabellen, Saisonbilanzen, Statistiken und Averages; Push-Nachrichten; WhatsApp-Anbindung;
+Mehrsprachigkeit;
 Konten für Spieler; eine Routenberechnung über einen Kartendienst (erwogen und zurückgestellt,
 weil sie einen API-Schlüssel und eine Abhängigkeit einführte, die das Produkt bisher nicht hat).
+
+**Ergebnisse gab es hier bis zum 02.09.2026 auch** — und zwar mit der Begründung, die App kenne
+keine Ergebnisse und sei deshalb für jeden Verein brauchbar. Auf Wunsch aus der Mannschaft ist die
+Linie neu gezogen: **Ein Ergebnis am einzelnen Spieltag ja, alles Aufsummierende nein.** In den
+Worten des Betreibers: „Hier geht es nicht um eine Statistik, sondern einfach nur als Hinweis.
+Keine Auswertung, keine Statistik, einfach nur Info. Für den Rest gibt es die DartsZentrale."
+Die Abgrenzung hält damit weiterhin, sie verläuft nur an einer anderen Stelle — und weil die
+Zahlen mit dem Spieltag verschwinden, gibt es nichts, woraus sich eine Tabelle bauen ließe.
 
 **Auch keine Zählung, wer wie oft gefahren ist** — vorgeschlagen und ausdrücklich abgelehnt. Eine
 solche Zahl beantwortet keine Frage, die jemand hat, sondern eröffnet eine, die niemand stellen

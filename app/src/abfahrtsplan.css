@@ -299,6 +299,17 @@
 /* Eigene Zeile, rechtsbündig — nicht absolut positioniert. Absolut lag er bei 320 px über
    dem Text „4/4 zugesagt · 1 Platz frei". Die Drehung wirkt sich auf das Layout nicht aus,
    der Stempel kann also nichts mehr überdecken. */
+/* Der Stempel eines gespielten Spieltags. Dieselbe Form wie „Komplett", nur in anderer Farbe:
+   Es ist dieselbe Sorte Angabe — ein Wort quer über die Zeile, das man im Vorbeiscrollen liest. */
+.stempel--sieg {
+  border-color: var(--ja);
+  color: var(--ja);
+}
+.stempel--tinte {
+  border-color: var(--tinte);
+  color: var(--tinte);
+}
+
 .stempel {
   display: block;
   width: fit-content;

@@ -372,6 +372,10 @@ routerAdd('GET', '/manage/api/fixtures', (e) => {
       needed_players: s.getInt('needed_players'),
       locked: s.getBool('locked'),
       ohne_fahrdienst: s.getBool('ohne_fahrdienst'),
+      // Wie es ausgegangen ist — als Hinweis am Spieltag, nicht als Statistik. -1 heißt „nicht
+      // eingetragen"; 0 ist ein gültiges Ergebnis, deshalb taugt die Null hier nicht als Leerwert.
+      ergebnis_wir: s.getInt('ergebnis_wir'),
+      ergebnis_gegner: s.getInt('ergebnis_gegner'),
       // Wann zuletzt verlegt, und welche Rückmeldungen noch vom alten Termin stammen. Leer bzw.
       // leere Liste heißt: nie verlegt oder alle haben seitdem geantwortet.
       verlegt_am: s.getDateTime('verlegt_am').string(),
@@ -477,6 +481,9 @@ routerAdd('POST', '/manage/api/fixtures', (e) => {
   satz.set('locked', false)
   // Mit Fahrdienst, solange niemand etwas anderes sagt — der Normalfall auswärts.
   satz.set('ohne_fahrdienst', false)
+  // Noch nicht gespielt. Die Null wäre ein 0:0, also ein Unentschieden, das nie stattfand.
+  satz.set('ergebnis_wir', -1)
+  satz.set('ergebnis_gegner', -1)
   const fehler = a.spieltagUebernehmen(satz, koerper)
   if (fehler) return e.json(400, { message: fehler })
 
@@ -695,6 +702,8 @@ routerAdd('POST', '/admin/api/fixtures/import', (e) => {
     // Ein Verbands-Export sagt nichts über die Anreise. Mit Fahrdienst ist die sichere Annahme:
     // Ein zu viel angebotenes Auto stört niemanden, ein fehlendes schon.
     satz.set('ohne_fahrdienst', false)
+    satz.set('ergebnis_wir', -1)
+    satz.set('ergebnis_gegner', -1)
     e.app.save(satz)
     neu++
   }

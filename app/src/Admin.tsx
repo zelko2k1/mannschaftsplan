@@ -22,6 +22,8 @@ import {
   systemDatum,
   systemDatumZeit,
   tageSeit,
+  ergebnis,
+  wannUngefaehr,
 } from './format'
 import { dekodiere } from './csv'
 import { leseSpielplan, vorlageCsv, type Spielplan } from './spielplan'
@@ -396,6 +398,9 @@ const LEER: Partial<AdminSpieltag> = {
   km: 0,
   meeting_point: '',
   ohne_fahrdienst: false,
+  // -1 = noch nicht gespielt. Die Null wäre ein 0:0.
+  ergebnis_wir: -1,
+  ergebnis_gegner: -1,
   // -1 heißt „nicht gesetzt": Es gilt der eingebaute Standard, 80 km/h und 25 Minuten. Die Null
   // wäre hier ein Tempo von null und ein Spieltag ohne Abfahrtszeit.
   tempo_kmh: -1,
@@ -630,7 +635,15 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
                 </span>
               </>
             )}
-            {zugesagt(s) >= s.needed_players && <span className="satz__voll">vollzählig</span>}
+            {/* Wie im Aushang: Ist das Ergebnis da, tritt „vollzählig" zurück. Dass genug Leute
+                zugesagt hatten, ist am Montag keine Nachricht mehr. */}
+            {(() => {
+              const stand = ergebnis(s.ergebnis_wir, s.ergebnis_gegner)
+              if (stand) return <span className="satz__voll">{stand.text}</span>
+              return zugesagt(s) >= s.needed_players ? (
+                <span className="satz__voll">vollzählig</span>
+              ) : null
+            })()}
           </p>
 
           {nachzutragen(s) && (
@@ -922,6 +935,41 @@ function Spieltagformular({
             onChange={(x) => setze('meeting_point', x.target.value)}
           />
         </label>
+        {/* Erst wenn gespielt wurde. Vorher wären es zwei Felder, die niemand ausfüllen kann —
+            und ein Formular, das nach Dingen fragt, die es noch nicht gibt, wird nicht
+            vollständiger, sondern länger. Leer heißt „kein Ergebnis"; ein 0:0 trägt man als 0
+            und 0 ein, deshalb taugt die Null nicht als Leerwert. */}
+        {wannUngefaehr(entwurf.date) === 'vorbei' && (
+          <label className="feld">
+            <span>Ergebnis (wir : Gegner)</span>
+            <span className="ergebnisfelder">
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={99}
+                aria-label="Eigenes Ergebnis"
+                value={(entwurf.ergebnis_wir ?? -1) < 0 ? '' : entwurf.ergebnis_wir}
+                onChange={(x) =>
+                  setze('ergebnis_wir', x.target.value === '' ? -1 : Number(x.target.value))
+                }
+              />
+              <span aria-hidden="true">:</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={99}
+                aria-label="Ergebnis des Gegners"
+                value={(entwurf.ergebnis_gegner ?? -1) < 0 ? '' : entwurf.ergebnis_gegner}
+                onChange={(x) =>
+                  setze('ergebnis_gegner', x.target.value === '' ? -1 : Number(x.target.value))
+                }
+              />
+            </span>
+            <span className="feld__hinweis">Beide leer: kein Ergebnis</span>
+          </label>
+        )}
         {/* Nur bei Auswärtsspielen — zu einem Heimspiel fährt niemand gemeinsam los (6.3).
             Kein `flex` an diesen Feldern: `.feldreihe` ist ein Grid, dort verpufft es. Die
             Spaltenbreite gibt `auto-fit` vor. */}

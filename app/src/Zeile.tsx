@@ -1,6 +1,6 @@
 import { useId, useState } from 'react'
 import type { Board, Fahrt, Spieltag, Status } from './api'
-import { ANTWORTEN, plaetze as plaetzeText, tag, uhrzeit, wannUngefaehr } from './format'
+import { ANTWORTEN, ergebnis, plaetze as plaetzeText, tag, uhrzeit, wannUngefaehr } from './format'
 import { Fehler } from './Meldung'
 import { Nachfragekasten, type Nachfrage } from './Nachfrage'
 
@@ -288,7 +288,28 @@ export default function Zeile({
                 </span>
               )}
 
-          {vollzaehlig && <span className="stempel">Komplett</span>}
+          {/* Ein gespielter Spieltag zeigt, wie er ausging — dann tritt „Komplett" zurück.
+              Beides nebeneinander wären zwei Stempel für zwei Fragen, von denen im Nachhinein nur
+              eine noch jemanden interessiert: Dass genug Leute zugesagt hatten, ist am Montag
+              keine Nachricht mehr.
+
+              Grün für den Sieg, Tinte für alles andere. Rot ist in dieser App den Dingen
+              vorbehalten, die zum Handeln auffordern (6.2) — eine verlorene Begegnung tut das
+              nicht, und sie in Alarmfarbe zu setzen wäre eine Wertung, die nicht Sache der
+              Software ist. */}
+          {(() => {
+            const stand = ergebnis(spieltag.ergebnis_wir, spieltag.ergebnis_gegner)
+            if (stand) {
+              return (
+                <span
+                  className={`stempel${stand.wort === 'Sieg' ? ' stempel--sieg' : ' stempel--tinte'}`}
+                >
+                  {stand.text}
+                </span>
+              )
+            }
+            return vollzaehlig ? <span className="stempel">Komplett</span> : null
+          })()}
         </span>
       </button>
       </h2>
