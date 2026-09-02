@@ -215,6 +215,15 @@ export default function Zeile({
                 er bleibt es: Er erscheint nur, solange wirklich jemand seine Zusage noch nicht
                 bestätigt hat, und verschwindet, sobald alle durch sind. */}
             {offeneVerlegung && <span className="zeile__verlegt">verlegt</span>}
+            {/* Nur das Zeichen, nicht der Text: In der Zeile steht, was jetzt zählt — der Hinweis
+                selbst kann fünf Zeilen lang sein und gehört in den aufgeklappten Bereich. Ohne
+                das Zeichen läse ihn niemand, denn nichts deutet darauf hin, dass da etwas ist.
+                Grau, weil es eine Auskunft ist und keine Aufforderung; und nur, solange der
+                Spieltag noch bevorsteht — danach steht er weiterhin unten, aber die Übersicht
+                schweigt darüber. */}
+            {spieltag.hinweis && planungGilt && (
+              <span className="zeile__hinweiszeichen">Hinweis</span>
+            )}
             <span className={`zeile__km${spieltag.is_home ? '' : ' zeile__km--weit'}`}>
               {spieltag.is_home ? 'Heim' : `${spieltag.km} km`}
             </span>
@@ -376,6 +385,11 @@ export default function Zeile({
                 {spieltag.meeting_point && <> · Treffpunkt: {spieltag.meeting_point}</>}
               </p>
             )}
+            {/* Der Hinweis steht bei Abfahrt und Treffpunkt, weil er meistens davon handelt.
+                `pre-wrap`, damit eine Aufzählung eine bleibt: Wer drei Dinge untereinander
+                schreibt, meint drei Zeilen. */}
+            {spieltag.hinweis && <p className="detail__hinweis">{spieltag.hinweis}</p>}
+
             {spieltag.locked ? (
               <p className="gesperrt">
                 Dieser Spieltag ist abgeschlossen. Änderungen sind nicht mehr möglich.

@@ -9,6 +9,27 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- **Ein Hinweisfeld am Spieltag.** Aus der Mannschaft, mit Beispielen: die Anschrift des Lokals,
+  „vergesst das und das nicht", „Spieltagverschiebung in Klärung", „viel Glück beim Spiel", „der
+  Ersatzkapitän ist heute der und der". Fünf Dinge ohne Gemeinsamkeit — genau der Fall, für den
+  Freitext richtig ist. Gäbe es ein Muster, gehörte es in ein eigenes Feld.
+
+  Der Kapitän schreibt, alle lesen. In der Zeile steht nur das graue Wort **Hinweis** — der Text
+  selbst kann fünf Zeilen lang sein und gehört in den aufgeklappten Bereich, neben Abfahrt und
+  Treffpunkt. Zeilenumbrüche bleiben erhalten: Wer drei Dinge untereinander schreibt, meint drei
+  Zeilen.
+
+  **Kein Diskussionsbereich, und das ist eine Entscheidung.** Ein Feld, in das alle schreiben,
+  bräuchte Konten für Spieler, Benachrichtigungen und Moderation — davon hat die App nichts, und
+  keins davon soll sie bekommen. 500 Zeichen; was länger ist, ist eine Diskussion. Zu lange
+  Eingaben werden abgeschnitten und nicht abgelehnt: Wer zu viel schreibt, soll seinen Text nicht
+  verlieren.
+
+  **Die Kehrseite steht im Formular:** *Was für alle gilt — keine Angaben über einzelne Personen.*
+  Bisher stand im Datenschutzhinweis genau, was gespeichert wird; in ein Freitextfeld kann jemand
+  „Uwe kommt später, muss noch zum Arzt" schreiben. Wer das Feld benutzt, ergänzt seinen
+  Datenschutztext um einen Satz.
+
 - **Ein verlegter Spieltag sagt jetzt auch, woher.** Der Hinweis stand seit dem 01.09.2026 in der
   Zeile („verlegt") und im aufgeklappten Bereich — nur *was* sich geändert hatte, stand nirgends:
   In der Zeile steht der neue Termin, der alte war weg. Wer nicht auswendig wusste, dass es

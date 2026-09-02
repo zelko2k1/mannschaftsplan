@@ -397,6 +397,7 @@ const LEER: Partial<AdminSpieltag> = {
   venue: '',
   km: 0,
   meeting_point: '',
+  hinweis: '',
   ohne_fahrdienst: false,
   // -1 = noch nicht gespielt. Die Null wäre ein 0:0.
   ergebnis_wir: -1,
@@ -620,6 +621,7 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
               {zugesagt(s)} zugesagt
               {zugesagt(s) < s.needed_players && planungGilt(s) && `, ${s.needed_players} nötig`}
             </span>
+            {s.hinweis && planungGilt(s) && ' · Hinweis'}
             {!s.is_home && s.ohne_fahrdienst && planungGilt(s) && ' · ohne Fahrdienst'}
             {mitFahrdienst(s) && planungGilt(s) && (
               <>
@@ -951,6 +953,22 @@ function Spieltagformular({
             value={entwurf.meeting_point || ''}
             onChange={(x) => setze('meeting_point', x.target.value)}
           />
+        </label>
+        {/* Ein Freitext für alles, was zu diesem Spieltag gehört und kein eigenes Feld hat:
+            Anfahrt, „vergesst die Trikots nicht", wer heute vertritt. Über die ganze Breite, weil
+            hier Sätze stehen und keine Werte — `.feldreihe` ist ein Grid, `grid-column: 1 / -1`
+            nimmt die ganze Zeile. */}
+        <label className="feld" style={{ gridColumn: '1 / -1' }}>
+          <span>Hinweis für die Mannschaft</span>
+          <textarea
+            rows={3}
+            maxLength={500}
+            value={entwurf.hinweis || ''}
+            onChange={(x) => setze('hinweis', x.target.value)}
+          />
+          <span className="feld__hinweis">
+            Steht bei allen im Spieltag. Was für alle gilt — keine Angaben über einzelne Personen.
+          </span>
         </label>
         {/* Erst wenn gespielt wurde. Vorher wären es zwei Felder, die niemand ausfüllen kann —
             und ein Formular, das nach Dingen fragt, die es noch nicht gibt, wird nicht

@@ -27,6 +27,8 @@ export type Spieltag = {
   /** Vom Server gerechnet (Abschnitt 6.3). Bei Heimspielen null. */
   departure: string | null
   responses: Record<string, Status>
+  /** Freitext des Kapitäns zu diesem Spieltag. Leer = kein Hinweis. */
+  hinweis: string
   /** Anreise ohne Autos — Bus, Bahn, zu Fuß. Dann gibt es keinen Fahrdienst. */
   ohne_fahrdienst: boolean
   /** Eigenes Ergebnis, `-1` = nicht eingetragen. Die Null ist ein gültiges Ergebnis. */

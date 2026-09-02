@@ -159,6 +159,7 @@ PocketBases MFA vorbeigeht (R13, zweiter Faktor).
 | `venue` | text | Spielstätte vor Ort |
 | `km` | number, default 0 | einfache Strecke |
 | `meeting_point` | text | Treffpunkt für die Abfahrt |
+| `hinweis` | text, max 500 | Freitext des Kapitäns zu diesem Spieltag — Anfahrt, Erinnerungen, Vertretung. Für alle sichtbar, **nur der Kapitän schreibt**: Ein Feld, in das alle schreiben, wäre ein Diskussionsbereich, und dafür fehlen Konten, Benachrichtigungen und Moderation. Zu lange Eingaben werden abgeschnitten, nicht abgelehnt |
 | `needed_players` | number, default 4 | |
 | `locked` | bool, default false | nach dem Spiel: keine Änderungen mehr |
 | `departure_manual` | date | von Hand gesetzte Abfahrt. Leer = die Formel rechnet (6.3) |

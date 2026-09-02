@@ -35,6 +35,7 @@ const SPIELTAG_FELDER = [
   'ohne_fahrdienst',
   'ergebnis_wir',
   'ergebnis_gegner',
+  'hinweis',
 ]
 
 module.exports = {
@@ -400,6 +401,12 @@ module.exports = {
         const zahl = Number(koerper[feld])
         if (!isFinite(zahl) || zahl < 0) return 'Ungültige Angabe.'
         satz.set(feld, Math.round(zahl))
+      } else if (feld === 'hinweis') {
+        // Abgeschnitten und nicht abgelehnt: Wer zu viel schreibt, hat sich nicht vertippt,
+        // sondern zu viel zu sagen — und soll seinen Text nicht verlieren, weil das Formular
+        // ihn zurückweist. Die Grenze steht auch in der Datenbank; hier steht sie, damit die
+        // Meldung von dort niemanden erreicht.
+        satz.set(feld, String(koerper[feld] === null || koerper[feld] === undefined ? '' : koerper[feld]).slice(0, 500))
       } else if (feld === 'ergebnis_wir' || feld === 'ergebnis_gegner') {
         // -1 heißt „nicht eingetragen"; 0 ist ein gültiges Ergebnis. Ein leeres Feld aus dem
         // Formular kommt als leerer String an und bedeutet dasselbe wie -1 — sonst müsste die

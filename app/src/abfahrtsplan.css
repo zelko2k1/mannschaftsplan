@@ -293,6 +293,27 @@
   white-space: nowrap;
 }
 
+/* Das Zeichen „Hinweis" in der Kopfzeile — es sagt, dass unten etwas steht, und sonst nichts.
+   Grau und ohne Füllung: Der gefüllte Kasten daneben gehört der Verlegung, und zwei gefüllte
+   Kästen nebeneinander wären zwei Alarme, von denen einer keiner ist. */
+.zeile__hinweiszeichen {
+  color: var(--grau);
+  font-family: var(--schrift-eng);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Der Hinweis selbst, im aufgeklappten Bereich. Kante in Tinte wie bei der Quittung — es ist
+   etwas, das jemand hingeschrieben hat, und das soll man sehen. */
+.detail__hinweis {
+  margin: 0.7rem 0 0;
+  padding: 0.3rem 0 0.3rem 0.6rem;
+  border-left: 4px solid var(--tinte); /* impeccable-disable-line side-tab -- Tinte auf Papier, wie die Quittung */
+  white-space: pre-wrap;
+}
+
 /* „ohne Fahrdienst" ist eine Auskunft, kein Ruf zum Handeln — also Grau und nicht Rot (6.2).
    Zusammenhalten wie die anderen kurzen Einwürfe in dieser Zeile. */
 .zeile__ohne-fahrdienst {

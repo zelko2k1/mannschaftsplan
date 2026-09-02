@@ -79,6 +79,9 @@ Quelle sportlicher Personen, Konten davon getrennt und optional damit verknüpft
 
 - Mehrere Mannschaften unter einem Dach, strikt voneinander getrennt.
 - Spielplan je Mannschaft mit Heim/Auswärts, Gegner, Ort, Anwurf, Entfernung, Treffpunkt.
+- **Ein Hinweis je Spieltag** — Freitext des Kapitäns für alles, was kein eigenes Feld hat:
+  Anfahrt, Erinnerungen, wer heute vertritt. Für alle sichtbar, höchstens 500 Zeichen. **Kein
+  Diskussionsbereich:** Es schreibt nur der Kapitän.
 - **Berechnete Abfahrtszeit** für Auswärtsspiele — im Backend gerechnet, damit alle dieselbe Zeit
   sehen. Tempo und Rüstzeit lassen sich je Spieltag überschreiben, die Abfahrt selbst von Hand
   setzen; leer heißt jeweils: der eingebaute Standard rechnet.
