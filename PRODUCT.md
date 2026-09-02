@@ -40,7 +40,8 @@ einzeln anzuschreiben.
 abgeschlossenen. Kein großes Gelaber mehr in WhatsApp.* Der Spieltag ist die Einheit, nicht der
 Fahrdienst; was man über ihn wissen will, gehört an ihn, davor wie danach. Daran ist zu messen,
 was dazukommt — und was nicht: **Es geht um Information zum Spieltag, nicht um Auswertung
-darüber.**
+darüber.** Und: Was ein Spieltag nicht mehr ändern kann, verschwindet aus seiner Zeile — die
+Übersicht zeigt, was jetzt zählt, der aufgeklappte Bereich bleibt die Nachschau.
 
 ## Positioning
 

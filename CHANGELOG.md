@@ -19,6 +19,17 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   Unentschieden ergeben sich aus den Zahlen — niemand kreuzt etwas an. `-1` heißt „nicht
   eingetragen", denn ein 0:0 ist ein Ergebnis.
 
+  **Und ein gespielter Spieltag schweigt über das, was er nicht mehr ändern kann.** Aus der Zeile
+  verschwinden nach dem Spiel die Planungsangaben: „kein Fahrer" und „N ohne Platz" — beide in Rot,
+  also Aufforderungen zu etwas, das nicht mehr geht —, die freien Plätze, „ohne Fahrdienst" und die
+  Zahl der nötigen Spieler. Auch „Komplett" tritt ab: Es beantwortete „sind wir genug?", eine Frage
+  von vorher. Es bleibt, was auch danach noch etwas sagt — dass er abgeschlossen ist, wie viele
+  dabei waren, was man selbst geantwortet hat, und wie es ausging.
+
+  Der **aufgeklappte Bereich bleibt unverändert**: Er ist die Nachschau und darf zeigen, wer dabei
+  war und wer gefahren ist. Die Zeile ist die Übersicht, und dort gilt: nur so viel, wie für diesen
+  Spieltag jetzt zählt.
+
   **Das ist eine bewusste Verschiebung der Produktgrenze.** PRODUCT.md führte „Ergebnisse" bis
   hierher unter dem, was nicht gebaut ist. Die Linie verläuft jetzt anders: ein Ergebnis am
   einzelnen Spieltag ja, Tabellen und Saisonbilanzen nein. Die Zahlen hängen am Spieltag und

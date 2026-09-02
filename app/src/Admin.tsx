@@ -448,6 +448,14 @@ const ohnePlatz = (s: AdminSpieltag) => {
  * sie rechnet die Abfahrtszeit ins Leere. Deshalb steht es dran, statt still zu bleiben. Wer die
  * Vorlage ausfüllt, kann Ort und Kilometer gleich mitgeben — dann kommt dieser Hinweis nicht.
  */
+/**
+ * Ob an diesem Spieltag noch etwas zu planen ist.
+ *
+ * Nach dem Spiel beantworten freie Plätze, fehlende Fahrer und die Zahl der nötigen Spieler eine
+ * Frage, die niemand mehr stellt. Wörtlich dieselbe Regel wie im Aushang.
+ */
+const planungGilt = (s: AdminSpieltag) => wannUngefaehr(s.date) !== 'vorbei'
+
 const nachzutragen = (s: AdminSpieltag) =>
   s.aus_spielplan && !s.is_home && (!s.opponent_town.trim() || s.km <= 0)
 
@@ -610,10 +618,10 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
           <p className="satz__stand">
             <span className="satz__zusagen">
               {zugesagt(s)} zugesagt
-              {zugesagt(s) < s.needed_players && `, ${s.needed_players} nötig`}
+              {zugesagt(s) < s.needed_players && planungGilt(s) && `, ${s.needed_players} nötig`}
             </span>
-            {!s.is_home && s.ohne_fahrdienst && ' · ohne Fahrdienst'}
-            {mitFahrdienst(s) && (
+            {!s.is_home && s.ohne_fahrdienst && planungGilt(s) && ' · ohne Fahrdienst'}
+            {mitFahrdienst(s) && planungGilt(s) && (
               <>
                 {' · '}
                 <span className={ohneFahrer(s) ? 'satz__warnung' : undefined}>
@@ -640,7 +648,7 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
             {(() => {
               const stand = ergebnis(s.ergebnis_wir, s.ergebnis_gegner)
               if (stand) return <span className="satz__voll">{stand.text}</span>
-              return zugesagt(s) >= s.needed_players ? (
+              return zugesagt(s) >= s.needed_players && planungGilt(s) ? (
                 <span className="satz__voll">vollzählig</span>
               ) : null
             })()}
