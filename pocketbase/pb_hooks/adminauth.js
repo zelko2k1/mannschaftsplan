@@ -33,6 +33,8 @@ const SPIELTAG_FELDER = [
   'needed_players',
   'locked',
   'ohne_fahrdienst',
+  'ergebnis_wir',
+  'ergebnis_gegner',
 ]
 
 module.exports = {
@@ -395,6 +397,15 @@ module.exports = {
         const zahl = Number(koerper[feld])
         if (!isFinite(zahl) || zahl < 0) return 'Ungültige Angabe.'
         satz.set(feld, Math.round(zahl))
+      } else if (feld === 'ergebnis_wir' || feld === 'ergebnis_gegner') {
+        // -1 heißt „nicht eingetragen"; 0 ist ein gültiges Ergebnis. Ein leeres Feld aus dem
+        // Formular kommt als leerer String an und bedeutet dasselbe wie -1 — sonst müsste die
+        // Oberfläche wissen, wie „nichts" im Backend heißt.
+        const roh = koerper[feld]
+        const zahl = roh === '' || roh === null || roh === undefined ? -1 : Number(roh)
+        if (!isFinite(zahl) || zahl !== Math.round(zahl)) return 'Ungültige Angabe.'
+        if (zahl < -1 || zahl > 99) return 'Ungültige Angabe.'
+        satz.set(feld, zahl)
       } else if (feld === 'tempo_kmh' || feld === 'puffer_minuten') {
         // -1 heißt „nicht gesetzt" und ist deshalb ausdrücklich erlaubt. Sonst dieselben
         // Grenzen wie zentral bzw. an der Mannschaft — die Datenbank lehnte anderes ohnehin ab,

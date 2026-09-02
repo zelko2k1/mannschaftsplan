@@ -286,6 +286,17 @@ span.satz__warnung {
   }
 }
 
+/* Zwei schmale Zahlenfelder mit einem Doppelpunkt dazwischen — „6 : 2". Sie gehören zusammen
+   und sollen nicht die Breite zweier gewöhnlicher Felder belegen. */
+.ergebnisfelder {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.ergebnisfelder input {
+  width: 3.5rem;
+}
+
 .feldreihe {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));

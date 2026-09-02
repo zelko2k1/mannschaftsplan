@@ -91,6 +91,29 @@ export function nachReihenfolge(
   return (a.sort ?? 0) - (b.sort ?? 0) || namensfolge.compare(a.name, b.name)
 }
 
+/**
+ * Der Stempel für einen gespielten Spieltag — „Sieg 6:2", „Niederlage 2:6", „Unentschieden 4:4".
+ *
+ * Als Hinweis gedacht und nicht als Auswertung: Er steht am einzelnen Spieltag und verschwindet
+ * mit ihm. Eine Tabelle, eine Saisonbilanz oder etwas je Spieler gibt es bewusst nicht — dafür
+ * gibt es die DartsZentrale.
+ *
+ * `null`, solange nichts eingetragen ist. `-1` heißt „nicht eingetragen"; die Null taugt dafür
+ * nicht, denn ein 0:0 ist ein Ergebnis. Beide Zahlen müssen dastehen: Ein halb ausgefülltes
+ * Ergebnis ist keines.
+ *
+ * Die Wörter stehen hier und nicht im Aushang, weil die Kapitänsansicht dieselben braucht.
+ */
+export function ergebnis(
+  wir: number | undefined,
+  gegner: number | undefined,
+): { wort: 'Sieg' | 'Niederlage' | 'Unentschieden'; text: string } | null {
+  if (typeof wir !== 'number' || typeof gegner !== 'number') return null
+  if (wir < 0 || gegner < 0) return null
+  const wort = wir > gegner ? 'Sieg' : wir < gegner ? 'Niederlage' : 'Unentschieden'
+  return { wort, text: `${wort} ${wir}:${gegner}` }
+}
+
 // ── Kapitänsansicht ─────────────────────────────────────────────────────────────────────────
 // Dort gilt das Gegenteil der Regel oben: der Aushang soll überall gleich aussehen, die
 // Verwaltung dagegen so, wie der Rechner des Kapitäns Datum und Uhrzeit schreibt. Reihenfolge,

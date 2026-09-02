@@ -29,6 +29,10 @@ export type Spieltag = {
   responses: Record<string, Status>
   /** Anreise ohne Autos — Bus, Bahn, zu Fuß. Dann gibt es keinen Fahrdienst. */
   ohne_fahrdienst: boolean
+  /** Eigenes Ergebnis, `-1` = nicht eingetragen. Die Null ist ein gültiges Ergebnis. */
+  ergebnis_wir: number
+  /** Ergebnis des Gegners, `-1` = nicht eingetragen. */
+  ergebnis_gegner: number
   /** Wer zugesagt hat und selbst zum Spielort kommt — braucht keinen Platz und bietet keinen an. */
   selbst_anreise: string[]
   /** Wann zuletzt verlegt. Leer = nie. */

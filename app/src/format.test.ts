@@ -3,6 +3,7 @@ import {
   ausEingabe,
   ausISO,
   ausZeitangabe,
+  ergebnis,
   fuerEingabe,
   nachReihenfolge,
   seit,
@@ -224,5 +225,29 @@ describe('seit', () => {
 
   it('schweigt bei unbekanntem Datum', () => {
     expect(seit('', jetzt)).toBe('')
+  })
+})
+
+describe('ergebnis', () => {
+  it('benennt Sieg, Niederlage und Unentschieden', () => {
+    expect(ergebnis(6, 2)?.text).toBe('Sieg 6:2')
+    expect(ergebnis(2, 6)?.text).toBe('Niederlage 2:6')
+    expect(ergebnis(4, 4)?.text).toBe('Unentschieden 4:4')
+  })
+
+  it('nimmt die Null als Ergebnis ernst', () => {
+    // 0:0 ist ein Unentschieden, kein fehlender Eintrag — deshalb heißt „nicht eingetragen" -1.
+    expect(ergebnis(0, 0)?.wort).toBe('Unentschieden')
+    expect(ergebnis(0, 6)?.wort).toBe('Niederlage')
+  })
+
+  it('schweigt, solange nichts eingetragen ist', () => {
+    expect(ergebnis(-1, -1)).toBeNull()
+    expect(ergebnis(undefined, undefined)).toBeNull()
+  })
+
+  it('nimmt ein halb ausgefülltes Ergebnis nicht an', () => {
+    expect(ergebnis(6, -1)).toBeNull()
+    expect(ergebnis(-1, 2)).toBeNull()
   })
 })

@@ -22,6 +22,8 @@ import {
   systemDatum,
   systemDatumZeit,
   tageSeit,
+  ergebnis,
+  wannUngefaehr,
 } from './format'
 import { dekodiere } from './csv'
 import { leseSpielplan, vorlageCsv, type Spielplan } from './spielplan'
@@ -396,6 +398,9 @@ const LEER: Partial<AdminSpieltag> = {
   km: 0,
   meeting_point: '',
   ohne_fahrdienst: false,
+  // -1 = noch nicht gespielt. Die Null wäre ein 0:0.
+  ergebnis_wir: -1,
+  ergebnis_gegner: -1,
   // -1 heißt „nicht gesetzt": Es gilt der eingebaute Standard, 80 km/h und 25 Minuten. Die Null
   // wäre hier ein Tempo von null und ein Spieltag ohne Abfahrtszeit.
   tempo_kmh: -1,
@@ -443,6 +448,14 @@ const ohnePlatz = (s: AdminSpieltag) => {
  * sie rechnet die Abfahrtszeit ins Leere. Deshalb steht es dran, statt still zu bleiben. Wer die
  * Vorlage ausfüllt, kann Ort und Kilometer gleich mitgeben — dann kommt dieser Hinweis nicht.
  */
+/**
+ * Ob an diesem Spieltag noch etwas zu planen ist.
+ *
+ * Nach dem Spiel beantworten freie Plätze, fehlende Fahrer und die Zahl der nötigen Spieler eine
+ * Frage, die niemand mehr stellt. Wörtlich dieselbe Regel wie im Aushang.
+ */
+const planungGilt = (s: AdminSpieltag) => wannUngefaehr(s.date) !== 'vorbei'
+
 const nachzutragen = (s: AdminSpieltag) =>
   s.aus_spielplan && !s.is_home && (!s.opponent_town.trim() || s.km <= 0)
 
@@ -605,10 +618,10 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
           <p className="satz__stand">
             <span className="satz__zusagen">
               {zugesagt(s)} zugesagt
-              {zugesagt(s) < s.needed_players && `, ${s.needed_players} nötig`}
+              {zugesagt(s) < s.needed_players && planungGilt(s) && `, ${s.needed_players} nötig`}
             </span>
-            {!s.is_home && s.ohne_fahrdienst && ' · ohne Fahrdienst'}
-            {mitFahrdienst(s) && (
+            {!s.is_home && s.ohne_fahrdienst && planungGilt(s) && ' · ohne Fahrdienst'}
+            {mitFahrdienst(s) && planungGilt(s) && (
               <>
                 {' · '}
                 <span className={ohneFahrer(s) ? 'satz__warnung' : undefined}>
@@ -630,7 +643,15 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
                 </span>
               </>
             )}
-            {zugesagt(s) >= s.needed_players && <span className="satz__voll">vollzählig</span>}
+            {/* Wie im Aushang: Ist das Ergebnis da, tritt „vollzählig" zurück. Dass genug Leute
+                zugesagt hatten, ist am Montag keine Nachricht mehr. */}
+            {(() => {
+              const stand = ergebnis(s.ergebnis_wir, s.ergebnis_gegner)
+              if (stand) return <span className="satz__voll">{stand.text}</span>
+              return zugesagt(s) >= s.needed_players && planungGilt(s) ? (
+                <span className="satz__voll">vollzählig</span>
+              ) : null
+            })()}
           </p>
 
           {nachzutragen(s) && (
@@ -922,6 +943,41 @@ function Spieltagformular({
             onChange={(x) => setze('meeting_point', x.target.value)}
           />
         </label>
+        {/* Erst wenn gespielt wurde. Vorher wären es zwei Felder, die niemand ausfüllen kann —
+            und ein Formular, das nach Dingen fragt, die es noch nicht gibt, wird nicht
+            vollständiger, sondern länger. Leer heißt „kein Ergebnis"; ein 0:0 trägt man als 0
+            und 0 ein, deshalb taugt die Null nicht als Leerwert. */}
+        {wannUngefaehr(entwurf.date) === 'vorbei' && (
+          <label className="feld">
+            <span>Ergebnis (wir : Gegner)</span>
+            <span className="ergebnisfelder">
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={99}
+                aria-label="Eigenes Ergebnis"
+                value={(entwurf.ergebnis_wir ?? -1) < 0 ? '' : entwurf.ergebnis_wir}
+                onChange={(x) =>
+                  setze('ergebnis_wir', x.target.value === '' ? -1 : Number(x.target.value))
+                }
+              />
+              <span aria-hidden="true">:</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={99}
+                aria-label="Ergebnis des Gegners"
+                value={(entwurf.ergebnis_gegner ?? -1) < 0 ? '' : entwurf.ergebnis_gegner}
+                onChange={(x) =>
+                  setze('ergebnis_gegner', x.target.value === '' ? -1 : Number(x.target.value))
+                }
+              />
+            </span>
+            <span className="feld__hinweis">Beide leer: kein Ergebnis</span>
+          </label>
+        )}
         {/* Nur bei Auswärtsspielen — zu einem Heimspiel fährt niemand gemeinsam los (6.3).
             Kein `flex` an diesen Feldern: `.feldreihe` ist ein Grid, dort verpufft es. Die
             Spaltenbreite gibt `auto-fit` vor. */}

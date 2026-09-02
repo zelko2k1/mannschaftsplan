@@ -112,6 +112,10 @@ routerAdd('GET', '/api/board', (e) => {
       // Plätze zu zählen und „kein Fahrer" zu rufen.
       ohne_fahrdienst: s.getBool('ohne_fahrdienst'),
       selbst_anreise,
+      // Wie es ausgegangen ist — als Hinweis am Spieltag, nicht als Statistik. -1 heißt „nicht
+      // eingetragen"; 0 ist ein gültiges Ergebnis, deshalb taugt die Null hier nicht als Leerwert.
+      ergebnis_wir: s.getInt('ergebnis_wir'),
+      ergebnis_gegner: s.getInt('ergebnis_gegner'),
       // Eine von Hand eingetragene Abfahrt schlägt die Formel. Leer heißt rechnen (6.3) —
       // nur so erreicht eine spätere Änderung an Tempo oder Puffer auch alte Spieltage.
       //

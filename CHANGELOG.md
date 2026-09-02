@@ -9,6 +9,33 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- **Abgeschlossene Spieltage zeigen, wie sie ausgingen.** Der Kapitän trägt zwei Zahlen ein, in
+  der Zeile steht ein Stempel wie „Komplett": `SIEG 6:2`, `NIEDERLAGE 2:6`, `UNENTSCHIEDEN 4:4`.
+  Sieg in Grün, alles andere in Tinte — Rot ist den Dingen vorbehalten, die zum Handeln
+  auffordern, und eine verlorene Begegnung tut das nicht. Ist ein Ergebnis da, tritt „Komplett"
+  zurück: Dass genug Leute zugesagt hatten, ist am Montag keine Nachricht mehr.
+
+  Die Felder erscheinen im Formular erst, wenn der Spieltag vorbei ist. Sieg, Niederlage und
+  Unentschieden ergeben sich aus den Zahlen — niemand kreuzt etwas an. `-1` heißt „nicht
+  eingetragen", denn ein 0:0 ist ein Ergebnis.
+
+  **Und ein gespielter Spieltag schweigt über das, was er nicht mehr ändern kann.** Aus der Zeile
+  verschwinden nach dem Spiel die Planungsangaben: „kein Fahrer" und „N ohne Platz" — beide in Rot,
+  also Aufforderungen zu etwas, das nicht mehr geht —, die freien Plätze, „ohne Fahrdienst" und die
+  Zahl der nötigen Spieler. Auch „Komplett" tritt ab: Es beantwortete „sind wir genug?", eine Frage
+  von vorher. Es bleibt, was auch danach noch etwas sagt — dass er abgeschlossen ist, wie viele
+  dabei waren, was man selbst geantwortet hat, und wie es ausging.
+
+  Der **aufgeklappte Bereich bleibt unverändert**: Er ist die Nachschau und darf zeigen, wer dabei
+  war und wer gefahren ist. Die Zeile ist die Übersicht, und dort gilt: nur so viel, wie für diesen
+  Spieltag jetzt zählt.
+
+  **Das ist eine bewusste Verschiebung der Produktgrenze.** PRODUCT.md führte „Ergebnisse" bis
+  hierher unter dem, was nicht gebaut ist. Die Linie verläuft jetzt anders: ein Ergebnis am
+  einzelnen Spieltag ja, Tabellen und Saisonbilanzen nein. Die Zahlen hängen am Spieltag und
+  verschwinden mit ihm nach 365 Tagen — es gibt also nichts, woraus sich eine Statistik bauen
+  ließe. Für den Rest gibt es die DartsZentrale.
+
 - **„Ich bin dabei — aber ich komme selbst."** Aus der Kapitänsecke: Manche fahren mit dem eigenen
   Auto zum Spiellokal oder kommen direkt von der Arbeit. Für den Fahrdienst ist beides dieselbe
   Auskunft — die Person braucht keinen Platz und bietet keinen an —, und für den Kapitän ist es

@@ -1,6 +1,6 @@
 import { useId, useState } from 'react'
 import type { Board, Fahrt, Spieltag, Status } from './api'
-import { ANTWORTEN, plaetze as plaetzeText, tag, uhrzeit, wannUngefaehr } from './format'
+import { ANTWORTEN, ergebnis, plaetze as plaetzeText, tag, uhrzeit, wannUngefaehr } from './format'
 import { Fehler } from './Meldung'
 import { Nachfragekasten, type Nachfrage } from './Nachfrage'
 
@@ -107,6 +107,7 @@ export default function Zeile({
    */
   const mitFahrdienst = !spieltag.is_home && !spieltag.ohne_fahrdienst
 
+
   const abgesagt = (f: Fahrt) => spieltag.responses[f.member] === 'no'
   const fahrten = spieltag.rides.filter((f) => !abgesagt(f))
   const freiGesamt = fahrten.reduce((summe, f) => summe + (f.seats - f.taken), 0)
@@ -132,6 +133,20 @@ export default function Zeile({
   ).length
   const ohnePlatz = mitFahrdienst ? Math.max(0, brauchtPlatz - freiGesamt) : 0
   const vorbei = wannUngefaehr(spieltag.date) === 'vorbei'
+
+  /**
+   * Was ein gespielter Spieltag noch sagt — und was nicht mehr.
+   *
+   * Die Zeile ist die Übersicht: Dort steht, was für diesen Spieltag jetzt zählt. Freie Plätze,
+   * fehlende Fahrer und die Zahl der nötigen Spieler sind Planungsangaben; nach dem Spiel
+   * beantworten sie eine Frage, die niemand mehr stellt — und „kein Fahrer" in Rot fordert dann
+   * zu etwas auf, das nicht mehr geht.
+   *
+   * Was bleibt: dass er abgeschlossen ist, wie viele dabei waren, was man selbst geantwortet hat,
+   * und wie es ausging. Der aufgeklappte Bereich ist davon nicht betroffen — er ist die Nachschau
+   * und darf zeigen, wer dabei war und wer gefahren ist.
+   */
+  const planungGilt = !vorbei
 
   // Bei Heimspielen gibt es keine Abfahrt — die Zeitspalte zeigt dann den Anwurf (6.3).
   const zeitpunkt = spieltag.is_home ? spieltag.date : (spieltag.departure ?? spieltag.date)
@@ -230,18 +245,18 @@ export default function Zeile({
                 solange sie fehlt — und die Zeile wird im guten Fall kürzer als vorher. */}
             <span className="zeile__zusagen">
               {zugesagt} zugesagt
-              {!vollzaehlig && `, ${spieltag.needed_players} nötig`}
+              {!vollzaehlig && planungGilt && `, ${spieltag.needed_players} nötig`}
             </span>
             {/* Ohne Fahrdienst steht dort, dass es so gemeint ist — sonst fragt sich beim
                 Auswärtsspiel jeder, wo der Fahrdienst geblieben ist. In Grau: Es ist eine
                 Auskunft, keine Aufforderung. */}
-            {!spieltag.is_home && spieltag.ohne_fahrdienst && (
+            {!spieltag.is_home && spieltag.ohne_fahrdienst && planungGilt && (
               <>
                 {' · '}
                 <span className="zeile__ohne-fahrdienst">ohne Fahrdienst</span>
               </>
             )}
-            {mitFahrdienst && (
+            {mitFahrdienst && planungGilt && (
               <>
                 {' · '}
                 <span className={ohneFahrer ? 'zeile__warnung' : undefined}>
@@ -288,7 +303,30 @@ export default function Zeile({
                 </span>
               )}
 
-          {vollzaehlig && <span className="stempel">Komplett</span>}
+          {/* Ein gespielter Spieltag zeigt, wie er ausging — dann tritt „Komplett" zurück.
+              Beides nebeneinander wären zwei Stempel für zwei Fragen, von denen im Nachhinein nur
+              eine noch jemanden interessiert: Dass genug Leute zugesagt hatten, ist am Montag
+              keine Nachricht mehr.
+
+              Grün für den Sieg, Tinte für alles andere. Rot ist in dieser App den Dingen
+              vorbehalten, die zum Handeln auffordern (6.2) — eine verlorene Begegnung tut das
+              nicht, und sie in Alarmfarbe zu setzen wäre eine Wertung, die nicht Sache der
+              Software ist. */}
+          {(() => {
+            const stand = ergebnis(spieltag.ergebnis_wir, spieltag.ergebnis_gegner)
+            if (stand) {
+              return (
+                <span
+                  className={`stempel${stand.wort === 'Sieg' ? ' stempel--sieg' : ' stempel--tinte'}`}
+                >
+                  {stand.text}
+                </span>
+              )
+            }
+            // „Komplett" beantwortet „sind wir genug?" — eine Frage von vor dem Spiel. Danach
+            // steht dort das Ergebnis oder nichts.
+            return vollzaehlig && planungGilt ? <span className="stempel">Komplett</span> : null
+          })()}
         </span>
       </button>
       </h2>
