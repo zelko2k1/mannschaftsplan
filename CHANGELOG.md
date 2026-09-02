@@ -16,6 +16,12 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
   verlegt — vorher Sa 12.09., 19:30 Uhr."**, und in der Kapitänsansicht dieselbe Angabe an der
   Zeile des Spieltags.
 
+  **Und „verlegt" ist jetzt ein gefüllter Kasten statt eines roten Wortes.** In dieser Zeile stehen
+  Datum, „nächste Woche" und die Entfernung in derselben Schreibmaschinenschrift — ein rotes Wort
+  dazwischen las sich wie ein weiterer Wert und ging unter. Papier auf Rot, Ecken bei 0 px, kein
+  Schatten: ein Stempelaufdruck, kein Etikett aus einer App. Er erscheint nur, solange wirklich
+  jemand seine Zusage noch nicht bestätigt hat.
+
   Festgehalten wird nur der **letzte** alte Termin. Eine Kette von Verschiebungen wäre eine
   Historie; die braucht hier niemand, und der Löschjob räumte sie ohnehin weg.
 

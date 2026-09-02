@@ -209,7 +209,12 @@ export default function Zeile({
             </span>
             {/* Heim und Auswärts stehen im Text, nicht nur in der Papierfarbe. Rot bekommt
                 nur die Entfernung — „Heim" ist keine Warnung. */}
-            {offeneVerlegung && <span className="zeile__warnung">verlegt</span>}
+            {/* Ein gefüllter Kasten und kein bloßes Wort: In dieser Zeile stehen Datum, „nächste
+                Woche" und die Entfernung, alles in derselben Schreibmaschinenschrift — ein rotes
+                Wort dazwischen ging unter. Der Kasten ist die Ausnahme, die es hier braucht, und
+                er bleibt es: Er erscheint nur, solange wirklich jemand seine Zusage noch nicht
+                bestätigt hat, und verschwindet, sobald alle durch sind. */}
+            {offeneVerlegung && <span className="zeile__verlegt">verlegt</span>}
             <span className={`zeile__km${spieltag.is_home ? '' : ' zeile__km--weit'}`}>
               {spieltag.is_home ? 'Heim' : `${spieltag.km} km`}
             </span>

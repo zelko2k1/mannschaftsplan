@@ -274,6 +274,25 @@
   color: var(--rot);
 }
 
+/* Der Kasten „VERLEGT" in der Kopfzeile einer Zeile.
+   Gefüllt statt nur rot: Daneben stehen Datum und Entfernung in derselben Schrift, und ein rotes
+   Wort dazwischen las sich wie ein weiterer Wert. Die Farben kommen aus der Zeile — auf gelbem
+   Papier bindet `.zeile--auswaerts` `--rot` auf den dunkleren Ton um, und Papier auf Rot trägt in
+   beiden Fällen (5,9:1 auf Creme, 8,9:1 auf Gelb).
+   Ecken bleiben bei 0 px, kein Schatten, kein Verlauf (6.2) — es ist ein Stempelaufdruck, kein
+   Etikett aus einer App. */
+.zeile__verlegt {
+  padding: 0.05rem 0.4rem;
+  background: var(--rot);
+  color: var(--papier);
+  font-family: var(--schrift-eng);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 /* „ohne Fahrdienst" ist eine Auskunft, kein Ruf zum Handeln — also Grau und nicht Rot (6.2).
    Zusammenhalten wie die anderen kurzen Einwürfe in dieser Zeile. */
 .zeile__ohne-fahrdienst {
