@@ -101,15 +101,25 @@ routerAdd('GET', '/api/board', (e) => {
       })(),
       // Berechnet, nicht gespeichert (Abschnitt 6.3). Bei Heimspielen null — dort zeigt die
       // Zeitspalte den Anwurf mit dem Label „ANWURF" statt „ABFAHRT".
+      // Auswärts ohne Autos: Bus, Bahn, zu Fuß. Der Fahrdienst entfällt, und die Zeile hört auf,
+      // Plätze zu zählen und „kein Fahrer" zu rufen.
+      ohne_fahrdienst: s.getBool('ohne_fahrdienst'),
       // Eine von Hand eingetragene Abfahrt schlägt die Formel. Leer heißt rechnen (6.3) —
       // nur so erreicht eine spätere Änderung an Tempo oder Puffer auch alte Spieltage.
+      //
+      // OHNE FAHRDIENST WIRD NICHT GERECHNET. Die Formel ist `km / tempo + puffer`, also eine
+      // Autofahrt; für eine Bahnverbindung wäre das Ergebnis erfunden. Trägt der Kapitän eine
+      // Abfahrt von Hand ein — „wir nehmen den 17:42er" —, gilt sie weiterhin. Sonst zeigt die
+      // Spalte den Anwurf, wie beim Heimspiel.
       departure: heim
         ? null
         : u.alsISO(s.getDateTime('departure_manual').string()) ||
-          (() => {
-            const w = u.fahrzeitwerte(s)
-            return u.abfahrt(datum, s.getInt('km'), heim, w.tempo, w.puffer)
-          })(),
+          (s.getBool('ohne_fahrdienst')
+            ? null
+            : (() => {
+                const w = u.fahrzeitwerte(s)
+                return u.abfahrt(datum, s.getInt('km'), heim, w.tempo, w.puffer)
+              })()),
       responses,
       rides,
       seat_claims,

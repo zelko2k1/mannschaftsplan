@@ -274,6 +274,13 @@
   color: var(--rot);
 }
 
+/* „ohne Fahrdienst" ist eine Auskunft, kein Ruf zum Handeln — also Grau und nicht Rot (6.2).
+   Zusammenhalten wie die anderen kurzen Einwürfe in dieser Zeile. */
+.zeile__ohne-fahrdienst {
+  color: var(--grau);
+  white-space: nowrap;
+}
+
 /* Die Zusagen bleiben zusammen. Ein Umbruch zwischen „4" und „nötig" wäre schlimmer als der
    Bruchstrich, den wir gerade losgeworden sind — dieselbe Vorsorge wie bei „kein Fahrer" und
    „du: dabei" darunter. Die Zeile als Ganzes darf weiterhin an den Trennpunkten umbrechen;

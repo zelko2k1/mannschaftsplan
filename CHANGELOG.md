@@ -9,6 +9,24 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- **Auswärts heißt nicht immer Auto.** Aus der Mannschaft: „Es kann auch sein, dass wir für
+  Auswärtsspiele keine Fahrer benötigen, wir können mit dem ÖPNV fahren." Die App nahm das
+  Gegenteil an — sie zählte freie Plätze, rief in Rot „kein Fahrer" und rechnete eine Abfahrtszeit
+  aus Kilometern und Tempo. Für eine Anreise mit Bus und Bahn war davon nichts richtig: eine
+  Aufforderung zum Handeln, wo nichts zu tun ist, und eine Uhrzeit, die auf einer Autofahrt beruht,
+  die niemand macht.
+
+  Am Spieltag gibt es jetzt **„Ohne Fahrdienst"**. Dann verschwinden Fahrdienst, Plätze und die
+  Warnungen; in der Zeile steht in Grau, dass es so gemeint ist, und im aufgeklappten Bereich ein
+  Satz dazu. **Die Abfahrtszeit wird dann nicht mehr gerechnet** — die Formel gilt für eine
+  Autofahrt. Eine von Hand eingetragene Abfahrt gilt weiterhin: „Wir nehmen den 17:42er" ist genau
+  der Fall, für den es das Feld gibt. Auch die tägliche Erinnerung schweigt dort über fehlende
+  Fahrer.
+
+  Der Schalter sitzt **am einzelnen Spieltag**, nicht an der Mannschaft: Es hängt an der Entfernung
+  und an der Verbindung. Dieselbe Mannschaft fährt zum Nachbarort mit der Bahn und ins übernächste
+  Kreisgebiet mit dem Auto. Für alles Bestehende ändert sich nichts.
+
 - **Der mitgelieferte Caddy nimmt jetzt weitere Dienste auf.** Wer ihn benutzt, weil er keinen
   eigenen Proxy hatte, stand bisher vor einem geschlossenen Gerät: `deploy/Caddyfile` gehört dem
   Repo und trägt „wird NICHT editiert" im Kopf. Wollte er auf demselben Server noch etwas

@@ -164,6 +164,7 @@ PocketBases MFA vorbeigeht (R13, zweiter Faktor).
 | `departure_manual` | date | von Hand gesetzte Abfahrt. Leer = die Formel rechnet (6.3) |
 | `tempo_kmh` | number | Tempo für **diesen** Spieltag; `-1` = erben. 0 wäre ein Tempo von null, deshalb `-1` |
 | `puffer_minuten` | number | Rüstzeit für diesen Spieltag; `-1` = erben |
+| `ohne_fahrdienst` | bool, default false | Anreise ohne Autos (Bus, Bahn, zu Fuß). Blendet den Fahrdienst aus; die Abfahrtszeit wird dann **nicht** gerechnet, weil die Formel eine Autofahrt beschreibt. Eine von Hand gesetzte Abfahrt gilt weiter. Verneinend benannt, damit `false` — der Wert jedes bestehenden Spieltags — „mit Fahrdienst" heißt |
 | `verlegt_am` | date | wann Datum oder Uhrzeit zuletzt **nennenswert** verschoben wurden — anderer Kalendertag oder mindestens `VERLEGUNG_MINUTEN` (60). Leer = nie verlegt |
 | `source_key` | text | Herkunft aus einem Verbands-Export, Teilindex `WHERE source_key != ''`. Leer = von Hand angelegt; solche Spieltage fasst der Import nie an. Nach außen geht nur `aus_spielplan: bool` — der Schlüssel selbst ist eine Innerei des Imports. |
 

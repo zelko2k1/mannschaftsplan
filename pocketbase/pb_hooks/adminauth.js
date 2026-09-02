@@ -32,6 +32,7 @@ const SPIELTAG_FELDER = [
   'puffer_minuten',
   'needed_players',
   'locked',
+  'ohne_fahrdienst',
 ]
 
 module.exports = {
@@ -388,7 +389,7 @@ module.exports = {
   spieltagUebernehmen(satz, koerper) {
     for (const feld of SPIELTAG_FELDER) {
       if (!(feld in koerper)) continue
-      if (feld === 'is_home' || feld === 'locked') {
+      if (feld === 'is_home' || feld === 'locked' || feld === 'ohne_fahrdienst') {
         satz.set(feld, !!koerper[feld])
       } else if (feld === 'km' || feld === 'needed_players') {
         const zahl = Number(koerper[feld])

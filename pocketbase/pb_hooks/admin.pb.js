@@ -371,6 +371,7 @@ routerAdd('GET', '/manage/api/fixtures', (e) => {
       })(),
       needed_players: s.getInt('needed_players'),
       locked: s.getBool('locked'),
+      ohne_fahrdienst: s.getBool('ohne_fahrdienst'),
       // Wann zuletzt verlegt, und welche Rückmeldungen noch vom alten Termin stammen. Leer bzw.
       // leere Liste heißt: nie verlegt oder alle haben seitdem geantwortet.
       verlegt_am: s.getDateTime('verlegt_am').string(),
@@ -469,6 +470,8 @@ routerAdd('POST', '/manage/api/fixtures', (e) => {
   satz.set('needed_players', 4)
   satz.set('km', 0)
   satz.set('locked', false)
+  // Mit Fahrdienst, solange niemand etwas anderes sagt — der Normalfall auswärts.
+  satz.set('ohne_fahrdienst', false)
   const fehler = a.spieltagUebernehmen(satz, koerper)
   if (fehler) return e.json(400, { message: fehler })
 
@@ -684,6 +687,9 @@ routerAdd('POST', '/admin/api/fixtures/import', (e) => {
     satz.set('needed_players', 4)
     satz.set('km', km === null ? 0 : km)
     satz.set('locked', false)
+    // Ein Verbands-Export sagt nichts über die Anreise. Mit Fahrdienst ist die sichere Annahme:
+    // Ein zu viel angebotenes Auto stört niemanden, ein fehlendes schon.
+    satz.set('ohne_fahrdienst', false)
     e.app.save(satz)
     neu++
   }

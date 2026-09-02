@@ -27,6 +27,8 @@ export type Spieltag = {
   /** Vom Server gerechnet (Abschnitt 6.3). Bei Heimspielen null. */
   departure: string | null
   responses: Record<string, Status>
+  /** Anreise ohne Autos — Bus, Bahn, zu Fuß. Dann gibt es keinen Fahrdienst. */
+  ohne_fahrdienst: boolean
   /** Wann zuletzt verlegt. Leer = nie. */
   verlegt_am: string
   /** Wessen Rückmeldung noch vom alten Termin stammt — älter als die Verlegung. */

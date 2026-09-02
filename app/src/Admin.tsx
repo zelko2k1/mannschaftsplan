@@ -395,7 +395,8 @@ const LEER: Partial<AdminSpieltag> = {
   venue: '',
   km: 0,
   meeting_point: '',
-  // -1 heißt „nicht gesetzt": Puffer von der Mannschaft, Tempo aus den Einstellungen. Die Null
+  ohne_fahrdienst: false,
+  // -1 heißt „nicht gesetzt": Es gilt der eingebaute Standard, 80 km/h und 25 Minuten. Die Null
   // wäre hier ein Tempo von null und ein Spieltag ohne Abfahrtszeit.
   tempo_kmh: -1,
   puffer_minuten: -1,
@@ -408,19 +409,21 @@ const LEER: Partial<AdminSpieltag> = {
 // für beide Ansichten aus derselben Quelle.
 const zugesagt = (s: AdminSpieltag) =>
   Object.values(s.responses ?? {}).filter((x) => x === 'yes').length
+/** Ob dieser Spieltag überhaupt einen Fahrdienst hat — auswärts und nicht mit Bus und Bahn. */
+const mitFahrdienst = (s: AdminSpieltag) => !s.is_home && !s.ohne_fahrdienst
 /** Autos, deren Fahrer nicht abgesagt hat — wie im Aushang. Ein abgesagtes Auto ist keines. */
 const fahrten = (s: AdminSpieltag) =>
   (s.rides ?? []).filter((f) => (s.responses ?? {})[f.member] !== 'no')
 const freiePlaetze = (s: AdminSpieltag) =>
   fahrten(s).reduce((summe, f) => summe + (f.seats - f.taken), 0)
-const ohneFahrer = (s: AdminSpieltag) => !s.is_home && fahrten(s).length === 0
+const ohneFahrer = (s: AdminSpieltag) => mitFahrdienst(s) && fahrten(s).length === 0
 /**
  * Wie viele Zusagen ohne Mitfahrgelegenheit dastehen — wörtlich dieselbe Rechnung wie in
  * `Zeile.tsx`. „Keine Plätze frei" beantwortet die Frage nicht: Es sagt, dass die Autos voll
  * sind, nicht, ob sie gereicht haben.
  */
 const ohnePlatz = (s: AdminSpieltag) => {
-  if (s.is_home) return 0
+  if (!mitFahrdienst(s)) return 0
   const braucht = Object.entries(s.responses ?? {}).filter(
     ([wer, status]) =>
       status === 'yes' &&
@@ -602,7 +605,8 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
               {zugesagt(s)} zugesagt
               {zugesagt(s) < s.needed_players && `, ${s.needed_players} nötig`}
             </span>
-            {!s.is_home && (
+            {!s.is_home && s.ohne_fahrdienst && ' · ohne Fahrdienst'}
+            {mitFahrdienst(s) && (
               <>
                 {' · '}
                 <span className={ohneFahrer(s) ? 'satz__warnung' : undefined}>
@@ -883,6 +887,18 @@ function Spieltagformular({
             onChange={(x) => setze('is_home', x.target.checked)}
           />
         </label>
+        {/* Nur auswärts: Zu einem Heimspiel fährt ohnehin niemand gemeinsam los. */}
+        {!entwurf.is_home && (
+          <label className="feld">
+            <span>Ohne Fahrdienst</span>
+            <input
+              type="checkbox"
+              checked={!!entwurf.ohne_fahrdienst}
+              onChange={(x) => setze('ohne_fahrdienst', x.target.checked)}
+            />
+            <span className="feld__hinweis">Anreise mit Bus, Bahn oder zu Fuß</span>
+          </label>
+        )}
         <label className="feld">
           <span>Entfernung (km)</span>
           <input

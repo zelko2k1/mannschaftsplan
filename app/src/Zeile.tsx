@@ -96,6 +96,15 @@ export default function Zeile({
    * trotzdem nicht mit solchen Sätzen: Aus der Zeit davor können welche dastehen, und was der
    * Server einmal übersehen hat, soll die Zeile nicht als freie Plätze weitererzählen.
    */
+  /**
+   * Auswärts heißt nicht immer Auto.
+   *
+   * Wer mit Bus und Bahn anreist, braucht keinen Fahrdienst — und bekam trotzdem „kein Fahrer"
+   * in Rot, eine Zählung freier Plätze und eine Abfahrtszeit, die aus Kilometern und Tempo
+   * gerechnet war. Alles drei hängt ab hier an derselben Bedingung.
+   */
+  const mitFahrdienst = !spieltag.is_home && !spieltag.ohne_fahrdienst
+
   const abgesagt = (f: Fahrt) => spieltag.responses[f.member] === 'no'
   const fahrten = spieltag.rides.filter((f) => !abgesagt(f))
   const freiGesamt = fahrten.reduce((summe, f) => summe + (f.seats - f.taken), 0)
@@ -115,7 +124,7 @@ export default function Zeile({
       !spieltag.rides.some((f) => f.member === wer) &&
       !spieltag.seat_claims[wer],
   ).length
-  const ohnePlatz = spieltag.is_home ? 0 : Math.max(0, brauchtPlatz - freiGesamt)
+  const ohnePlatz = mitFahrdienst ? Math.max(0, brauchtPlatz - freiGesamt) : 0
   const vorbei = wannUngefaehr(spieltag.date) === 'vorbei'
 
   // Bei Heimspielen gibt es keine Abfahrt — die Zeitspalte zeigt dann den Anwurf (6.3).
@@ -129,7 +138,7 @@ export default function Zeile({
   const anwurfDazu = !spieltag.is_home && !!spieltag.departure
 
   // Rot ist für die Dinge da, die jemanden zum Handeln bringen sollen (6.2).
-  const ohneFahrer = !spieltag.is_home && fahrten.length === 0
+  const ohneFahrer = mitFahrdienst && fahrten.length === 0
   const ohneAntwort = meineAntwort === null
 
   /**
@@ -217,7 +226,16 @@ export default function Zeile({
               {zugesagt} zugesagt
               {!vollzaehlig && `, ${spieltag.needed_players} nötig`}
             </span>
-            {!spieltag.is_home && (
+            {/* Ohne Fahrdienst steht dort, dass es so gemeint ist — sonst fragt sich beim
+                Auswärtsspiel jeder, wo der Fahrdienst geblieben ist. In Grau: Es ist eine
+                Auskunft, keine Aufforderung. */}
+            {!spieltag.is_home && spieltag.ohne_fahrdienst && (
+              <>
+                {' · '}
+                <span className="zeile__ohne-fahrdienst">ohne Fahrdienst</span>
+              </>
+            )}
+            {mitFahrdienst && (
               <>
                 {' · '}
                 <span className={ohneFahrer ? 'zeile__warnung' : undefined}>
@@ -361,7 +379,15 @@ export default function Zeile({
                   laeuft={laeuft && bereich === 'antwort'}
                 />
 
-                {!spieltag.is_home && (
+                {!spieltag.is_home && spieltag.ohne_fahrdienst && (
+                  <p className="namen">
+                    Für diesen Spieltag ist <strong>kein Fahrdienst</strong> eingeteilt — die
+                    Anreise läuft ohne Autos.
+                    {spieltag.meeting_point && ' Wo und wann ihr euch trefft, steht oben.'}
+                  </p>
+                )}
+
+                {mitFahrdienst && (
                   <>
                     <h3 className="detail__titel">Fahrdienst</h3>
                     <div className="fahrdienst">
