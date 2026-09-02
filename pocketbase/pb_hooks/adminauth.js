@@ -384,6 +384,9 @@ module.exports = {
     if (!andererTag && minuten < module.exports.VERLEGUNG_MINUTEN) return false
 
     satz.set('verlegt_am', new DateTime())
+    // Und woher. Ohne das steht in der Zeile nur DASS verschoben wurde, nicht was sich geändert
+    // hat — der neue Termin steht ja ohnehin dort, der alte wäre sonst weg.
+    satz.set('verlegt_von', altesDatum)
     return true
   },
 

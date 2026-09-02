@@ -654,6 +654,15 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
             })()}
           </p>
 
+          {/* Der Kapitän hat es selbst eingetragen — aber nicht unbedingt er selbst, und nicht
+              unbedingt heute. Was vorher galt, gehört an den Spieltag, damit er es weitersagen
+              kann, ohne nachzusehen. */}
+          {s.verlegt_von && (s.responses_alt ?? []).length > 0 && !s.locked && (
+            <p className="satz__warnung">
+              Verlegt — vorher {systemDatumZeit(s.verlegt_von)}
+            </p>
+          )}
+
           {nachzutragen(s) && (
             <p className="satz__warnung">
               Aus dem Spielplan übernommen — Ort, Kilometer und Treffpunkt fehlen noch.

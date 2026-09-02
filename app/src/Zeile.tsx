@@ -339,9 +339,16 @@ export default function Zeile({
             {offeneVerlegung && (
               <p className="detail__treffpunkt">
                 <span className="zeile__warnung">
+                  {/* Was sich geändert hat, nicht nur dass. Der neue Termin steht oben in der
+                      Zeile; ohne den alten daneben erfährt man nur, DASS etwas anders ist. */}
+                  {spieltag.verlegt_von
+                    ? `Der Termin wurde verlegt — vorher ${tag(spieltag.verlegt_von)}, ${uhrzeit(
+                        spieltag.verlegt_von,
+                      )} Uhr.`
+                    : 'Der Termin wurde verlegt.'}{' '}
                   {meineAntwortAlt
-                    ? 'Der Termin wurde verlegt. Deine Rückmeldung stammt vom alten — tippe sie noch einmal an, wenn sie weiter gilt.'
-                    : `Der Termin wurde verlegt. ${
+                    ? 'Deine Rückmeldung stammt vom alten — tippe sie noch einmal an, wenn sie weiter gilt.'
+                    : `${
                         spieltag.responses_alt.length === 1
                           ? 'Eine Rückmeldung stammt'
                           : `${spieltag.responses_alt.length} Rückmeldungen stammen`

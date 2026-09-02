@@ -96,6 +96,7 @@ routerAdd('GET', '/api/board', (e) => {
       // die ganze Liste hinaus und nicht nur der eigene Fall: Die Zeile sagt dem Kapitän wie
       // dem Spieler, wie viele noch offen sind.
       verlegt_am: s.getDateTime('verlegt_am').string(),
+      verlegt_von: s.getDateTime('verlegt_von').string(),
       responses_alt: (() => {
         const verlegtAm = s.getDateTime('verlegt_am').string()
         if (!verlegtAm) return []

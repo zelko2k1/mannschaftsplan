@@ -2604,6 +2604,9 @@ await pruefe('V1', 'Eine Verlegung kennzeichnet die Rückmeldungen von vorher', 
   await verschieben(120)
   const verlegt = await stand()
   stimmt(verlegt.verlegt_am !== '', 'zwei Stunden sind eine Verlegung')
+  // Und woher: ohne den alten Termin steht in der Zeile nur, DASS verschoben wurde.
+  stimmt(verlegt.verlegt_von !== '', 'der alte Termin ist festgehalten')
+  stimmt(verlegt.verlegt_von !== verlegt.date, 'und er ist nicht der neue')
   gleich(verlegt.responses_alt.length, 1, 'eine Rückmeldung vom alten Termin')
   gleich(verlegt.responses_alt[0], spieler.satz.id, 'und zwar seine')
 
