@@ -886,6 +886,27 @@ await pruefe('E1', 'Der Kapitän trägt ein Ergebnis ein, der Aushang zeigt es',
   })
   gleich((await imAushang()).ergebnis_wir, -1, 'wieder ohne Ergebnis')
 
+  // Der Hinweis: Freitext des Kapitäns, im Aushang für alle sichtbar, bei 500 Zeichen
+  // abgeschnitten statt abgelehnt — wer zu viel schreibt, soll seinen Text nicht verlieren.
+  await ruf(`/manage/api/fixtures/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      hinweis: ['test-Parkplatz hinter dem Haus', 'Trikots mitbringen'].join(String.fromCharCode(10)),
+    }),
+  })
+  const mitHinweis = await imAushang()
+  stimmt(mitHinweis.hinweis.indexOf('Parkplatz') !== -1, 'der Hinweis steht im Aushang')
+  stimmt(
+    mitHinweis.hinweis.indexOf(String.fromCharCode(10)) !== -1,
+    'und die Zeilenschaltung bleibt erhalten',
+  )
+
+  await ruf(`/manage/api/fixtures/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ hinweis: 'x'.repeat(700) }),
+  })
+  gleich((await imAushang()).hinweis.length, 500, 'bei 500 Zeichen abgeschnitten')
+
   // R4 · Unsinn wird abgelehnt, nicht stillschweigend zurechtgebogen.
   for (const wert of [7.5, 200, -5]) {
     gleich(

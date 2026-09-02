@@ -358,6 +358,9 @@ routerAdd('GET', '/manage/api/fixtures', (e) => {
       km: s.getInt('km'),
       team: s.getString('team'),
       meeting_point: s.getString('meeting_point'),
+      // Der Hinweis des Kapitäns. Steht neben Abfahrt und Treffpunkt, weil er meistens davon
+      // handelt — Anfahrt, Vertretung, „vergesst die Trikots nicht".
+      hinweis: s.getString('hinweis'),
       departure_manual: s.getDateTime('departure_manual').string(),
       tempo_kmh: s.getInt('tempo_kmh'),
       puffer_minuten: s.getInt('puffer_minuten'),

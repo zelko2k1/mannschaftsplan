@@ -89,6 +89,9 @@ routerAdd('GET', '/api/board', (e) => {
       venue: s.getString('venue'),
       km: s.getInt('km'),
       meeting_point: s.getString('meeting_point'),
+      // Der Hinweis des Kapitäns. Steht neben Abfahrt und Treffpunkt, weil er meistens davon
+      // handelt — Anfahrt, Vertretung, „vergesst die Trikots nicht".
+      hinweis: s.getString('hinweis'),
       needed_players: s.getInt('needed_players'),
       locked: s.getBool('locked'),
       // Ein verlegter Spieltag behält seine Rückmeldungen — sie sind nur nicht mehr bestätigt.
