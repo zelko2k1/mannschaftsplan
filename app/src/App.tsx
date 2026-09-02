@@ -69,6 +69,15 @@ function Abfahrtsplan() {
   const [zeigeVorbei, setZeigeVorbei] = useState(false)
   /** Was zuletzt gespeichert wurde — der Aushang sagte den Erfolg bisher nie an. */
   const [gemeldet, setGemeldet] = useState('')
+  /**
+   * Wo die Quittung erscheint — bei den Rückmeldeknöpfen oder beim Fahrdienst.
+   *
+   * Sie stand bisher ganz unten im aufgeklappten Bereich, hinter dem Fahrdienst und vier Absätzen
+   * Namen. Auf einem Handy ist das mehrere hundert Pixel unter dem Knopf, den man gerade getippt
+   * hat — die Rückmeldung gab es also, nur sah sie niemand. Aus der Mannschaft kam sie deshalb
+   * als „ich kann gar nicht erkennen, ob meine Änderung gespeichert ist" zurück.
+   */
+  const [bereich, setBereich] = useState<'antwort' | 'fahrt' | ''>('')
 
   const laden = useCallback(async () => {
     try {
@@ -103,10 +112,13 @@ function Abfahrtsplan() {
        * nochmal — und nahm damit seine Zusage zurück, ohne es zu erfahren.
        */
       meldung: string,
+      /** Bei welchen Knöpfen die Quittung steht — dort, wo gerade getippt wurde. */
+      wo: 'antwort' | 'fahrt',
     ) => {
       if (!board) return
       const vorher = board
       setGemeldet('')
+      setBereich(wo)
 
       setBoard({
         ...board,
@@ -203,6 +215,7 @@ function Abfahrtsplan() {
       status === null
         ? 'Antwort zurückgenommen.'
         : `Gespeichert: ${ANTWORTEN.find((a) => a.wert === status)?.text ?? ''}.`,
+      'antwort',
     )
 
   const setzeFahrt = (spieltag: Spieltag, faehrt: boolean, plaetze?: number) =>
@@ -235,6 +248,7 @@ function Abfahrtsplan() {
                 } sich neu einteilen.`
               : 'Gespeichert: du fährst nicht.'
           })(),
+      'fahrt',
     )
 
   const setzeMitfahrt = (spieltag: Spieltag, fahrt: string | null) =>
@@ -256,6 +270,7 @@ function Abfahrtsplan() {
       },
       () => api.mitfahren(spieltag.id, fahrt),
       fahrt ? 'Gespeichert: du fährst mit.' : 'Gespeichert: du bist ausgestiegen.',
+      'fahrt',
     )
 
   return (
@@ -333,8 +348,10 @@ function Abfahrtsplan() {
               fehler={fehler[spieltag.id]}
               laeuft={laeuft.has(spieltag.id)}
               gemeldet={offen === spieltag.id ? gemeldet : ''}
+              bereich={offen === spieltag.id ? bereich : ''}
               aufklappen={() => {
                 setGemeldet('')
+                setBereich('')
                 setOffen(offen === spieltag.id ? null : spieltag.id)
               }}
               setzeAntwort={(status) => void setzeAntwort(spieltag, status)}
@@ -352,8 +369,10 @@ function Abfahrtsplan() {
               fehler={fehler[spieltag.id]}
               laeuft={laeuft.has(spieltag.id)}
               gemeldet={offen === spieltag.id ? gemeldet : ''}
+              bereich={offen === spieltag.id ? bereich : ''}
               aufklappen={() => {
                 setGemeldet('')
+                setBereich('')
                 setOffen(offen === spieltag.id ? null : spieltag.id)
               }}
               setzeAntwort={(status) => void setzeAntwort(spieltag, status)}

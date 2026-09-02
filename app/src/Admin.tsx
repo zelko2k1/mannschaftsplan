@@ -474,6 +474,15 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
   const [offen, setOffen] = useState('')
   /** Für welchen Spieltag zuletzt eine Erinnerung in die Zwischenablage ging. */
   const [kopiert, setKopiert] = useState('')
+  /**
+   * Welche Rückmeldung gerade gespeichert wurde — Spieltag und Spieler.
+   *
+   * Bisher gab es hier nur den Fehlerfall. Wer eine Zusage für jemanden eintrug, sah für die
+   * Dauer der Anfrage alle Knöpfe der Zeile abgeblendet und danach einen gefüllten Knopf; ob das
+   * die eigene Eingabe war oder der Stand von vorher, stand nirgends. Aus der Mannschaft kam
+   * genau das als „ich kann gar nicht erkennen, ob meine Änderung gespeichert ist" zurück.
+   */
+  const [quittung, setQuittung] = useState({ spieltag: '', mitglied: '' })
   const [frage, setFrage] = useState<Nachfrage | null>(null)
   // Welcher Spieltag gerade bearbeitet wird. „Abschließen" ist ein Umschalter: Zweimal geklickt
   // — und auf einer trägen Verbindung klickt man zweimal — sperrt der erste Ruf und entsperrt
@@ -489,6 +498,7 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
   ) => {
     if (laeuft) return
     setLaeuft(spieltagId)
+    setQuittung({ spieltag: spieltagId, mitglied: mitgliedId })
     setFehler('')
     try {
       await adminApi.rueckmeldungSetzen(spieltagId, mitgliedId, status)
@@ -777,6 +787,16 @@ function Spieltage({ abgemeldet, team }: { abgemeldet: () => void; team: string 
                       {(s.responses_alt ?? []).includes(m.id) && (
                         <span className="satz__warnung"> · alter Termin</span>
                       )}
+                      {/* Die Quittung steht an der Zeile, an der getippt wurde. Der Kasten ist
+                          immer da, auch leer — sonst meldet eine Bildschirmleseanwendung die
+                          Änderung nicht zuverlässig. */}
+                      <span role="status" className="satz__zusatz">
+                        {quittung.spieltag === s.id && quittung.mitglied === m.id
+                          ? laeuft === s.id
+                            ? ' · speichert …'
+                            : ' · gespeichert'
+                          : ''}
+                      </span>
                     </span>
                     <div className="knopfreihe">
                       {ANTWORTEN.map(({ wert, text, klasse }) => (

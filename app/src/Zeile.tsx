@@ -9,13 +9,38 @@ type Props = {
   board: Board
   offen: boolean
   fehler?: string
-  /** Was zuletzt gespeichert wurde. Steht neben den Knöpfen und wird angesagt. */
+  /** Was zuletzt gespeichert wurde. Steht bei den Knöpfen, die es ausgelöst haben, und wird angesagt. */
   gemeldet?: string
+  /** Bei welchen Knöpfen die Quittung steht — leer, solange nichts gespeichert wurde. */
+  bereich?: 'antwort' | 'fahrt' | ''
   laeuft: boolean
   aufklappen: () => void
   setzeAntwort: (status: Status | null) => void
   setzeFahrt: (faehrt: boolean, plaetze?: number) => void
   setzeMitfahrt: (fahrt: string | null) => void
+}
+
+/**
+ * Die Quittung: „Speichert …", danach „Gespeichert: Dabei."
+ *
+ * Sie steht bei den Knöpfen, die sie ausgelöst haben — nicht am Ende des aufgeklappten Bereichs,
+ * wo sie bis eben stand. Dort lag sie hinter dem Fahrdienst und vier Absätzen Namen, also auf
+ * einem Handy weit außerhalb des Bildes; aus der Mannschaft kam das als „ich kann gar nicht
+ * erkennen, ob meine Änderung gespeichert ist" zurück.
+ *
+ * Der Kasten steht IMMER im Dokument, auch leer: Eine Bildschirmleseanwendung meldet Änderungen
+ * in einem `role="status"` nur zuverlässig, wenn der Bereich schon da war, bevor der Text kam.
+ *
+ * „Speichert …" füllt die Lücke dazwischen. Vorher blendeten sich für die Dauer der Anfrage nur
+ * alle Knöpfe ab — der gerade getippte wurde blass statt sichtbar gewählt, was eher nach
+ * „geht nicht" aussah als nach „unterwegs".
+ */
+function Quittung({ text, laeuft }: { text: string; laeuft: boolean }) {
+  return (
+    <div role="status" className="quittung">
+      {laeuft ? 'Speichert …' : text ? <span className="gemeldet">{text}</span> : null}
+    </div>
+  )
 }
 
 /** Belegung als Kästchen statt als Zahl — auf einen Blick lesbar. */
@@ -36,6 +61,7 @@ export default function Zeile({
   offen,
   fehler,
   gemeldet,
+  bereich,
   laeuft,
   aufklappen,
   setzeAntwort,
@@ -330,6 +356,11 @@ export default function Zeile({
                   laeuft={laeuft}
                 />
 
+                <Quittung
+                  text={bereich === 'antwort' ? (gemeldet ?? '') : ''}
+                  laeuft={laeuft && bereich === 'antwort'}
+                />
+
                 {!spieltag.is_home && (
                   <>
                     <h3 className="detail__titel">Fahrdienst</h3>
@@ -405,6 +436,11 @@ export default function Zeile({
                         frage={frage}
                         abbrechen={() => setFrage(null)}
                         laeuft={laeuft}
+                      />
+
+                      <Quittung
+                        text={bereich === 'fahrt' ? (gemeldet ?? '') : ''}
+                        laeuft={laeuft && bereich === 'fahrt'}
                       />
 
                       {/* Das eigene Auto: wer sitzt drin? Ohne das müsste der Fahrer die Liste
@@ -504,9 +540,9 @@ export default function Zeile({
               ) : null
             })()}
 
-            {/* Der Erfolg bekommt eine Zeile wie der Fehler. Sie steht am Ende des
-                aufgeklappten Bereichs, wo auch die Fehlerzeile steht, und wird angesagt. */}
-            <div role="status">{gemeldet ? <p className="gemeldet">{gemeldet}</p> : null}</div>
+            {/* Die Erfolgsmeldung steht nicht mehr hier, sondern bei den Knöpfen, die sie
+                auslösen — siehe `Quittung`. Der Fehler bleibt am Ende: Er betrifft die ganze
+                Zeile, und wer ihn liest, hat ohnehin gerade nichts erreicht. */}
             <Fehler text={fehler} />
           </div>
         )}

@@ -192,6 +192,22 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Behoben
 
+- **„Ich kann gar nicht erkennen, ob meine Änderung gespeichert ist."** Aus der Mannschaft, am Tag
+  nach dem Ausrollen. Die Rückmeldung gab es — sie stand nur am **Ende** des aufgeklappten
+  Bereichs, hinter dem Fahrdienst und vier Absätzen Namen, auf einem Handy also mehrere hundert
+  Pixel unter dem Knopf, den man gerade getippt hatte.
+
+  Jetzt steht sie **bei den Knöpfen, die sie auslösen**: unter den Rückmeldeknöpfen, was die
+  Antwort betrifft, und unter „Ich fahre", was den Fahrdienst betrifft. Dazu ein **„Speichert …"**
+  für die Zeit dazwischen — vorher blendeten sich für die Dauer der Anfrage nur alle Knöpfe ab,
+  der gerade getippte wurde also blass statt sichtbar gewählt, was eher nach „geht nicht" aussah
+  als nach „unterwegs".
+
+  Dieselbe Lücke in der Kapitänsansicht, dort sogar ohne jede Erfolgsmeldung: Wer eine Zusage für
+  jemanden eintrug, sah abgeblendete Knöpfe und danach einen gefüllten — ob das die eigene Eingabe
+  war oder der Stand von vorher, stand nirgends. Jetzt steht „speichert …" und danach
+  „gespeichert" an der Zeile des Spielers, an der getippt wurde.
+
 - **Wer absagte, ließ sein Auto stehen.** Eine Rückmeldung fasste den Fahrdienst nicht an: Wer
   „Ich fahre" gedrückt hatte und später auf „Kann nicht" wechselte, blieb mit einem Auto im
   Fahrplan stehen, das nicht fuhr — mitsamt Plätzen, die es nicht gab. Umgekehrt blockierte ein
