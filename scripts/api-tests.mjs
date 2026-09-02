@@ -707,6 +707,52 @@ await pruefe('F4', 'Fahrt zurückziehen nimmt die Mitfahrer mit', async () => {
   gleich(uebrig.totalItems, 0, 'übrige Mitfahrer')
 })
 
+// ── F6 · Auswärts ohne Autos ────────────────────────────────────────────────────────────────
+// Wer mit Bus und Bahn anreist, braucht keinen Fahrdienst. Die Abfahrtszeit wird dann NICHT
+// gerechnet: Die Formel ist `km / tempo + puffer`, also eine Autofahrt, und für eine
+// Bahnverbindung wäre das Ergebnis erfunden. Eine von Hand eingetragene Abfahrt gilt weiterhin —
+// „wir nehmen den 17:42er" ist genau der Fall, für den es das Feld gibt.
+await pruefe('F6', 'Ohne Fahrdienst wird keine Abfahrtszeit erfunden', async () => {
+  const jar = await adminSitzung()
+  const ruf = alsKapitaen(jar)
+  const spieler = await testMitglied('oepnv')
+  const spielerJar = (await anmelden(spieler.klartext)).jar
+  const spieltag = await testSpieltag({ km: 80 })
+
+  const imAushang = async () => {
+    const board = await (await alsMitglied(spielerJar)('/api/board')).json()
+    return board.fixtures.find((x) => x.id === spieltag.id)
+  }
+
+  const mitAuto = await imAushang()
+  gleich(mitAuto.ohne_fahrdienst, false, 'zunächst mit Fahrdienst')
+  stimmt(!!mitAuto.departure, 'und mit gerechneter Abfahrt')
+
+  gleich(
+    (
+      await ruf(`/manage/api/fixtures/${spieltag.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ ohne_fahrdienst: true }),
+      })
+    ).status,
+    200,
+    'auf Bus und Bahn umgestellt',
+  )
+
+  const ohneAuto = await imAushang()
+  gleich(ohneAuto.ohne_fahrdienst, true, 'ohne Fahrdienst')
+  gleich(ohneAuto.departure, null, 'keine gerechnete Abfahrt')
+
+  // Von Hand gesetzt gilt weiterhin.
+  await ruf(`/manage/api/fixtures/${spieltag.id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ departure_manual: '2026-09-12T15:42:00.000Z' }),
+  })
+  const mitBahn = await imAushang()
+  stimmt(!!mitBahn.departure, 'die eingetragene Abfahrt bleibt')
+  gleich(mitBahn.ohne_fahrdienst, true, 'und der Spieltag bleibt ohne Fahrdienst')
+})
+
 // ── F5 · Eine Absage räumt den Fahrdienst mit ───────────────────────────────────────────────
 // Ohne das bleibt das Auto eines Abgesagten im Fahrplan stehen und bietet Plätze an, die es nicht
 // gibt — und der Aushang rechnet mit ihnen, wenn er sagt, wie viele Zusagen ohne

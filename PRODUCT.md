@@ -77,7 +77,9 @@ Quelle sportlicher Personen, Konten davon getrennt und optional damit verknüpft
   selten aus, er wird verschoben; wer vor der Verschiebung geantwortet hat, hat den neuen Termin
   nie gesehen. Die Zusage bleibt stehen und gilt als unbestätigt, bis derjenige sie noch einmal
   antippt. Als Verlegung zählt ein anderer Kalendertag oder mindestens eine Stunde.
-- Fahrdienst: wer fährt mit wie vielen Plätzen, und wer sitzt in welchem Auto.
+- Fahrdienst: wer fährt mit wie vielen Plätzen, und wer sitzt in welchem Auto. **Ein
+  Auswärtsspiel kann auch ohne auskommen** — wer mit Bus und Bahn anreist, schaltet den Fahrdienst
+  am Spieltag ab; dann wird auch keine Abfahrtszeit gerechnet, denn die Formel gilt fürs Auto.
 - Spieltage schließen sich nach einer einstellbaren Frist von selbst.
 - Konten für Kapitäne und Admins, mit optionalem zweitem Faktor (TOTP). Der Admin sieht, wer
   einen hat, und kann ihn abschalten — einrichten kann ihn nur die Person selbst.

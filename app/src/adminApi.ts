@@ -48,6 +48,8 @@ export type AdminSpieltag = {
   rides: { id: string; member: string; seats: number; taken: number }[]
   /** Wer in welchem Auto sitzt — für die Rechnung „wie viele Zusagen haben keinen Platz". */
   seat_claims: Record<string, string>
+  /** Anreise ohne Autos — Bus, Bahn, zu Fuß. Dann gibt es keinen Fahrdienst. */
+  ohne_fahrdienst: boolean
   /** Wann zuletzt verlegt. Leer = nie. */
   verlegt_am: string
   /** Wessen Rückmeldung noch vom alten Termin stammt. */

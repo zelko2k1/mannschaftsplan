@@ -133,7 +133,9 @@ cronAdd('erinnerung', '0 18 * * *', () => {
 
       const fehlen = aktive.filter((m) => !beantwortet[m.id]).map((m) => m.getString('name'))
       const fahrer = $app.findRecordsByFilter('rides', 'fixture = {:f}', '', 20, 0, { f: s.id })
-      const ohneFahrer = !s.getBool('is_home') && fahrer.length === 0
+      // „Es fährt noch niemand" gilt nur, wo jemand fahren soll. Bei einer Anreise mit Bus und
+      // Bahn wäre es eine Aufforderung ins Leere.
+      const ohneFahrer = !s.getBool('is_home') && !s.getBool('ohne_fahrdienst') && fahrer.length === 0
 
       // Nur melden, wenn wirklich etwas offen ist — eine Erinnerung, die jeden Tag kommt, liest
       // nach einer Woche niemand mehr.
