@@ -1,6 +1,14 @@
 import { useId, useState } from 'react'
 import type { Board, Fahrt, Spieltag, Status } from './api'
-import { ANTWORTEN, ergebnis, plaetze as plaetzeText, tag, uhrzeit, wannUngefaehr } from './format'
+import {
+  ANTWORTEN,
+  ergebnis,
+  navigationsZiel,
+  plaetze as plaetzeText,
+  tag,
+  uhrzeit,
+  wannUngefaehr,
+} from './format'
 import { Fehler } from './Meldung'
 import { Nachfragekasten, type Nachfrage } from './Nachfrage'
 
@@ -388,6 +396,28 @@ export default function Zeile({
             {/* Der Hinweis steht bei Abfahrt und Treffpunkt, weil er meistens davon handelt.
                 `pre-wrap`, damit eine Aufzählung eine bleibt: Wer drei Dinge untereinander
                 schreibt, meint drei Zeilen. */}
+            {/* Die Anschrift zum Antippen. Sie steht als Text da und ist gleichzeitig der Weg
+                zur Karte — wer nicht tippen will, liest sie einfach ab, und dann geht auch
+                nichts an einen fremden Dienst.
+
+                `rel="noreferrer"` gehört dazu: Die Adresse muss der Kartendienst kennen, die
+                Adresse DIESER Anwendung geht ihn nichts an. Ohne das stünde in seinem Protokoll,
+                von welchem Verein der Aufruf kam.
+
+                Ein Link und kein Knopf, weil es einer ist: Er führt woandershin, und der Browser
+                soll ihn behandeln wie einen — langes Drücken, in neuem Reiter öffnen, kopieren. */}
+            {spieltag.adresse && (
+              <a
+                className="detail__adresse"
+                href={navigationsZiel(spieltag.adresse)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <span className="detail__adresse-text">{spieltag.adresse}</span>
+                <span className="detail__adresse-hinweis">Route öffnen</span>
+              </a>
+            )}
+
             {spieltag.hinweis && <p className="detail__hinweis">{spieltag.hinweis}</p>}
 
             {spieltag.locked ? (

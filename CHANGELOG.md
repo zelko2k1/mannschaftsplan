@@ -9,6 +9,23 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- **Die Anschrift des Spielorts, zum Antippen.** Der Kapitän trägt sie ein, im Spieltag steht ein
+  Kasten mit der Adresse und „Route öffnen" — ein Tipp, und die Karten- oder Navigations-App des
+  Geräts geht auf. Steht keine Adresse da, gibt es den Kasten nicht.
+
+  **Ohne Google.** Es gibt keine Adresse, die auf jedem Gerät „die Navigations-App" öffnet, und die
+  bequeme Antwort — ein Karten-Link für alle — widerspricht dem Grundsatz „keine Requests an
+  Dritte". Deshalb je Gerät der Weg, der ohne fremden Dienst auskommt oder wenigstens ohne einen
+  zusätzlichen: **Android** bekommt `geo:` und fragt das Betriebssystem, welche installierte App
+  übernimmt — dabei geht überhaupt keine Anfrage ins Netz. **iPhone und iPad** bekommen
+  `maps.apple.com`, weil Safari `geo:` nicht kennt und ein Tippen sonst ins Leere liefe; das ist
+  Apple, dessen Karten-App auf dem Gerät ohnehin liegt. **Am Schreibtisch** OpenStreetMap — dort
+  navigiert niemand, dort will jemand nachsehen, wo das ist.
+
+  Die Adresse steht als Text im Kasten: Wer nicht tippen will, liest sie ab, und dann verlässt sie
+  das Gerät nicht. `rel="noreferrer"` sorgt dafür, dass der Kartendienst zwar die Anschrift des
+  Spielorts erfährt, aber nicht die des Vereins.
+
 - **Ein Hinweisfeld am Spieltag.** Aus der Mannschaft, mit Beispielen: die Anschrift des Lokals,
   „vergesst das und das nicht", „Spieltagverschiebung in Klärung", „viel Glück beim Spiel", „der
   Ersatzkapitän ist heute der und der". Fünf Dinge ohne Gemeinsamkeit — genau der Fall, für den

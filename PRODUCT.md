@@ -79,6 +79,10 @@ Quelle sportlicher Personen, Konten davon getrennt und optional damit verknüpft
 
 - Mehrere Mannschaften unter einem Dach, strikt voneinander getrennt.
 - Spielplan je Mannschaft mit Heim/Auswärts, Gegner, Ort, Anwurf, Entfernung, Treffpunkt.
+- **Die Anschrift des Spielorts, zum Antippen** — sie öffnet die Karten- oder Navigations-App des
+  Geräts. Ohne Adresse gibt es die Box nicht. Kein eingebetteter Kartendienst und kein Aufruf ohne
+  Zutun: Erst das Antippen übergibt die Anschrift an die App, und die Anschrift der Installation
+  bleibt dabei außen vor.
 - **Ein Hinweis je Spieltag** — Freitext des Kapitäns für alles, was kein eigenes Feld hat:
   Anfahrt, Erinnerungen, wer heute vertritt. Für alle sichtbar, höchstens 500 Zeichen. **Kein
   Diskussionsbereich:** Es schreibt nur der Kapitän.

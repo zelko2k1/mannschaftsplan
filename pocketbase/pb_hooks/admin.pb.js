@@ -358,6 +358,8 @@ routerAdd('GET', '/manage/api/fixtures', (e) => {
       km: s.getInt('km'),
       team: s.getString('team'),
       meeting_point: s.getString('meeting_point'),
+      // Die Anschrift des Spielorts. Leer = keine Karten-Box im Spieltag.
+      adresse: s.getString('adresse'),
       // Der Hinweis des Kapitäns. Steht neben Abfahrt und Treffpunkt, weil er meistens davon
       // handelt — Anfahrt, Vertretung, „vergesst die Trikots nicht".
       hinweis: s.getString('hinweis'),

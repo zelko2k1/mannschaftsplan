@@ -159,6 +159,7 @@ PocketBases MFA vorbeigeht (R13, zweiter Faktor).
 | `venue` | text | Spielstätte vor Ort |
 | `km` | number, default 0 | einfache Strecke |
 | `meeting_point` | text | Treffpunkt für die Abfahrt |
+| `adresse` | text, max 200 | Anschrift des Spielorts. Leer = keine Karten-Box im Spieltag. Eigenes Feld und nicht Teil von `hinweis`, weil sie wiederkehrt, angetippt wird und später aus einem Export kommen könnte. `venue` sagt weiterhin, WIE der Ort heißt, die Adresse WO er ist |
 | `hinweis` | text, max 500 | Freitext des Kapitäns zu diesem Spieltag — Anfahrt, Erinnerungen, Vertretung. Für alle sichtbar, **nur der Kapitän schreibt**: Ein Feld, in das alle schreiben, wäre ein Diskussionsbereich, und dafür fehlen Konten, Benachrichtigungen und Moderation. Zu lange Eingaben werden abgeschnitten, nicht abgelehnt |
 | `needed_players` | number, default 4 | |
 | `locked` | bool, default false | nach dem Spiel: keine Änderungen mehr |

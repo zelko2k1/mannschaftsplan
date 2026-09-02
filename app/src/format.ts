@@ -114,6 +114,33 @@ export function ergebnis(
   return { wort, text: `${wort} ${wir}:${gegner}` }
 }
 
+/**
+ * Wohin die Karten-Box führt — und warum das drei Fälle sind.
+ *
+ * Es gibt keine Adresse, die auf jedem Gerät „die Navigations-App" öffnet, und die bequeme Antwort
+ * (ein Google-Maps-Link für alle) widerspricht Abschnitt 8: keine Requests an Dritte. Deshalb je
+ * Gerät der Weg, der ohne fremden Dienst auskommt oder wenigstens ohne einen zusätzlichen:
+ *
+ * - **Android und alles, was `geo:` versteht:** `geo:0,0?q=…`. Das Betriebssystem fragt, welche
+ *   installierte App übernehmen soll. Es geht KEINE Anfrage ins Netz — die Adresse verlässt das
+ *   Gerät erst, wenn die gewählte App sie selbst nachschlägt.
+ * - **iPhone und iPad:** Safari kennt `geo:` nicht, ein Tippen liefe ins Leere. Dort führt der Weg
+ *   über `maps.apple.com`, das die vorhandene Karten-App öffnet — also über Apple, dessen App auf
+ *   dem Gerät ohnehin liegt, und nicht über einen weiteren Anbieter.
+ * - **Alles andere (Schreibtisch):** OpenStreetMap. Dort navigiert niemand, dort will jemand
+ *   nachsehen, wo das ist — und OSM ist der Kartendienst ohne Werbegeschäft dahinter.
+ *
+ * Die Erkennung geht über die Gerätekennung, was sonst zu Recht verpönt ist. Hier geht es nicht um
+ * Aussehen, sondern darum, WELCHES Adressschema ein Gerät überhaupt versteht — und das lässt sich
+ * nicht abfragen, nur wissen.
+ */
+export function navigationsZiel(adresse: string, kennung = navigator.userAgent): string {
+  const ziel = encodeURIComponent(adresse.trim())
+  if (/iPhone|iPad|iPod/i.test(kennung)) return `https://maps.apple.com/?q=${ziel}`
+  if (/Android/i.test(kennung)) return `geo:0,0?q=${ziel}`
+  return `https://www.openstreetmap.org/search?query=${ziel}`
+}
+
 // ── Kapitänsansicht ─────────────────────────────────────────────────────────────────────────
 // Dort gilt das Gegenteil der Regel oben: der Aushang soll überall gleich aussehen, die
 // Verwaltung dagegen so, wie der Rechner des Kapitäns Datum und Uhrzeit schreibt. Reihenfolge,

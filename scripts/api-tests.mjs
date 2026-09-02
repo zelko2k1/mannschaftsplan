@@ -907,6 +907,18 @@ await pruefe('E1', 'Der Kapitän trägt ein Ergebnis ein, der Aushang zeigt es',
   })
   gleich((await imAushang()).hinweis.length, 500, 'bei 500 Zeichen abgeschnitten')
 
+  // Die Anschrift des Spielorts — eigenes Feld, weil sie wiederkehrt und angetippt wird.
+  await ruf(`/manage/api/fixtures/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ adresse: 'test-Musterstrasse 5, 12345 Beispielstadt' }),
+  })
+  stimmt((await imAushang()).adresse.indexOf('Musterstrasse') !== -1, 'die Adresse steht im Aushang')
+  await ruf(`/manage/api/fixtures/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ adresse: 'y'.repeat(300) }),
+  })
+  gleich((await imAushang()).adresse.length, 200, 'bei 200 Zeichen abgeschnitten')
+
   // R4 · Unsinn wird abgelehnt, nicht stillschweigend zurechtgebogen.
   for (const wert of [7.5, 200, -5]) {
     gleich(

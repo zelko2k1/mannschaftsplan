@@ -4,6 +4,7 @@ import {
   ausISO,
   ausZeitangabe,
   ergebnis,
+  navigationsZiel,
   fuerEingabe,
   nachReihenfolge,
   seit,
@@ -249,5 +250,36 @@ describe('ergebnis', () => {
   it('nimmt ein halb ausgefülltes Ergebnis nicht an', () => {
     expect(ergebnis(6, -1)).toBeNull()
     expect(ergebnis(-1, 2)).toBeNull()
+  })
+})
+
+describe('navigationsZiel', () => {
+  const adresse = 'Musterstraße 5, 12345 Beispielstadt'
+
+  it('öffnet auf Android die installierte App, ohne jemanden zu fragen', () => {
+    // `geo:` geht ans Betriebssystem, nicht ins Netz — die Adresse verlässt das Gerät erst,
+    // wenn die gewählte App sie selbst nachschlägt.
+    expect(navigationsZiel(adresse, 'Mozilla/5.0 (Linux; Android 14) Chrome/120')).toMatch(
+      /^geo:0,0\?q=/,
+    )
+  })
+
+  it('nimmt auf dem iPhone Apple, weil Safari `geo:` nicht kennt', () => {
+    expect(navigationsZiel(adresse, 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Safari')).toContain(
+      'maps.apple.com',
+    )
+  })
+
+  it('führt am Schreibtisch auf OpenStreetMap', () => {
+    expect(navigationsZiel(adresse, 'Mozilla/5.0 (Windows NT 10.0) Firefox/130')).toContain(
+      'openstreetmap.org',
+    )
+  })
+
+  it('gibt die Adresse in keinem Fall roh weiter', () => {
+    for (const kennung of ['Android', 'iPhone', 'Windows']) {
+      expect(navigationsZiel(adresse, kennung)).not.toContain(' ')
+      expect(navigationsZiel(adresse, kennung)).toContain('Musterstra')
+    }
   })
 })
