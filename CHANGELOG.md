@@ -7,6 +7,8 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+## [0.3.3] – 2026-09-03
+
 ### Geändert
 
 - **Die Anleitung beschreibt wieder, was die App kann.** Ausnahmsweise steht Doku hier: Der Kopf
