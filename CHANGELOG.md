@@ -7,6 +7,8 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+## [0.4.0] – 2026-09-03
+
 ### Hinzugefügt
 
 - **Der Spielplan im eigenen Kalender.** Am Ende des Aushangs steht ein Knopf **„In den Kalender"**
