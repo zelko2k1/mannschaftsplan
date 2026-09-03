@@ -7,6 +7,26 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- **Die Anleitung beschreibt wieder, was die App kann.** Ausnahmsweise steht Doku hier: Der Kopf
+  der README behauptete an zwei Stellen, die App kenne **keine Ergebnisse** — die gibt es seit
+  dem 02.09. Eine falsche Aussage über das Produkt, an der prominentesten Stelle. Richtig ist:
+  zwei Zahlen am Spieltag ja, Tabelle und Saisonbilanz nein.
+
+  Dazu drei weitere Fehler in der Einrichtung: **Schritt 9 verschwieg das Anlegen der
+  Mannschaft** und begann mit einem „Dort", das sich auf nichts bezog — ohne Mannschaft gibt es
+  aber weder Spieler noch Spieltage, wer die Anleitung abarbeitete, stand vor einer Wand.
+  **Schritt 10** führte die Abfahrtszeit als zentrale Vereins-Einstellung, obwohl Tempo und
+  Rüstzeit seit Migration `1788400000` am einzelnen Spieltag stehen. Und ein Absatz über mehrere
+  Mannschaften hatte die Reiter-Umstellung nicht mitgemacht.
+
+  Nachgetragen sind außerdem **elf Funktionen aus 0.3.0 bis 0.3.2**, die nirgends standen:
+  Ergebnis, Hinweisfeld, Anschrift zum Antippen, verlegter Termin mit altem Datum, „Ich komme
+  selbst", auswärts ohne Fahrdienst, „4 zugesagt, 6 nötig", die Quittung an den Knöpfen,
+  Treffpunkt je Mannschaft, Erinnerung zum Kopieren, Protokoll — und der Mannschaftswechsel mit
+  einem eigenen Abschnitt dort, wo er im Vereinsalltag auftritt.
+
 ## [0.3.2] – 2026-09-03
 
 ### Geändert
