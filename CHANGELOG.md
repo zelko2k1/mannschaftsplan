@@ -7,6 +7,8 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+## [0.3.2] – 2026-09-03
+
 ### Geändert
 
 - **„Wechselt zu" steht jetzt in der Knopfreihe** statt als beschriftetes Feld darunter. Bei acht
