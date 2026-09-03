@@ -624,6 +624,23 @@
   font-weight: 500;
 }
 
+/* Der Kalender-Knopf schließt die Liste ab, wie die Rückschau sie eröffnet. Er benutzt dieselbe
+   Machart (`.rueckschau`); hier steht nur, was ihn von ihr trennt: Er hat keine Zeile über sich,
+   von der ihn eine Kante trennen müsste — er IST die letzte. */
+.zeile--kalender {
+  border-top: var(--linie);
+}
+/* Der Satz nach dem Antippen. Er sagt, wo die Datei gelandet ist — auf einem Handy verschwindet
+   sie sonst wortlos in den Downloads. Dieselbe Größe und dieselbe Ruhe wie die Quittung an den
+   Rückmeldeknöpfen. */
+.kalender__hinweis {
+  margin: 0;
+  padding: 0 0.9rem 0.8rem;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--grau);
+}
+
 /* Der Aushang beginnt bei dem, was kommt. Was vorbei ist, liegt darunter zusammengefaltet —
    erreichbar, aber nicht im Weg. Der Schalter sieht aus wie eine Zeile ohne Inhalt: Er gehört
    in den Plan und ist kein Bedienelement aus einer anderen Welt. */
