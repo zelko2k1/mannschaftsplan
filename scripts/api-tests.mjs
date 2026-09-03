@@ -1595,7 +1595,7 @@ await pruefe('A11', 'Impressum und Datenschutz: eigene Seiten, ohne Anmeldung, o
 // Das Zurückspielen selbst steht NICHT hier — es ersetzt die Datenbank und startet den Prozess
 // neu. Geprüft wird stattdessen, dass die Absicherungen davor halten.
 
-await pruefe('T14', 'Sicherung erstellen, auflisten, herunterladen', async () => {
+await pruefe('SI1', 'Sicherung erstellen, auflisten, herunterladen', async () => {
   const jar = await adminSitzung()
   const ruf = alsKapitaen(jar)
 
@@ -1622,7 +1622,7 @@ await pruefe('T14', 'Sicherung erstellen, auflisten, herunterladen', async () =>
   stimmt(!danach.items.some((x) => x.name === name), 'Die Sicherung ist nach dem Löschen noch da')
 })
 
-await pruefe('T14b', 'Zurückgegebene Datei landet wieder im Bestand', async () => {
+await pruefe('SI2', 'Zurückgegebene Datei landet wieder im Bestand', async () => {
   const jar = await adminSitzung()
   const ruf = alsKapitaen(jar)
 
@@ -1646,7 +1646,7 @@ await pruefe('T14b', 'Zurückgegebene Datei landet wieder im Bestand', async () 
   await ruf(`/admin/api/backup/${name}`, { method: 'DELETE' })
 })
 
-await pruefe('T14c', 'Nur Sicherungsdateien werden angenommen', async () => {
+await pruefe('SI3', 'Nur Sicherungsdateien werden angenommen', async () => {
   const jar = await adminSitzung()
 
   const formular = new FormData()
@@ -1662,7 +1662,7 @@ await pruefe('T14c', 'Nur Sicherungsdateien werden angenommen', async () => {
   stimmt(!liste.items.some((x) => x.name.includes('schad')), 'Die abgelehnte Datei liegt trotzdem da')
 })
 
-await pruefe('T14d', 'Zurückspielen ohne abgetippten Namen passiert nicht', async () => {
+await pruefe('SI4', 'Zurückspielen ohne abgetippten Namen passiert nicht', async () => {
   const jar = await adminSitzung()
   const ruf = alsKapitaen(jar)
 
