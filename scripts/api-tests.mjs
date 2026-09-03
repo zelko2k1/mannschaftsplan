@@ -3024,6 +3024,144 @@ await pruefe('S3', 'Das Aufräumen hält sich an Stichtag und Mannschaft', async
   )
 })
 
+await pruefe('S4', 'Der Mannschaftswechsel nimmt die Zukunft mit und lässt die Vergangenheit stehen', async () => {
+  const jar = await adminSitzung()
+  const ruf = alsKapitaen(jar)
+  const alt = await testTeam()
+  const neu = (await zweiteMannschaft()).id
+
+  const alsPb = (d) => d.toISOString().replace('T', ' ').slice(0, 19)
+  const gestern = await testSpieltag({ team: alt, date: alsPb(new Date(Date.now() - 86400000)) })
+  const morgen = await testSpieltag({ team: alt, date: alsPb(new Date(Date.now() + 86400000)) })
+
+  const { satz: wechsler } = await testMitglied('wechsler', true, alt)
+  const { satz: mitfahrer } = await testMitglied('mitfahrer', true, alt)
+
+  // An BEIDEN Spieltagen eine Rückmeldung — der Unterschied zwischen ihnen ist der ganze Test.
+  for (const spieltag of [gestern, morgen]) {
+    await pb('/api/collections/responses/records', {
+      method: 'POST',
+      body: JSON.stringify({ fixture: spieltag.id, member: wechsler.id, status: 'yes' }),
+    })
+  }
+  // Am künftigen fährt er, und jemand sitzt bei ihm im Auto.
+  const auto = await pb('/api/collections/rides/records', {
+    method: 'POST',
+    body: JSON.stringify({ fixture: morgen.id, member: wechsler.id, seats: 3 }),
+  })
+  await pb('/api/collections/seat_claims/records', {
+    method: 'POST',
+    body: JSON.stringify({ fixture: morgen.id, member: mitfahrer.id, ride: auto.id }),
+  })
+
+  const antwort = await ruf(`/admin/api/members/${wechsler.id}/mannschaft`, {
+    method: 'POST',
+    body: JSON.stringify({ team: neu }),
+  })
+  gleich(antwort.status, 200, 'Status')
+  const d = await antwort.json()
+  gleich(d.rueckmeldungen, 1, 'nur die künftige Rückmeldung ging weg')
+  gleich(d.fahrten, 1, 'seine Fahrt ging weg')
+  // Der Satz, der sonst erst am Spieltag auffiele: sein Auto nimmt fremde Mitfahrer mit.
+  gleich(d.plaetze, 1, 'ein Mitfahrer hat seinen Platz verloren')
+
+  // Er steht jetzt drüben — und drüben heißt: in der Liste der neuen, nicht mehr in der alten.
+  const drueben = await (await ruf(`/manage/api/members?team=${neu}`)).json()
+  stimmt(drueben.items.some((m) => m.id === wechsler.id), 'er steht bei der neuen Mannschaft')
+  const dahinten = await (await ruf(`/manage/api/members?team=${alt}`)).json()
+  stimmt(!dahinten.items.some((m) => m.id === wechsler.id), 'und nicht mehr bei der alten')
+
+  // Der gespielte Spieltag lügt nicht: Seine Rückmeldung von gestern steht noch.
+  const reste = await pb(
+    `/api/collections/responses/records?filter=${encodeURIComponent(`member="${wechsler.id}"`)}`,
+  )
+  gleich(reste.items.length, 1, 'genau eine Rückmeldung übrig')
+  gleich(reste.items[0].fixture, gestern.id, 'und zwar die vom gespielten Spieltag')
+
+  // Das Auto samt Platz des Mitfahrers ist über cascadeDelete mitgegangen.
+  const plaetze = await pb(
+    `/api/collections/seat_claims/records?filter=${encodeURIComponent(`member="${mitfahrer.id}"`)}`,
+  )
+  gleich(plaetze.items.length, 0, 'der Platz des Mitfahrers ist weg')
+
+  // Sein Einladungslink überlebt den Umzug — das war der ganze Schmerz vorher.
+  stimmt(
+    (await pb(`/api/collections/members/records/${wechsler.id}`)).token_hash !== '',
+    'das Token steht noch',
+  )
+})
+
+await pruefe('S5', 'Den Wechsel darf nur der Admin, und nur in eine Mannschaft, die es gibt', async () => {
+  const jar = await adminSitzung()
+  const ruf = alsKapitaen(jar)
+  const team = await testTeam()
+  const { satz: spieler } = await testMitglied('wechsel-wache', true, team)
+
+  gleich(
+    (await ruf(`/admin/api/members/${spieler.id}/mannschaft`, { method: 'POST', body: '{}' })).status,
+    400,
+    'ohne Ziel',
+  )
+  gleich(
+    (
+      await ruf(`/admin/api/members/${spieler.id}/mannschaft`, {
+        method: 'POST',
+        body: JSON.stringify({ team }),
+      })
+    ).status,
+    400,
+    'in die eigene Mannschaft',
+  )
+  gleich(
+    (
+      await ruf(`/admin/api/members/${spieler.id}/mannschaft`, {
+        method: 'POST',
+        body: JSON.stringify({ team: 'gibtesnicht0000' }),
+      })
+    ).status,
+    400,
+    'in eine erfundene Mannschaft',
+  )
+
+  // Dieselbe Wache wie beim Löschen: Ein Kapitänskonto hängt an einer Mannschaft, der Umzug
+  // risse es von ihr los.
+  const email = `test-wechsel-${randomBytes(4).toString('hex')}@example.invalid`
+  const konto = await (
+    await ruf('/admin/api/verwalter', {
+      method: 'POST',
+      body: JSON.stringify({ email, rolle: 'kapitaen', team, mitglied: spieler.id }),
+    })
+  ).json()
+  aufraeumen.push(['verwalter', konto.id])
+
+  const anderswo = (await zweiteMannschaft()).id
+  const gesperrt = await ruf(`/admin/api/members/${spieler.id}/mannschaft`, {
+    method: 'POST',
+    body: JSON.stringify({ team: anderswo }),
+  })
+  gleich(gesperrt.status, 409, 'mit Kapitänskonto')
+  stimmt((await gesperrt.json()).message.includes('Kapitänskonto'), 'die Meldung nennt den Grund')
+
+  // Und ein Kapitän kommt an die Route gar nicht heran — R6: 404, nicht 403. Ob es sie gibt,
+  // geht ihn nichts an.
+  const kapAnmeldung = await roh('/manage/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password: konto.passwort }),
+  })
+  gleich(kapAnmeldung.status, 200, 'der Kapitän meldet sich an')
+  gleich(
+    (
+      await alsKapitaen(kekse(kapAnmeldung).jar)(`/admin/api/members/${spieler.id}/mannschaft`, {
+        method: 'POST',
+        body: JSON.stringify({ team: anderswo }),
+      })
+    ).status,
+    404,
+    'als Kapitän',
+  )
+})
+
 await pruefe('G1', 'Die Spielerliste sagt, wie viele es wirklich sind', async () => {
   // Die Liste ist bei 200 gekappt. Ohne `gesamt` sähe eine Mannschaft mit 250 Spielern in der
   // Verwaltung genauso aus wie eine mit 200 — deshalb zählt der Server getrennt.

@@ -223,6 +223,11 @@ export default function Admin() {
             abgemeldet={abgemeldet}
             team={gewaehlt}
             neuLaden={() => void werBinIch()}
+            mannschaften={
+              // Leer für einen Kapitän, und das ist die ganze Rechteprüfung im Frontend: ohne
+              // Ziel zur Auswahl gibt es den Umzug nicht. Der Server weist ihn ohnehin ab.
+              ich.rolle === 'admin' ? ich.teams : []
+            }
           />
         )}
         {reiter === 'konten' && ich.rolle === 'admin' && <Konten abgemeldet={abgemeldet} />}
@@ -1094,7 +1099,15 @@ function Spieltagformular({
 }
 
 // ── Mitglieder ──────────────────────────────────────────────────────────────────────────────
-function Mitglieder({ abgemeldet, team }: { abgemeldet: () => void; team: string }) {
+function Mitglieder({
+  abgemeldet,
+  team,
+  mannschaften,
+}: {
+  abgemeldet: () => void
+  team: string
+  mannschaften: { id: string; name: string }[]
+}) {
   const { items, antwort, fehler, setFehler, laden } = useListe(
     () => adminApi.mitglieder(team),
     abgemeldet,
@@ -1112,8 +1125,19 @@ function Mitglieder({ abgemeldet, team }: { abgemeldet: () => void; team: string
   const [frage, setFrage] = useState<Nachfrage | null>(null)
   /** Welcher Link gerade in die Zwischenablage gegangen ist — für die Rückmeldung am Knopf. */
   const [kopiert, setKopiert] = useState('')
+  /**
+   * Was ein Umzug hinterlassen hat. Er steht oben und nicht an der Zeile: Der Spieler ist danach
+   * aus dieser Liste verschwunden, seine Zeile gibt es nicht mehr.
+   *
+   * `von` merkt sich, zu welcher Mannschaft die Meldung gehoert — sonst stuende sie nach einem
+   * Wechsel der Auswahl oben weiter da und spraeche ueber eine Liste, die man gar nicht ansieht.
+   */
+  const [umzug, setUmzug] = useState<{ von: string; text: string } | null>(null)
 
   if (!items) return <p>Einen Moment …</p>
+
+  const andere = mannschaften.filter((t) => t.id !== team)
+  const dieseMannschaft = mannschaften.find((t) => t.id === team)?.name ?? 'dieser Mannschaft'
 
   const fangen = async (
     was: string,
@@ -1177,6 +1201,8 @@ function Mitglieder({ abgemeldet, team }: { abgemeldet: () => void; team: string
           Mannschaft nicht an.
         </p>
       )}
+
+      {umzug && umzug.von === team && <p className="satz__warnung">{umzug.text}</p>}
 
       {items.map((m: AdminMitglied) => (
         <div key={m.id} className="satz">
@@ -1254,6 +1280,69 @@ function Mitglieder({ abgemeldet, team }: { abgemeldet: () => void; team: string
               Löschen
             </button>
           </div>
+
+          {/* Der Mannschaftswechsel — nur beim Admin, weil nur er Ziele zur Auswahl bekommt.
+              Bis hierher gab es ihn gar nicht: Wer von der Zweiten in die Erste rückte, wurde neu
+              angelegt, bekam einen neuen Einladungslink, und der alte Eintrag ließ sich nicht
+              einmal löschen, sobald eine Rückmeldung an ihm hing. Die Person stand zweimal da.
+
+              Die Auswahl löst nichts aus, sie stellt die Frage — bestätigt wird im Kasten
+              darunter, wie beim Löschen und beim neuen Token. */}
+          {andere.length > 0 && (
+            <div className="satz__aktionen">
+              <label className="feld feld--zeile">
+                <span>Wechselt zu</span>
+                <select
+                  value=""
+                  disabled={laeuft === m.id}
+                  onChange={(x) => {
+                    const ziel = andere.find((t) => t.id === x.target.value)
+                    if (!ziel) return
+                    setFrage({
+                      id: m.id,
+                      titel: `${m.name} wechselt zu ${ziel.name}`,
+                      text: `Was an künftigen Spieltagen von ${dieseMannschaft} an ihm hängt — Rückmeldung, Fahrt, Mitfahrt —, wird gelöscht; an bereits gespielten bleibt alles stehen. Sein Einladungslink gilt weiter, seine Geräte bleiben angemeldet.`,
+                      knopf: `Zu ${ziel.name} umziehen`,
+                      tun: () => {
+                        setFrage(null)
+                        void fangen(
+                          m.id,
+                          async () => {
+                            const d = await adminApi.mitgliedUmziehen(m.id, ziel.id)
+                            const weg: string[] = []
+                            if (d.rueckmeldungen) weg.push(`${d.rueckmeldungen} Rückmeldung(en)`)
+                            if (d.fahrten) weg.push(`${d.fahrten} Fahrt(en)`)
+                            if (d.mitfahrten) weg.push(`${d.mitfahrten} Mitfahrt(en)`)
+                            setUmzug({
+                              von: team,
+                              text:
+                                `${m.name} steht jetzt bei ${ziel.name}. ` +
+                                (weg.length
+                                  ? `Bei ${dieseMannschaft} gelöscht: ${weg.join(', ')} an künftigen Spieltagen.`
+                                  : `Bei ${dieseMannschaft} hing an künftigen Spieltagen nichts an ihm.`) +
+                                // Der Satz, der sonst erst am Spieltag auffiele: Sein Auto ist
+                                // mitgegangen, und die Mitfahrer stehen ohne Platz da.
+                                (d.plaetze
+                                  ? ` ${d.plaetze} Mitfahrer haben dabei ihren Platz verloren — sag ihnen Bescheid.`
+                                  : ''),
+                            })
+                          },
+                          'Nicht umgezogen.',
+                        )
+                      },
+                    })
+                  }}
+                >
+                  <option value="">Mannschaft wählen …</option>
+                  {andere.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
 
           <Nachfragekasten
             frage={frage?.id === m.id ? frage : null}
@@ -2478,10 +2567,13 @@ function MannschaftenReiter({
   abgemeldet,
   team,
   neuLaden,
+  mannschaften,
 }: {
   abgemeldet: () => void
   team: string
   neuLaden: () => void
+  /** Alle Mannschaften des Vereins — fuer den Wechsel eines Spielers. Beim Kapitaen leer. */
+  mannschaften: { id: string; name: string }[]
 }) {
   // Ein Reiter, eine Aussage: Ohne Mannschaft haben weder ihre Werte noch ihre Spieler einen
   // Gegenstand. Das steht hier und nicht in den beiden Bauteilen darunter, sonst stünde derselbe
@@ -2498,7 +2590,7 @@ function MannschaftenReiter({
   return (
     <>
       <Mannschaftseinstellungen abgemeldet={abgemeldet} team={team} neuLaden={neuLaden} />
-      <Mitglieder abgemeldet={abgemeldet} team={team} />
+      <Mitglieder abgemeldet={abgemeldet} team={team} mannschaften={mannschaften} />
     </>
   )
 }

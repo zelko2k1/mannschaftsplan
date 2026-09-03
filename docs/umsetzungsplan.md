@@ -693,6 +693,14 @@ DELETE /manage/api/totp                                     // abschalten, nur f
 **`/admin/api` — nur Rolle `admin`, hinter dem Gate**
 
 ```
+POST   /admin/api/members/:id/mannschaft  { team }
+                                    → { rueckmeldungen, fahrten, mitfahrten, plaetze }
+       // Ein Spieler wechselt die Mannschaft. NUR Rolle admin: Der Wechsel überschreitet die
+       // Abschottung zwischen zwei Mannschaften (Schema, utils.zugangPruefen, adminauth.teamFuer).
+       // Was an KÜNFTIGEN Spieltagen der alten Mannschaft an ihm hängt, wird gelöscht; was an
+       // gespielten hängt, bleibt stehen. `plaetze` zählt die Mitfahrer, die ihren Platz
+       // verloren haben, weil sein Auto mitging. Token und Sitzungen überleben — dieselbe
+       // Person. 409, solange ein Kapitänskonto auf ihn zeigt.
 POST   /admin/api/spieltage/aufraeumen  { bis: "YYYY-MM-DD", team? }  → { spieltage }
        // Saisonende. Verglichen wird gegen den Anfang des Folgetags, damit die Vorschau in der
        // Oberfläche dasselbe zählt, was der Server löscht.

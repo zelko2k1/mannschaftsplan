@@ -360,6 +360,18 @@ export const adminApi = {
    * Fahrt, kein Kapitänskonto. Was im Weg ist, steht in der Fehlermeldung.
    */
   mitgliedLoeschen: (id: string) => ruf<unknown>(`/members/${id}`, { method: 'DELETE' }),
+  /**
+   * Ein Spieler wechselt die Mannschaft — nur der Admin, nur mit zweitem Faktor.
+   *
+   * Was an künftigen Spieltagen der alten Mannschaft hing, ist danach weg; was an gespielten
+   * hängt, bleibt. Die Zahlen in der Antwort sagen, was tatsächlich gelöscht wurde, `plaetze`
+   * dazu, wie viele Mitfahrer ihren Platz verloren haben, weil sein Auto mitging.
+   */
+  mitgliedUmziehen: (id: string, team: string) =>
+    rufAdmin<{ rueckmeldungen: number; fahrten: number; mitfahrten: number; plaetze: number }>(
+      `/members/${id}/mannschaft`,
+      { method: 'POST', body: JSON.stringify({ team }) },
+    ),
   tokenNeu: (id: string) =>
     ruf<{ token: string; sitzungen_beendet: number }>(`/members/${id}/rotate-token`, {
       method: 'POST',
