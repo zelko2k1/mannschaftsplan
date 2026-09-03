@@ -20,9 +20,10 @@ aktualisieren.
 >
 > Die Beispiele hier kommen aus dem Dartsport: Spieltag, Anwurf, Liga, Spiellokal. **Festgelegt
 > ist die App darauf nicht.** Wer kegelt, Tischtennis, Schach, Handball oder Fußball spielt und
-> vor derselben Frage steht — wer kommt, und wer fährt wen —, kann sie genauso benutzen. Es gibt
-> keine Ergebnisse, keine Tabelle, keine Sportart im Datenmodell; es gibt Termine, Zusagen und
-> Autos.
+> vor derselben Frage steht — wer kommt, und wer fährt wen —, kann sie genauso benutzen. Im
+> Datenmodell steht keine Sportart: Es gibt Termine, Zusagen, Autos — und zu einem gespielten
+> Spieltag zwei Zahlen. **Eine Tabelle, eine Saisonbilanz oder eine Statistik gibt es nicht**,
+> und zwei Zahlen passen auf jede Sportart.
 
 **Die Mannschaft muss sich nirgends anmelden.** Jedes Mitglied bekommt einen persönlichen Link,
 den es sich einmal aufs Handy legt. Kein Konto, kein Passwort, keine App aus dem Store. Nur der
@@ -38,8 +39,10 @@ Dritten.
 > Kiosk-Betrieb. Vom selben Autor, ebenfalls selbst gehostet.
 >
 > Die beiden sind **nicht dasselbe und brauchen einander nicht.** Der Mannschaftsplan kann genau
-> eines: Termine und Fahrdienst. Er kennt keine Ergebnisse — und ist deshalb auch für Vereine
-> brauchbar, die mit Darts nichts zu tun haben.
+> eines: alles zu einem Spieltag an einem Ort — davor die Planung, danach das Ergebnis als
+> Hinweis. **Auswerten kann er nichts**: keine Tabelle, keine Saisonbilanz, keine Statistik.
+> Dafür gibt es die DartsZentrale. Und deshalb ist er auch für Vereine brauchbar, die mit Darts
+> nichts zu tun haben.
 
 > ### Ehrlich gesagt: Wer steckt dahinter?
 >
@@ -65,10 +68,26 @@ Dritten.
 ### 📋 Für die Mannschaft — ohne Anmeldung
 
 - **Ein Link, ein Blick.** Alle Spieltage untereinander, der nächste oben, mit Abfahrtszeit.
-- **Drei Knöpfe je Spieltag:** dabei · unsicher · kann nicht.
+- **Drei Knöpfe je Spieltag:** dabei · unsicher · kann nicht. Nach dem Antippen steht direkt
+  daneben, was gespeichert wurde — nicht ganz unten, wo es niemand sieht.
+- **„4 zugesagt, 6 nötig"** — kein Bruchstrich. Gemeint ist eine Untergrenze, keine Kapazität;
+  sobald es reicht, fällt die zweite Hälfte weg.
 - **Fahrdienst:** Wer fährt, sagt es und nennt die freien Plätze. Wer mitfährt, sucht sich ein
   Auto aus. Beides mit einem Antippen, beides jederzeit widerrufbar.
+- **„Ich komme selbst."** Wer zusagt, aber direkt zum Spielort fährt, gibt damit seinen Platz
+  frei — für jemanden, der einen sucht.
+- **Auswärts ohne Auto.** Fährt die Mannschaft mit Bus, Bahn oder zu Fuß, schaltet der Kapitän
+  den Fahrdienst ab, und in der Zeile steht, dass es so gemeint ist.
 - **Die Abfahrtszeit rechnet die App** — Entfernung, Tempo, Rüstzeit, rückwärts vom Anwurf.
+- **Die Anschrift zum Antippen:** ein Tipp, und die Karten-App des Geräts geht auf. **Ohne
+  Google** — Android fragt das Betriebssystem, ohne dass eine Anfrage ins Netz geht; am
+  Schreibtisch OpenStreetMap.
+- **Ein Hinweis vom Kapitän**, wenn er etwas zu sagen hat. Kein Diskussionsbereich: Er schreibt,
+  alle lesen.
+- **Verlegt? Dann steht auch da, woher.** „Der Termin wurde verlegt — vorher Sa 12.09., 19:30
+  Uhr." Sonst weiß nur, wer es auswendig wusste, was sich geändert hat.
+- **Wie es ausgegangen ist**, als Stempel am gespielten Spieltag. Und was ein Spieltag nicht mehr
+  ändern kann, verschwindet aus seiner Zeile.
 
 ### 🗂️ Für den Kapitän
 
@@ -76,14 +95,23 @@ Dritten.
   schließen (auf Wunsch von selbst).
 - **Spielplan einlesen** statt tippen: die CSV-Datei eines Verbands — oder eine mitgelieferte
   **Vorlage**, die man selbst ausfüllt.
+- **Ergebnis, Hinweis und Anschrift** je Spieltag eintragen; ein **Treffpunkt je Mannschaft**
+  füllt neue Auswärtsspiele schon vor.
+- **Eine Erinnerung zum Kopieren:** Wer noch nicht geantwortet hat, steht als fertiger Text
+  bereit — ab in den Gruppenchat.
 - **Auf einen Blick:** wer noch fehlt, ob genug Autos da sind, wo Ort oder Kilometer fehlen.
 
 ### 🏛️ Für den Verein
 
 - **Alle Mannschaften unter einem Dach**, sauber getrennt: Jeder Kapitän sieht nur seine.
+- **Ein Spieler wechselt die Mannschaft** — mit seinem Einladungslink, ohne neuen Eintrag. Was an
+  künftigen Spieltagen der alten Mannschaft an ihm hing, geht weg; was an gespielten hängt,
+  bleibt stehen.
 - **Sicherungen** erstellen, herunterladen und zurückspielen — ohne SSH, in der Oberfläche.
 - **Saison abschließen:** alte Spieltage, Spieler und Mannschaften geordnet loswerden.
 - **Zweiter Faktor** für die Verwaltung, Wiederherstellungscodes inklusive.
+- **Ein Protokoll**, das festhält, wer was wann geändert hat — der Kapitän sieht seine
+  Mannschaft, der Admin alles.
 
 ### 🔒 Und was NICHT passiert
 
@@ -120,7 +148,7 @@ dem Server betreibt oder mit einem frisch bestellten Server anfängt, hat in all
 
 | | |
 |---|---|
-| **Weg A · Ohne** | Der mitgelieferte Caddy übernimmt HTTPS, Zertifikat und die Sicherheitsregeln. **Das ist der Weg, den die neun Schritte unten beschreiben.** Nichts weiter zu entscheiden — lies einfach ab Schritt 1 weiter. |
+| **Weg A · Ohne** | Der mitgelieferte Caddy übernimmt HTTPS, Zertifikat und die Sicherheitsregeln. **Das ist der Weg, den die zehn Schritte unten beschreiben.** Nichts weiter zu entscheiden — lies einfach ab Schritt 1 weiter. |
 | **Weg B · Schon einer da** | Die App läuft ohne eigenen Proxy und belegt dann keinen einzigen Port. Deinen vorhandenen Webserver stellst du davor. Der Ablauf ist derselbe, aber vier Stellen sind anders — sie stehen unten jeweils als Kasten **„Weg B"** an Ort und Stelle, und der fertige Konfigurationsblock liegt unter [Wenn schon ein Reverse Proxy läuft](#-wenn-schon-ein-reverse-proxy-läuft). |
 
 > **Wenn du unsicher bist, nimm Weg A.** Zwei Reverse Proxies auf demselben Server streiten sich um
@@ -313,9 +341,16 @@ Code eintippen.
 > sie ab, bevor du das Fenster schließt — ins Portemonnaie oder in den Passwortmanager. Sie sind
 > dein Weg zurück, wenn das Handy weg ist. Ohne sie bliebe nur ein SSH-Tunnel in die Datenbank.
 
-**9 · Die Mannschaft eintragen**
+**9 · Die Mannschaft anlegen und eintragen**
 
-Dort legst du die Mitglieder an. Bei jedem gibt es den Knopf **„Neues Token"** — der erzeugt den
+Eine frisch aufgesetzte Anwendung ist **leer** — keine Mannschaft, kein Spieler, kein Spieltag.
+Deshalb zuerst die Mannschaft, denn ohne sie gibt es weder das eine noch das andere: Reiter
+**Verein**, Abschnitt **„Alle Mannschaften"**, Feld **„Neue Mannschaft"**, dann **Anlegen**. Gibt
+es noch keine, landest du nach der Anmeldung ohnehin gleich in diesem Reiter, und das Anlegen
+steht dort ganz oben.
+
+Danach oben im Kopf die Mannschaft auswählen und in den Reiter **Mannschaft** wechseln. Dort
+legst du die Mitglieder an. Bei jedem gibt es den Knopf **„Neues Token"** — der erzeugt den
 persönlichen Link für dieses Mitglied.
 
 > **Wichtig:** Dieser Link wird **genau einmal** angezeigt. Danach ist er nicht wieder
@@ -329,7 +364,8 @@ Spielplan musst du das nicht abtippen: siehe [Spielplan einlesen](#spielplan-ein
 
 **10 · Den Verein einrichten** *(freiwillig, aber lohnend)*
 
-Im Reiter **Verein** steht, was für alle Mannschaften gilt. Vier Einstellungen sind es:
+Im Reiter **Verein** steht, was für alle Mannschaften gilt. **Drei Einstellungen** sind es: der
+Vereinsname, das automatische Schließen von Spieltagen und die beiden Rechtstexte.
 
 **Name des Vereins.** Er steht dort, wo es um die Anwendung als Ganzes geht: über Impressum und
 Datenschutzhinweis, auf der Seite „Link ungültig", und als Herausgeber in der Authenticator-App.
@@ -347,24 +383,20 @@ bleiben damit ununterscheidbar.
 > Vereinsname ist dafür in Ordnung. Namen einzelner Personen, Adressen oder Spielorte gehören
 > nicht hinein.
 
-**Abfahrtszeit.** Die App trägt die Abfahrt nicht ein, sie rechnet sie: Strecke geteilt durch
-Tempo, plus Puffer, auf fünf Minuten gerundet, vom Anwurf abgezogen. Voreingestellt sind 80 km/h
-und 25 Minuten. Fahrt ihr über Land, stimmt ein höheres Tempo; in der Stadt ein niedrigeres.
-
-Beide Werte stehen **am einzelnen Spieltag** — die Autobahn nach Köln und die Halle im
-Nachbarort teilen sich weder Tempo noch Rüstzeit. Bleiben die Felder leer, gelten 80 km/h und
-25 Minuten.
-
-Und über allem steht die **von Hand eingetragene Abfahrt** am Spieltag: Die übergeht die Formel
-ganz.
+> **Die Abfahrtszeit suchst du hier vergeblich — sie steht am einzelnen Spieltag.** Die App
+> trägt die Abfahrt nicht ein, sie rechnet sie: Strecke geteilt durch Tempo, plus Rüstzeit, auf
+> fünf Minuten gerundet, vom Anwurf abgezogen. Tempo und Rüstzeit gehören an den Spieltag, weil
+> die Autobahn nach Köln und die Halle im Nachbarort sich weder das eine noch das andere teilen;
+> bleiben die Felder leer, gelten 80 km/h und 25 Minuten. Und über allem steht die **von Hand
+> eingetragene Abfahrt**: Die übergeht die Formel ganz.
+>
+> Beide Werte gab es einmal auch zentral und je Mannschaft. Sie sind wieder verschwunden — ein
+> Wert, den niemand mehr sieht, aber jeder spürt, ist schlimmer als gar keiner.
 
 **Spieltage von selbst schließen.** Ein gespielter Spieltag soll keine Rückmeldungen mehr
 annehmen, sonst ändert jemand hinterher seine Zusage. Trägst du hier eine Stundenzahl ein,
 erledigt das die App; bei **0** bleibt es bei deinem Handgriff nach dem Spiel. Geprüft wird
 stündlich, ein Spieltag schließt also bis zu eine Stunde nach Ablauf der Frist.
-
-Darunter im selben Reiter, jeweils als eigener Abschnitt: die **Liste der Mannschaften**,
-**Spielplan einlesen**, die **Sicherungen** und **Saison abschließen**.
 
 **Impressum und Datenschutzhinweis.** Zwei Textfelder, aus denen je eine eigene Seite wird —
 verlinkt im Fuß des Aushangs und auf der Einladungsseite, erreichbar auch ohne Anmeldung. Bleibt
@@ -383,6 +415,9 @@ HTML wird angezeigt statt ausgewertet.
 > Jahr, das Protokoll nach 90 Tagen, Sitzungen nach einem halben Jahr — und wer nicht warten
 > will, räumt unter *Verein → Saison abschließen* selbst auf. Im Zweifel jemanden fragen,
 > der beraten darf — viele Landessportbünde tun das für ihre Vereine kostenlos.
+
+Darunter im selben Reiter, jeweils als eigener Abschnitt: die **Liste der Mannschaften**,
+**Spielplan einlesen**, die **Sicherungen** und **Saison abschließen**.
 
 **Damit läuft die App.** Zwei Dinge lohnt es sich gleich anzusehen: den
 [Spielplan einlesen](#spielplan-einlesen), statt jeden Spieltag zu tippen — und
@@ -477,9 +512,26 @@ den Listen und ist sofort von allen Geräten abgemeldet — seine Rückmeldungen
 Spieltagen bleiben aber stimmig. Das ist der Normalfall. *Löschen* gibt es auch, es gehört aber
 zum [Aufräumen nach der Saison](#nach-der-saison-aufräumen).
 
+**Jemand wechselt in eine andere Mannschaft des Vereins.** Dann **nicht** inaktiv setzen und
+drüben neu anlegen — dafür gibt es die Auswahl „Wechselt zu …", und sein Einladungslink bleibt
+gültig. Siehe [Ein Spieler wechselt die Mannschaft](#ein-spieler-wechselt-die-mannschaft).
+
 **Ein Spieltag ist gelaufen.** Auf „gesperrt" setzen — dann kann niemand mehr nachträglich seine
 Zusage ändern. Wenn du unter *Verein* eine Frist hinterlegt hast, passiert das von selbst;
 im Protokoll steht die Zeile dann mit dem Vermerk „(automatisch)".
+
+**Wie es ausgegangen ist**, trägst du am Spieltag als zwei Zahlen ein; im Aushang steht danach ein
+Stempel („Sieg 6:2"). Das ist ein Hinweis und keine Statistik — eine Tabelle oder eine
+Saisonbilanz führt die App nicht.
+
+**Etwas mitzuteilen?** Am Spieltag gibt es ein **Hinweisfeld**: die Anschrift des Lokals, „vergesst
+die Trikots nicht", „viel Glück". Du schreibst, alle lesen — ein Diskussionsbereich ist es
+ausdrücklich nicht. **Keine Angaben über einzelne Personen** hineinschreiben; was dort steht,
+liest die ganze Mannschaft, und dein Datenschutzhinweis sagt nichts darüber.
+
+**Ein Termin wurde verlegt.** Neues Datum eintragen — im Aushang steht dann ein Stempel *verlegt*
+und dazu der alte Termin, damit jeder sieht, *was* sich geändert hat. Wer noch vom alten Termin
+zugesagt hatte, ist gekennzeichnet.
 
 ### 👥 Wie groß darf eine Mannschaft sein?
 Es gibt keine eingestellte Obergrenze — aber eine technische: **200 Spieler je Mannschaft**
@@ -533,6 +585,29 @@ und zeigt auch, welche Mannschaft noch keinen Kapitän hat.
 > Sitzungen und sein zweiter Faktor. Der Spielereintrag bleibt, mitsamt Einladungslink,
 > Rückmeldungen und Mannschaft: Wer aufhört, Kapitän zu sein, spielt weiter.
 
+#### Ein Spieler wechselt die Mannschaft
+
+Bei sieben Mannschaften ist das jeder Sommer, kein Sonderfall. Unter *Mannschaft* steht in der
+Zeile jedes Spielers eine Auswahl **„Wechselt zu …"** — Mannschaft wählen, bestätigen, fertig.
+
+**Sein Einladungslink gilt weiter**, seine Geräte bleiben angemeldet. Es ist dieselbe Person, und
+seine Ansicht folgt der neuen Mannschaft von selbst. (Vorher musste man ihn drüben neu anlegen,
+einen neuen Link verschicken — und der alte Eintrag ließ sich nicht einmal löschen, sobald eine
+Rückmeldung an ihm hing. Die Person stand dann zweimal da.)
+
+**Der Schnitt liegt am Heute.** Was an *künftigen* Spieltagen der alten Mannschaft an ihm hing —
+Rückmeldung, Fahrt, Mitfahrt —, wird gelöscht: Die Planung dort ist ab sofort ohne ihn richtig.
+Was an *gespielten* hängt, bleibt stehen; er ist gefahren, und ein abgeschlossener Spieltag, der
+hinterher „—" statt seines Namens zeigt, würde lügen. Danach steht da, was tatsächlich wegging.
+
+> **War er Fahrer, nimmt sein Auto die Mitfahrer mit.** Das steht in der Rückmeldung als eigener
+> Satz — sag den Betroffenen Bescheid, sonst stehen sie am Spieltag ohne Platz da.
+
+**Das darf nur der Admin.** Der Wechsel überschreitet die Trennung zwischen zwei Mannschaften,
+und ein Kapitän würde damit in eine Mannschaft eingreifen, die ihn nichts angeht; er bekommt die
+Auswahl deshalb gar nicht zu sehen. Hängt ein **Kapitänskonto** an dem Spieler, lehnt der Server
+ab und sagt es — dann erst unter *Konten* die Verknüpfung lösen.
+
 *Verein* trägt, was für alle Mannschaften gilt: Vereinsname, Sperrfrist, Rechtstexte, die Liste
 der Mannschaften, das Einlesen eines Spielplans, die Sicherungen und das Aufräumen nach der
 Saison.
@@ -558,11 +633,12 @@ Wer sich mit dem Zugang aus Einrichtungsschritt 7 anmeldet — dem Superuser —
 Das ist Absicht und der Rettungsanker: Wer sich beim Verteilen der Rollen vergreift, kommt darüber
 wieder herein.
 
-Alles, was einer Mannschaft gehört, steht im Reiter **Mannschaften**: ihr Name, ihre Mitglieder
-und ihre Kapitäne. Welche Mannschaft gemeint ist, wählst du oben aus; ein Kapitän hat
-dort genau eine.
+Alles, was einer Mannschaft gehört, steht im Reiter **Mannschaft**: ihr Name, ihr Treffpunkt und
+ihre Spieler. Welche Mannschaft gemeint ist, wählst du oben aus; ein Kapitän hat dort genau eine.
+**Ihre Kapitäne stehen nicht dort, sondern unter *Konten*** — die sind Sache des Admins und
+gehören nicht in die Mannschaftsarbeit.
 
-**Kapitäne anlegen** geht ebenfalls dort. Der **Anmeldename** hat E-Mail-Form — das verlangt
+**Kapitäne anlegen** geht also im Reiter *Konten*. Der **Anmeldename** hat E-Mail-Form — das verlangt
 PocketBase —, muss aber **keine echte Adresse sein**: `kapitaen@verein.intern` genügt. Es wird nie
 etwas dorthin geschickt, die App hat keinen Mailserver. Das Passwort wird erzeugt und **genau
 einmal angezeigt**, wie der Einladungslink eines Mitglieds; gespeichert ist davon nur ein Hash.
