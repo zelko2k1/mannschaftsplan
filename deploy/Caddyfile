@@ -25,10 +25,15 @@
 
 	# R9 · Kopfzeilen. frame-ancestors 'none' und base-uri 'none' stehen bewusst in der CSP,
 	# style-src 'unsafe-inline' ist nötig, weil React Styles inline setzt.
+	#
+	# DIESE LISTE MUSS MIT pb_hooks/kopfzeilen.pb.js ÜBEREINSTIMMEN — bis auf HSTS, das
+	# ausschließlich hier steht. Setzt Caddy eine Kopfzeile, die die App auch setzt, gewinnt
+	# Caddy: Eine Abweichung ist deshalb keine doppelte Absicherung, sondern eine
+	# Verschlechterung, die im Betrieb gilt und beim Ausprobieren ohne Proxy nicht auffällt.
 	header {
 		X-Robots-Tag "noindex, nofollow"
 		Referrer-Policy "no-referrer"
-		Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'"
+		Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"
 		-Server
