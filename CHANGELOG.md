@@ -7,6 +7,20 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+### Sicherheit
+
+- **Der ausgelieferte `Content-Security-Policy` war schwächer als der, den die App setzt.**
+  `form-action 'self'` — die Direktive, die festlegt, wohin ein Formular überhaupt abschicken
+  darf — stand in `pb_hooks/kopfzeilen.pb.js`, aber in keiner der beiden Caddy-Vorlagen. Und weil
+  der Proxy dieselben Kopfzeilen noch einmal setzt und dabei **gewinnt**, galt im Betrieb die
+  schwächere Fassung. Lokal, ohne Proxy, war die stärkere zu sehen: Der Unterschied fiel genau
+  dort nicht auf, wo man ihn gesucht hätte.
+
+  Aufgefallen ist es nur, weil nach dem Ausrollen die Kopfzeilen **am laufenden Server** gemessen
+  wurden statt in der Vorlage nachgelesen. Beide Vorlagen tragen den Abgleich jetzt als Warnung
+  im Kopf ihres `header`-Blocks — die Doppelung ist nur so lange eine Absicherung, wie beide
+  Listen dasselbe sagen.
+
 ## [0.3.1] – 2026-09-03
 
 ### Behoben

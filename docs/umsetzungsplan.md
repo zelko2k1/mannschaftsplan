@@ -443,6 +443,13 @@ Werte sind identisch; setzt Caddy sie erneut, gewinnt Caddy. Doppelt, weil die A
 Proxy laufen kann — im Entwicklungsbetrieb, im LAN, oder wenn jemand das Image allein startet.
 Eine Maßnahme, die nur greift, wenn die Umgebung mitspielt, ist keine.
 
+**Und weil Caddy gewinnt, ist eine Abweichung keine doppelte Absicherung, sondern eine
+Verschlechterung.** Genau das war am 03.09.2026 der Fall: `form-action 'self'` stand in
+`kopfzeilen.pb.js`, aber in keiner der beiden Caddy-Vorlagen — im Betrieb galt also die
+schwächere Fassung, während lokal ohne Proxy die stärkere zu sehen war. Aufgefallen ist es
+nur, weil nach dem Ausrollen die Kopfzeilen **am laufenden Server** gemessen wurden. Beide
+Vorlagen tragen den Abgleich seitdem als Warnung im Kopf ihres `header`-Blocks.
+
 **`Strict-Transport-Security` setzt ausschließlich Caddy**, nicht die App. Im Homelab und lokal
 nagelte HSTS den Browser ein Jahr lang auf HTTPS für diesen Namen fest — auch wenn dort später
 etwas anderes läuft.
