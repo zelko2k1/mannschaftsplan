@@ -910,6 +910,130 @@ routerAdd('DELETE', '/manage/api/members/{id}', (e) => {
   return e.json(200, { ok: true })
 })
 
+// ── POST /admin/api/members/{id}/mannschaft · Ein Spieler wechselt die Mannschaft ────────────
+// Bis hierher ging das nicht: `PATCH /manage/api/members/{id}` nimmt Name, aktiv, Notiz und
+// Reihenfolge — kein `team`. Wer von der Zweiten in die Erste rückte, musste neu angelegt werden,
+// bekam einen neuen Einladungslink, und der alte Eintrag ließ sich nicht einmal löschen, sobald
+// eine Rückmeldung an ihm hing. Die Person stand dann zweimal da. Bei sieben Mannschaften in
+// einem Verein ist das jeder Sommer, kein Sonderfall.
+//
+// NUR DER ADMIN, und deshalb hier unter `/admin/api/` samt zweitem Faktor: Der Wechsel
+// überschreitet die Abschottung zwischen zwei Mannschaften, und die steht an drei Stellen —
+// Pflichtfelder im Schema, `utils.zugangPruefen()` und `adminauth.teamFuer()`. Ein Kapitän
+// dürfte damit einen Spieler in eine Mannschaft schieben, die ihn nichts angeht.
+//
+// WAS MIT DER HISTORIE PASSIERT — die Frage, an der es hing: Rückmeldungen und Fahrten hängen an
+// den Spieltagen der ALTEN Mannschaft. Ziehen sie mit um, tauchen sie in einer fremden
+// Mannschaft auf; bleiben sie alle liegen, plant der alte Kapitän weiter mit jemandem, der nicht
+// mehr da ist. Deshalb der Schnitt am Heute:
+//
+//   - Was an KÜNFTIGEN Spieltagen der alten Mannschaft hängt, geht weg. Die Planung dort ist ab
+//     sofort ohne ihn richtig.
+//   - Was an GESPIELTEN hängt, bleibt liegen. Er ist gefahren; ein abgeschlossener Spieltag, der
+//     hinterher „—" statt seines Namens zeigt, würde lügen.
+//
+// Der Einladungslink bleibt gültig und die Geräte bleiben angemeldet — es ist dieselbe Person,
+// und ihre Ansicht folgt der Mannschaft am Eintrag von selbst. Genau das war der Schmerz.
+routerAdd('POST', '/admin/api/members/{id}/mannschaft', (e) => {
+  const a = require(`${__hooks}/adminauth.js`)
+  const vor = a.pruefen(e)
+  if (vor.fehler) return e.json(vor.fehler.status, vor.fehler.koerper)
+  if (vor.kontext.rolle !== 'admin') return e.json(404, { message: 'Nicht gefunden.' })
+  const ohneFaktor = a.faktorFehlt(e)
+  if (ohneFaktor) return e.json(ohneFaktor.status, ohneFaktor.koerper)
+
+  let satz
+  try {
+    satz = e.app.findRecordById('members', e.request.pathValue('id'))
+  } catch {
+    return e.json(400, { message: 'Ungültige Angabe.' })
+  }
+
+  const alt = satz.getString('team')
+  const neu = String((e.requestInfo().body || {}).team || '').trim()
+  if (!neu) return e.json(400, { message: 'Wähle zuerst eine Mannschaft aus.' })
+  if (neu === alt) return e.json(400, { message: 'Da ist er schon.' })
+  try {
+    e.app.findRecordById('teams', neu)
+  } catch {
+    return e.json(400, { message: 'Ungültige Angabe.' })
+  }
+
+  // Dieselbe Wache wie beim Löschen, aus demselben Grund: Ein Kapitänskonto, das auf diesen
+  // Spielereintrag zeigt, gehört zu einer Mannschaft — nach dem Wechsel zeigte es in eine
+  // fremde, und `adminauth.mitgliedPruefen()` verbietet genau das. Wer beides will, löst erst
+  // die Verknüpfung im Reiter „Konten".
+  if (e.app.findRecordsByFilter('verwalter', 'mitglied = {:m}', '', 1, 0, { m: satz.id }).length) {
+    return e.json(409, {
+      message: 'Zu diesem Spieler gehört ein Kapitänskonto. Erst dort die Verknüpfung lösen.',
+    })
+  }
+
+  // Der Schnitt am Heute. Verglichen wird gegen den Anwurf, nicht gegen den Tag: Ein Spieltag,
+  // der heute Abend um 19:30 beginnt, ist um 15 Uhr noch Planung.
+  const jetzt = new Date().toISOString().replace('T', ' ').slice(0, 19)
+  // 500 künftige Spieltage hat keine Mannschaft; die Grenze ist die von PocketBase verlangte
+  // Zahl, kein Seitenwechsel, den es hier zu bedenken gäbe.
+  const kommende = e.app.findRecordsByFilter('fixtures', 'team = {:t} && date >= {:j}', 'date', 500, 0, {
+    t: alt,
+    j: jetzt,
+  })
+
+  let rueckmeldungen = 0
+  let fahrten = 0
+  let mitfahrten = 0
+  // Sitzt er selbst am Steuer, nimmt sein gelöschtes Auto über cascadeDelete die Mitfahrer mit —
+  // andere Leute verlieren dabei lautlos ihren Platz. Das wird gezählt und zurückgemeldet, damit
+  // es in der Oberfläche dasteht und nicht erst am Spieltag auffällt.
+  let plaetze = 0
+
+  for (const spieltag of kommende) {
+    const eines = (was) => {
+      try {
+        return e.app.findFirstRecordByFilter(was, 'fixture = {:f} && member = {:m}', {
+          f: spieltag.id,
+          m: satz.id,
+        })
+      } catch {
+        return null
+      }
+    }
+
+    const auto = eines('rides')
+    if (auto) {
+      plaetze += e.app.findRecordsByFilter('seat_claims', 'ride = {:r}', '', 200, 0, { r: auto.id }).length
+      e.app.delete(auto)
+      fahrten += 1
+    }
+    const platz = eines('seat_claims')
+    if (platz) {
+      try {
+        e.app.delete(platz)
+        mitfahrten += 1
+      } catch {
+        /* hing am eigenen Auto und ist eben mitgegangen */
+      }
+    }
+    const antwort = eines('responses')
+    if (antwort) {
+      e.app.delete(antwort)
+      rueckmeldungen += 1
+    }
+  }
+
+  satz.set('team', neu)
+  e.app.save(satz)
+
+  a.protokoll(
+    e,
+    'member.team',
+    satz.id,
+    alt,
+    `${neu} · ${rueckmeldungen} Rückmeldung(en), ${fahrten} Fahrt(en), ${mitfahrten} Mitfahrt(en) gelöscht`,
+  )
+  return e.json(200, { rueckmeldungen, fahrten, mitfahrten, plaetze })
+})
+
 // ── POST /admin/api/spieltage/aufraeumen · Saisonende ───────────────────────────────────────
 // Der Löschjob raeumt Spieltage nach zwölf Monaten von selbst weg (Abschnitt 8). Das ist die
 // Untergrenze fuer den Datenschutz, aber kein Werkzeug: Wer nach der Saison Ordnung machen oder

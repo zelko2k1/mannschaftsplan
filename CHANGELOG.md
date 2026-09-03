@@ -9,6 +9,30 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- **Ein Spieler kann die Mannschaft wechseln.** Bis hierher ging das nicht: `PATCH` auf einen
+  Spieler nahm Name, aktiv, Notiz und Reihenfolge — keine Mannschaft. Wer von der Zweiten in die
+  Erste rückte, musste neu angelegt werden, bekam einen neuen Einladungslink, und der alte Eintrag
+  ließ sich nicht einmal löschen, sobald eine Rückmeldung an ihm hing. Die Person stand dann
+  zweimal da. Bei sieben Mannschaften in einem Verein ist das jeder Sommer, kein Sonderfall.
+
+  Jetzt steht in der Spielerzeile eine Auswahl **„Wechselt zu"**. Sein **Einladungslink gilt
+  weiter** und seine Geräte bleiben angemeldet — es ist dieselbe Person, und seine Ansicht folgt
+  der Mannschaft am Eintrag von selbst. Genau das war der Schmerz.
+
+  **Der Schnitt liegt am Heute.** Was an *künftigen* Spieltagen der alten Mannschaft an ihm hing —
+  Rückmeldung, Fahrt, Mitfahrt —, wird gelöscht: Die Planung dort ist ab sofort ohne ihn richtig.
+  Was an *gespielten* hängt, bleibt stehen. Er ist gefahren; ein abgeschlossener Spieltag, der
+  hinterher „—" statt seines Namens zeigt, würde lügen. Danach steht da, was tatsächlich wegging.
+
+  **War er Fahrer, nimmt sein Auto die Mitfahrer mit.** Das steht in der Rückmeldung als eigener
+  Satz — sonst fiele es erst am Spieltag auf, wenn drei Leute ohne Platz dastehen.
+
+  **Nur der Admin.** Der Wechsel überschreitet die Abschottung zwischen zwei Mannschaften, und die
+  steht an drei Stellen im Code. Ein Kapitän dürfte damit einen Spieler in eine Mannschaft
+  schieben, die ihn nichts angeht; er bekommt die Auswahl deshalb gar nicht erst zu sehen, und die
+  Route antwortet ihm mit 404. Hängt ein Kapitänskonto an dem Spieler, lehnt der Server ab und
+  sagt es — dasselbe Gitter wie beim Löschen.
+
 - **Die Anschrift des Spielorts, zum Antippen.** Der Kapitän trägt sie ein, im Spieltag steht ein
   Kasten mit der Adresse und „Route öffnen" — ein Tipp, und die Karten- oder Navigations-App des
   Geräts geht auf. Steht keine Adresse da, gibt es den Kasten nicht.

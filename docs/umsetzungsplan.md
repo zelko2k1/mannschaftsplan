@@ -281,40 +281,88 @@ Der Treffpunkt ist ein Freitext am Spieltag, keine Privatadresse.
 ## 4. Sicherheit — verbindliche Regeln
 
 ### R1 · Token nur gehasht speichern
-Erzeugen: 16 Byte aus einem kryptografischen Zufallsgenerator, base64url-kodiert (22 Zeichen).
-In der DB liegt ausschließlich `sha256(token)` als Hex. Der Klartext wird **einmal** in der
+Erzeugen: **22 Zeichen direkt aus dem base64url-Alphabet** über
+`$security.randomStringWithAlphabet()` — das ist `crypto/rand`, nicht `math/rand`, und ergibt
+≈ 132 Bit. Nicht „16 Byte, dann kodiert": Es werden keine Bytes erzeugt und hinterher
+umgerechnet, sondern gleich Zeichen gezogen. In der DB liegt ausschließlich `sha256(token)` als Hex. Der Klartext wird **einmal** in der
 Admin-UI angezeigt und danach nie wieder ausgegeben — auch nicht in Logs oder Fehlermeldungen.
 
 ### R2 · Session-ID getrennt vom Token
-Beim Einlösen wird eine **neue** 32-Byte-Zufalls-ID erzeugt (nicht vom Token abgeleitet) und
-ebenfalls nur als Hash gespeichert. Cookie:
+Beim Einlösen wird eine **neue** Zufalls-ID erzeugt — 43 Zeichen base64url, ≈ 256 Bit, nicht vom
+Token abgeleitet — und ebenfalls nur als Hash gespeichert. Es sind **zwei** Cookies, beide 180
+Tage:
 
 ```
-Set-Cookie: dz_sid=<klartext-sid>; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=15552000
+Set-Cookie: dz_sid=<klartext-sid>;   HttpOnly;      Secure; SameSite=Lax; Path=/; Max-Age=15552000
+Set-Cookie: dz_csrf=<klartext-csrf>; ohne HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=15552000
 ```
+
+Dass `dz_csrf` **nicht** HttpOnly ist, ist Absicht und keine Nachlässigkeit: Der Client muss den
+Wert lesen können, um ihn als Kopfzeile zurückzuschicken (R11).
+
+Die Kapitänsansicht hat ihr eigenes Paar unter anderem Namen (`dz_admin`, `dz_admin_csrf`,
+`adminauth.js`) — R5.
 
 ### R3 · Identität kommt aus der Session, nie aus dem Request
 Jede Schreiboperation ermittelt das Mitglied ausschließlich aus dem Cookie. Ein `member`-Feld
 im Request-Body wird **verworfen**, nicht validiert.
 
 ```js
-// verbindlich
-const member = await memberFromSession(e)      // einzige Quelle
-if (!member || !member.active) return 401
+// verbindlich — so heißt es im Code (utils.js)
+const sitzung = u.mitgliedAusSession(e)        // einzige Quelle
+if (!sitzung) return 401                       // prüft dort auch `active`
 // alles aus dem Body außer den erlaubten Feldern wird ignoriert
 ```
 
+Alle drei schreibenden Mitgliederrouten kommen über `utils.zugangPruefen()` hierher — dort
+stecken zugleich das Rate Limit (R7), die CSRF-Prüfung (R11) und die Abschottung nach
+Mannschaft. Eine vierte Route käme denselben Weg. Wer sie umgehen wollte, müsste den Spieltag
+selbst laden, und genau das tut außer dieser Stelle niemand.
+
 ### R4 · Whitelist statt Blacklist
-`status` ∈ {`yes`,`maybe`,`no`}; `seats` ∈ 1…6; `fixture` muss existieren und `locked == false`.
-Alles andere → 400 ohne Detailauskunft.
+`status` ∈ {`yes`,`maybe`,`no`} oder `null` zum Zurücknehmen; `selbst` ist ein Wahrheitswert und
+gilt nur zusammen mit `yes`; `seats` ∈ 1…6; `ride` muss existieren und zu **diesem** Spieltag
+gehören; `fixture` muss existieren und `locked == false`. Alles andere → 400 ohne
+Detailauskunft.
+
+Fehlt ein Feld im Rumpf, bleibt der bisherige Wert stehen — „nicht genannt" heißt nicht „leer".
+Zwei Ausnahmen, die der Server von sich aus zieht: Wer nicht mehr zusagt, kommt auch nicht mehr
+selbst; und wer selbst kommt, gibt seinen Platz im fremden Auto frei.
 
 ### R5 · Getrennte Router
-`/api/*` (Mitglied) und `/admin/api/*` (Admin) sind **separate Handler-Gruppen** mit eigener
-Middleware und eigenem Cookie-Namen. Kein gemeinsamer Handler mit `if (isAdmin)`.
+**Drei Präfixe, nicht zwei** — das dritte kam mit R13e dazu:
+
+| Präfix | wer | Cookie | Datei |
+|---|---|---|---|
+| `/api/*` | das Mitglied | `dz_sid` / `dz_csrf` | `mutations.pb.js`, `board.pb.js`, `session.pb.js` |
+| `/manage/api/*` | Kapitän **und** Admin | `dz_admin` / `dz_admin_csrf` | `admin.pb.js` |
+| `/admin/api/*` | nur die Rolle `admin`, hinter dem Gate aus R13b | dieselben wie `/manage` | `admin.pb.js` |
+
+Mitglied und Verwaltung sind **separate Handler-Gruppen** mit eigener Vorprüfung und eigenem
+Cookie-Namen; kein gemeinsamer Handler mit `if (isAdmin)`. Die beiden Verwaltungspräfixe teilen
+sich Datei und Cookie — sie unterscheiden sich in der Erreichbarkeit von außen und darin, dass
+`/admin/api/*` zusätzlich `rolle === 'admin'` und den zweiten Faktor verlangt und einem Kapitän
+mit 404 antwortet (R6). Wer eine Route von einem Präfix auf das andere schiebt, muss sie im
+Frontend mitschieben (`ruf` ↔ `rufAdmin` in `adminApi.ts`).
 
 ### R6 · Keine Enumeration
 Ungültiges Token → immer dieselbe Seite, HTTP 200, keine Unterscheidung zwischen „gibt es
 nicht" und „ist inaktiv". Kein Endpunkt listet Mitglieder oder Spieltage ohne gültige Session.
+
+**Die Regel reicht weiter als bis zum Token.** Sie ist der Grund für drei Antworten, die auf den
+ersten Blick nach dem falschen Statuscode aussehen:
+
+- `/manage/api/*` **ohne** Kapitänssitzung antwortet **404**, nicht 401 oder 403. Ein 401 sagte:
+  „Hier gibt es etwas, du bist nur nicht angemeldet."
+- `/admin/api/*` mit einer gültigen **Kapitäns**sitzung antwortet ebenfalls 404. Ob es diese
+  Route gibt, geht ihn nichts an.
+- „Diese Mannschaft darfst du nicht" und „diese Mannschaft gibt es nicht" sehen von außen gleich
+  aus — beide `400 Ungültige Angabe.`. Nur „es ist keine gewählt" bekommt einen eigenen Satz:
+  Das ist ein Zustand, den der Anfragende ändern kann.
+
+Und die Fehlermeldungen der Datenbank dürfen nicht durchschlagen. Eine erfundene Mannschaftskennung
+fiel einmal erst beim Speichern auf, und PocketBase antwortete mit englischem Rohtext — genau das,
+was diese Regel verhindern soll.
 
 ### R7 · Rate Limits
 | Route | Limit | gezählt wird |
@@ -385,11 +433,23 @@ Containerausgabe. **Testfall T22** hält es fest und wurde gegen den alten Zusta
 ```
 X-Robots-Tag: noindex, nofollow
 Referrer-Policy: no-referrer
-Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'
-Strict-Transport-Security: max-age=31536000; includeSubDomains
+Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'
 X-Content-Type-Options: nosniff
 ```
 Dazu `robots.txt` mit `Disallow: /`.
+
+**Gesetzt werden sie zweimal:** in `kopfzeilen.pb.js` und noch einmal in `deploy/Caddyfile`. Die
+Werte sind identisch; setzt Caddy sie erneut, gewinnt Caddy. Doppelt, weil die App auch ohne
+Proxy laufen kann — im Entwicklungsbetrieb, im LAN, oder wenn jemand das Image allein startet.
+Eine Maßnahme, die nur greift, wenn die Umgebung mitspielt, ist keine.
+
+**`Strict-Transport-Security` setzt ausschließlich Caddy**, nicht die App. Im Homelab und lokal
+nagelte HSTS den Browser ein Jahr lang auf HTTPS für diesen Namen fest — auch wenn dort später
+etwas anderes läuft.
+
+`'unsafe-inline'` gilt nur für Styles, weil React sie inline setzt. Skripte bleiben auf `'self'`;
+deshalb liegt der Auto-Absender der Einladungsseite als eigene Datei `/j.js` in `pb_public` und
+nicht als `<script>` im HTML.
 
 ### R10 · Linkvorschau
 `GET /j/:token` darf keine fachliche Nebenwirkung haben (WhatsApp ruft die URL serverseitig
@@ -421,10 +481,20 @@ prüfen die Übereinstimmung.
 > Datensatz danach da ist.
 
 ### R12 · Widerruf
-Admin-Aktion „Neues Token" pro Mitglied:
-1. neuen Hash schreiben (alter ist damit weg) → alle alten Links tot
+Aktion „Neues Token" pro Mitglied (`POST /manage/api/members/:id/rotate-token`):
+1. neuen Hash schreiben (alter ist damit weg) → alle alten Links tot; `token_issued_at` mit
 2. alle `sessions` dieses Mitglieds löschen → alle Geräte ausgeloggt
-3. Eintrag ins `audit_log`
+3. Eintrag ins `audit_log`, mit der Zahl der beendeten Sitzungen
+
+Der Klartext geht **einmal** in der Antwort hinaus und steht danach nirgends mehr (R1). Im
+Frontend liegt er nur im Speicher dieser Sitzung — nach dem Neuladen ist er weg.
+
+**Schritt 2 gilt auch ohne Schritt 1:** Wer deaktiviert wird, fliegt ebenfalls sofort von allen
+Geräten. Die Prüfung in `mitgliedAusSession` finge es zwar ab, aber die Sitzung soll gar nicht
+erst liegen bleiben.
+
+**Ein Mannschaftswechsel widerruft dagegen nichts** — Token und Sitzungen überleben ihn. Es ist
+dieselbe Person, und ihre Ansicht folgt der Mannschaft am Eintrag von selbst.
 
 ### R13 · Admin-Zugang
 - Login gegen PocketBase-Superuser (`_superusers`) — kein selbstgebautes Passwort-Handling.
@@ -693,6 +763,14 @@ DELETE /manage/api/totp                                     // abschalten, nur f
 **`/admin/api` — nur Rolle `admin`, hinter dem Gate**
 
 ```
+POST   /admin/api/members/:id/mannschaft  { team }
+                                    → { rueckmeldungen, fahrten, mitfahrten, plaetze }
+       // Ein Spieler wechselt die Mannschaft. NUR Rolle admin: Der Wechsel überschreitet die
+       // Abschottung zwischen zwei Mannschaften (Schema, utils.zugangPruefen, adminauth.teamFuer).
+       // Was an KÜNFTIGEN Spieltagen der alten Mannschaft an ihm hängt, wird gelöscht; was an
+       // gespielten hängt, bleibt stehen. `plaetze` zählt die Mitfahrer, die ihren Platz
+       // verloren haben, weil sein Auto mitging. Token und Sitzungen überleben — dieselbe
+       // Person. 409, solange ein Kapitänskonto auf ihn zeigt.
 POST   /admin/api/spieltage/aufraeumen  { bis: "YYYY-MM-DD", team? }  → { spieltage }
        // Saisonende. Verglichen wird gegen den Anfang des Folgetags, damit die Vorschau in der
        // Oberfläche dasselbe zählt, was der Server löscht.
@@ -737,11 +815,23 @@ GET    /datenschutz
 ## 6. Frontend
 
 ### 6.1 Routen
-| Pfad | Inhalt |
-|---|---|
-| `/` | Abfahrtsplan. Ohne Session: „Link ungültig"-Seite |
-| `/manage` | Login, danach Spieltage / Mitglieder / Protokoll — der Weg für den Kapitän |
-| `/admin` | dasselbe Frontend, aber der Einstieg für den Admin: hinter dem Gate aus R13b |
+
+Das Bündel kennt genau zwei Ansichten und entscheidet an `window.location.pathname`, welche es
+zeigt (`App.tsx`). Alles Übrige liefert der Server als fertiges HTML, ohne React — deshalb steht
+es hier mit dabei.
+
+| Pfad | Inhalt | woher |
+|---|---|---|
+| `/` | Aushang. Ohne Sitzung: „Link ungültig"-Seite | Bündel |
+| `/manage` | Anmeldung, danach Spieltage / Mannschaft / Konten / Verein / Protokoll — der Weg für den Kapitän | Bündel, nachgeladen (`lazy`) |
+| `/admin` | dieselbe Oberfläche, aber der Einstieg für den Admin: hinter dem Gate aus R13b | Bündel, dasselbe Modul |
+| `/j/:token` | die Einladungsseite. Zeigt nur die Mannschaft, löst nichts aus (R10); `/j.js` schickt das Formular ab | `session.pb.js` |
+| `/impressum`, `/datenschutz` | die Rechtstexte aus `settings`. Leeres Feld → 404, und nichts verlinkt darauf | `session.pb.js` + `seiten.js` |
+
+**`/manage` und `/admin` sind dasselbe Modul, nicht zwei Oberflächen** (R13e). Was jemand darf,
+entscheidet der Server anhand der Rolle, nicht anhand des Pfads, über den er gekommen ist. Der
+Unterschied liegt davor: `/admin` steht hinter dem Gate, `/manage` nicht — und `/admin/api/*`
+antwortet einem Kapitän mit 404.
 
 ### 6.2 Design-Tokens — Abfahrtsplan
 
@@ -783,6 +873,47 @@ Die Zeile bindet `--grau` und `--rot` auf diese Werte um; Komponenten müssen ni
 **Rot ist ausschließlich Warnfarbe.** „Heim" steht in `grau`, nicht in Rot — nur die Entfernung,
 „kein Fahrer" und „du fehlst noch" bekommen Rot. Sonst gewöhnt sich das Auge daran.
 
+**Dazugekommen, seit die App bei den Leuten läuft.** Die Liste oben ist der Anfangsbestand;
+`index.css` führt heute mehr. Jeder dieser Töne hat ein Gegenstück für gelbes Papier, aus
+demselben Grund wie `grau` und `rot`:
+
+```
+  ja                #1C6B3A   Knopf „Dabei"        6,2:1 auf Creme
+  jaAufGelb         #0C5230                        5,2:1 auf Gelb
+  vielleicht        #8F4C00   Knopf „Unsicher"     6,2:1 auf Creme
+  vielleichtAufGelb #663400                        5,7:1 auf Gelb
+  tinteStill        #67645E   was zurücktritt      5,5:1 auf Creme
+  tinteStillAufGelb #53410B                        5,5:1 auf Gelb
+  blank             #FFFFFF   unbedrucktes Weiß: Eingabefelder, Auswahl, Token-Kasten
+```
+
+**Warum die drei Rückmeldeknöpfe Farbe tragen dürfen**, obwohl die Papierregel weitere
+Farbflächen verbietet: Sie liegen im aufgeklappten Bereich, nicht auf der Fläche, an der man
+beim Scrollen Heim von Auswärts unterscheidet. „Kann nicht" nimmt `rot` — eine zweite rote
+Familie wäre eine Farbe zu viel. Ocker statt Gelb, weil ein gelber Knopf auf gelbem Papier
+verschwände. Rot und Grün nebeneinander sind für einen Teil der Betrachter nicht zu
+unterscheiden; das ist hier hinnehmbar, weil die Farbe nichts allein trägt — auf jedem Knopf
+steht sein Wort, und gewählt ist der gefüllte.
+
+**`tinteStill` ersetzt `opacity`.** Ein vergangener Eintrag soll zurücktreten; `opacity` erfasst
+aber die ganze Rendergruppe — auch die Kante und das Wort „abgeschlossen", die den Zustand
+gerade unabhängig von der Blässe tragen sollen. Beides blasste mit ab, und der Sekundärtext
+fiel auf 2,2:1.
+
+**Drei Stempel, nicht einer.** Alle in derselben Machart — Papier oder Rahmen, Ecken bei 0 px,
+kein Schatten, leicht gedreht, mit einer kurzen Skalier-Animation, die `prefers-reduced-motion`
+respektiert:
+
+| Stempel | Farbe | wann |
+|---|---|---|
+| `KOMPLETT` | Rahmen in `stempel` | vollzählig, und die Planung gilt noch |
+| Ergebnis (`Sieg 6:2`) | `stempel` bei Sieg, `tinte` sonst | ein Ergebnis ist eingetragen |
+| `verlegt` | gefüllt in `rot` | der Termin wurde verschoben und noch nicht jeder hat bestätigt |
+
+`verlegt` ist gefüllt und kein bloßes Wort, weil in dieser Zeile Datum, „nächste Woche" und die
+Entfernung in derselben Schreibmaschinenschrift stehen — ein rotes Wort dazwischen las sich wie
+ein weiterer Wert und ging unter.
+
 ### 6.3 Abfahrtszeit
 ```
 fahrzeit_min = km / tempo_kmh * 60 + puffer_minuten
@@ -808,15 +939,24 @@ Frontend rechnet sie nicht nach, sonst liefe sie irgendwann auseinander.
 ┌────────────────────────────────────────┐
 │ SPIELTAGE            Bezirksliga 26/27 │  Kopfbalken, tinte auf gelb
 ├────────────────────────────────────────┤
-│ 17:55 │ Sa 29.08.        52 km         │  ← Zeitspalte 96 px, 2 px Trennlinie
-│ ABFAHR│ GEGNERVEREIN                   │  ← der Gegner, danach wird gesucht
+│ 17:55 │ Sa 29.08. · nächste Woche      │  ← Zeitspalte 96 px, 2 px Trennlinie
+│ ABFAHR│      [verlegt] Hinweis   52 km │  ← Kopfzeile der Zeile, alles optional
+│       │ GEGNERVEREIN                   │  ← der Gegner, danach wird gesucht
 │       │ Ort · Spielstätte              │
-│       │ 4 zugesagt · 2 Plätze frei     │
+│       │ 4 zugesagt, 6 nötig · kein     │  ← was gilt; danach schweigt die Zeile
+│       │ Fahrer                         │
+│       │ Du: dabei                      │  ← eigene Antwort, EIGENE Zeile
 │       │                    [KOMPLETT]  │  ← Stempel, −7°, nur wenn vollzählig
 ├───────┴────────────────────────────────┤
 │ (aufgeklappt)                          │
+│ Der Termin wurde verlegt — vorher Sa … │
+│ Abfahrt 17:55 · Treffpunkt: Parkplatz  │
+│ [ Musterstr. 1, Musterstadt →Route ]   │  ← nur wenn eine Adresse eingetragen ist
+│ Hinweis des Kapitäns, mehrzeilig       │
 │ DEINE RÜCKMELDUNG                      │
 │ [ DABEI ][ UNSICHER ][ KANN NICHT ]    │
+│ [ ] Ich komme selbst                   │  ← nur bei „dabei" und mit Fahrdienst
+│ Gespeichert: Dabei.                    │  ← die Quittung, bei den Knöpfen
 │ FAHRDIENST                             │
 │ [ICH FAHRE] [− 4 P +]   [MITFAHREN]    │
 │ ▮▮▯▯ 2/4 belegt                        │
@@ -826,15 +966,47 @@ Frontend rechnet sie nicht nach, sonst liefe sie irgendwann auseinander.
 
 - Groß steht der **Gegner**; der Ort rückt in die Nebenzeile. Ohne Vereinsnamen tritt der Ort
   an seine Stelle, damit die Zeile nie ohne Kopf dasteht.
-- Zeile antippen klappt auf, immer nur eine offen (Akkordeon).
+- Zeile antippen klappt auf, immer nur eine offen (Akkordeon). Der Knopf steckt in einer
+  Überschrift — damit springt eine Bildschirmleseanwendung von Spieltag zu Spieltag, statt sich
+  durch jede Zeile zu lesen.
+- **„4 zugesagt, 6 nötig", kein Bruchstrich.** „0/4 zugesagt" las sich als Kapazität — vier
+  Plätze, davon null belegt —, und genau so kam es aus der Mannschaft zurück. Gemeint ist eine
+  Untergrenze: Vier müssen, mehr dürfen. Sobald es reicht, fällt die zweite Hälfte weg.
+- **Die eigene Antwort steht auf einer eigenen Zeile.** Hinten an der Standzeile hing sie als
+  fünfte Angabe und rutschte je nach Gerät irgendwohin.
+- Vom **Hinweis** steht in der Zeile nur das graue Wort; der Text kann fünf Zeilen lang sein
+  und gehört nach unten. Ohne das Wort läse ihn niemand.
 - Der Stempel setzt sich mit einer kurzen Skalier-Animation auf; `prefers-reduced-motion`
   respektieren.
 - Alles ab 320 px Breite bedienbar, Tap-Ziele mindestens 44 px hoch.
 - Sichtbarer Fokusrahmen für Tastaturbedienung.
 
+**Was ein Spieltag nicht mehr ändern kann, verschwindet aus seiner Zeile.** Ist er gespielt,
+schweigt sie über nötige Spieler, freie Plätze, fehlende Fahrer und den Hinweis — und zeigt
+stattdessen das Ergebnis. Der Maßstab dafür steht in PRODUCT.md: Information ZUM Spieltag ja,
+Auswertung DARÜBER nein.
+
+**Die Adresse öffnet die Karten-App des Geräts, ohne Google.** Android bekommt `geo:` und fragt
+das Betriebssystem, welche installierte App übernimmt — dabei geht überhaupt keine Anfrage ins
+Netz. iPhone und iPad bekommen `maps.apple.com`, weil Safari `geo:` nicht kennt. Am Schreibtisch
+OpenStreetMap. Die Anschrift steht als Text daneben: Wer nicht tippt, liest sie ab, und dann
+verlässt sie das Gerät nicht.
+
 ### 6.5 Zustand & Fehlerverhalten
 - Optimistisches Update beim Tippen, bei Fehler zurückrollen und eine Zeile Klartext zeigen:
   „Nicht gespeichert — nochmal antippen." Keine Modals, keine Toasts, die wegfliegen.
+- **Und beim Erfolg dasselbe.** „Ehrlich statt hübsch" verlangt eine Zeile beim Fehler; es
+  verlangt beim Erfolg nicht Schweigen. Bisher füllte sich nur der Knopf — wer auf einer trägen
+  Verbindung unsicher war, tippte nochmal und nahm damit seine Zusage zurück, ohne es zu
+  erfahren. Jetzt steht dort „Speichert …", danach „Gespeichert: Dabei.", angesagt über
+  `role="status"`.
+- **Die Quittung steht bei den Knöpfen, die sie ausgelöst haben** — bei der Rückmeldung oder
+  beim Fahrdienst. Ganz unten im aufgeklappten Bereich, hinter vier Absätzen Namen, war sie auf
+  einem Handy mehrere hundert Pixel entfernt: Es gab sie, nur sah sie niemand. Genau so kam es
+  aus der Mannschaft zurück.
+- Nach jedem erfolgreichen Schreiben wird **nachgeladen**, statt dem optimistischen Stand zu
+  trauen: Der Server weiß Dinge, die der Client nicht raten kann — wen ein zurückgezogenes Auto
+  mitgerissen hat, wer inzwischen eingestiegen ist.
 - Bei 401 auf die „Link ungültig"-Seite mit dem Hinweis, den Link erneut zu öffnen.
 - Leerer Spielplan: „Noch keine Termine eingetragen." — kein leeres Gerüst.
 
@@ -1351,54 +1523,53 @@ beschreibbar ist — und eine Installation ohne ntfy unverändert durchläuft.
 Vor „fertig" alle durchlaufen. Die Handprüfungen brauchen einen öffentlich erreichbaren Server;
 der Ablauf dafür steht in [`erster-testlauf.md`](erster-testlauf.md).
 
-Was mit **automatisiert** markiert ist, steckt in
-`scripts/api-tests.mjs` und läuft in der CI — sowohl gegen ein nacktes PocketBase als auch gegen
-das gebaute Container-Image. Der Rest bleibt Handarbeit, weil er einen Proxy, einen echten
-Messenger oder ein Auge braucht.
+**Die Liste der automatisierten Fälle steht in `scripts/api-tests.mjs`, nicht hier.** Sie sind
+inzwischen **80** und werden es mit jeder Funktion mehr; eine zweite Liste daneben wäre nach der
+nächsten Woche falsch — genau das war sie schon einmal. Das Skript läuft in der CI, sowohl gegen
+ein nacktes PocketBase als auch gegen das gebaute Container-Image, und benennt jeden Fall im
+Klartext. Was hier steht, sind die **Familien** und die Handprüfungen, die kein Skript abnehmen
+kann. Dazu die 68 Unit-Tests im Frontend (`app/src/*.test.ts`), die ohne Server auskommen.
 
 **Reihenfolge beachten:** T9 sperrt den Login für diese IP eine Viertelstunde. Der Testlauf legt
 ihn deshalb ans Ende, und ein zweiter Lauf braucht einen PocketBase-Neustart — der Zähler liegt
 nur im Arbeitsspeicher.
 
+### Die Familien im Skript
+
+| Kürzel | worum es geht | tragende Regeln |
+|---|---|---|
+| `T1`–`T7`, `T13` | Token einlösen, Sitzung, Widerruf, Schreibrechte des Mitglieds | R1, R2, R3, R4, R10, R12 |
+| `T8`, `T9` | Abschottung der Router und die Anmeldesperren | R5, R6, R7, R13 |
+| `T14`–`T23` | „Angemeldet bleiben", zweiter Faktor, Rollen, Mannschaften, Protokoll | R13, Abschnitt 12 |
+| `L1`, `B1`–`B3` | Abmelden und der Aushang, samt Abfahrtsformel und Abschottung nach Mannschaft | 6.3, Abschnitt 12 |
+| `C1`, `C2` | CSRF auf beiden Routern — geprüft wird die **Wirkung**, nicht der Statuscode | R11 |
+| `F1`–`F7` | Fahrdienst: fahren, mitfahren, volle Autos, absagen, selbst kommen | R4 |
+| `E1`, `V1` | Ergebnis am Spieltag und was eine Verlegung mit den Rückmeldungen macht | — |
+| `A1`–`A15` | die Verwaltung von innen: Anmelden, Spieltage, Einstellungen, Rechtstexte, Spieleransicht | R1, R6, R7, R11, R12, R13 |
+| `SI1`–`SI4` | Sicherungen erstellen, herunterladen, zurückgeben, zurückspielen | 7.4 |
+| `I1`–`I6` | Spielplan-Import, Nachimport, Verlegung, Treffpunkt-Vorbelegung | R13d |
+| `S1`–`S5` | Saisonende: Spieler löschen, Spieltage aufräumen, Mannschaftswechsel | Abschnitt 12 |
+| `G1` | die Grenze der Spielerliste sagt sich selbst an | — |
+
+**Die Kürzel sind eindeutig zu halten.** `T14` stand einmal für zwei verschiedene Dinge — „Angemeldet
+bleiben" und die Sicherungen; letztere heißen seitdem `SI1`–`SI4`. Ein Kürzel, das zweimal vorkommt,
+macht jeden Verweis darauf wertlos.
+
+### Was Handarbeit bleibt
+
+Diese acht brauchen einen Proxy, einen echten Messenger, einen Server oder ein Auge — ein Skript
+auf dem Entwicklungsrechner kann sie nicht abnehmen.
+
 | # | Prüfung | Erwartung |
 |---|---|---|
-| T1 | `POST /api/session` mit gültigem Token | 302 auf `/`, `dz_sid` gesetzt, Token nicht in der Ziel-URL |
-| T2 | `POST /api/session` mit ungültigem Token | HTTP 200, generische Seite, kein Cookie, kein Hinweis auf den Grund |
-| T3 | `GET /api/board` ohne Cookie | 401, kein Datenleck im Body |
-| T4 | Token rotieren, alten Link öffnen | ungültig; auch bestehende Session des Mitglieds ist tot |
-| T5 | `PUT /api/response/:id` mit fremdem `member` im Body | eigener Datensatz geändert, fremder unverändert |
-| T6 | `PUT` mit `status: "vielleicht"` oder `seats: 99` | 400, nichts gespeichert |
-| T7 | `PUT` auf `locked`-Spieltag | 403 |
-| T8a | `/admin/api` ohne Kapitänssitzung | 404, nicht 401 oder 403 (R6) — **automatisiert** |
-| T8b | `/admin/api` mit einer MITGLIEDER-Sitzung | 404 (R5) — **automatisiert** |
-| T8c | `/admin` ohne den Weg aus R13b (fremde Adresse bzw. ohne Proxy-Anmeldung) | 404 bzw. Abweisung vor dem Admin-Code — Aussage über den Proxy, **Handprüfung** |
-| T8e | `/manage` ohne Proxy-Anmeldung | erreichbar (R13e), aber ohne Sitzung nur das Login-Formular — **Handprüfung** |
-| T8f | `/admin/api/*` mit gültiger Kapitänssitzung | 404 (R6) — **automatisiert** (in T16 und T9b) |
-| T8d | `/_/` von außen, in jeder Lage | 404 — R13a kennt keine Ausnahme, **Handprüfung** |
-| T9 | 6× falsches Admin-Passwort | gesperrt, auch für das richtige Passwort; kein Hinweis auf Existenz |
-| T9b | Zehn Fehlversuche für dasselbe Konto von wechselnden IP-Adressen | gesperrt, obwohl keine einzelne Adresse ihre Grenze reißt (R7) — **Handprüfung**, ein Rechner allein läuft vorher in die IP-Sperre. Automatisiert ist die Hälfte, die von hier aus geht: die Auskunft `gesperrt` und das Aufheben durch den Admin |
-| T14 | „Angemeldet bleiben" mit und ohne zweiten Faktor | mit Faktor 90 Tage, ohne Faktor 12 Stunden — und die Antwort sagt, was es geworden ist — **automatisiert** |
-| A13 | Admin-Konto ohne zweiten Faktor ruft `/admin/api` auf | 403 mit `totp_pflicht`, danach mit eingerichtetem Faktor 200 — **automatisiert** |
-| A14 | Anmeldung mit einem Wiederherstellungscode | gilt genau einmal, die übrigen bleiben gültig — **automatisiert** |
-| A15 | Kapitän mit Spielerbezug wechselt in die Spieleransicht | Mitgliedersitzung für den eigenen Eintrag, der Aushang zeigt den Weg zurück; für den Admin 404 — **automatisiert** |
-| I1 | Spielplan einlesen | Spieltage entstehen, `aus_spielplan` ist gesetzt, Ort/km/Treffpunkt bleiben leer, Tempo und Puffer erben — **automatisiert** |
-| I2 | Dieselbe Datei ein zweites Mal, danach eine Verlegung | nichts wird verdoppelt; der geänderte Termin landet am vorhandenen Spieltag — **automatisiert** |
-| I3 | Nachimport über einen gesperrten Spieltag mit nachgetragenem Ort | Spieltag bleibt unberührt, `gesperrt` zählt ihn — **automatisiert** |
-| I4 | Import mit erfundener Mannschaft, leerer Liste, kaputtem Termin, ohne CSRF-Kopfzeile | je 400 bzw. 403 **und nichts geschrieben** — **automatisiert** |
-| I5 | Import mit Ort und Kilometern, danach derselbe Spieltag ohne beides | die Angaben landen am Spieltag und überleben den Nachimport; unsinnige Kilometer → 400 — **automatisiert** |
-| S1 | Spieler mit Rückmeldung löschen, dann aufräumen, dann nochmal | erst 409 **und der Spieler steht noch da**, nach dem Aufräumen 200; keine verwaisten Rückmeldungen — **automatisiert** |
-| S2 | Spieler löschen, an dem ein Kapitänskonto hängt | 409 mit dem Grund — **automatisiert** |
-| G1 | Spielerliste einer Mannschaft abrufen | `grenze` steht dabei, `gesamt` ist gezählt und stimmt mit der Liste überein, solange nichts gekappt ist — **automatisiert** |
-| S3 | Aufräumen mit Stichtag und Mannschaft | löscht Vergangenes der gewählten Mannschaft, lässt Künftiges und fremde Mannschaften stehen; unbrauchbares Datum → 400 — **automatisiert** |
-| C2 | Schreiben in der Verwaltung ohne `X-CSRF-Token` | 403 **und der Datensatz ist danach nicht da** — geprüft wird die Wirkung, nicht der Statuscode (R11) — **automatisiert** |
-| T10 | Access-Log nach `/j/`-Aufruf durchsuchen | kein Token im Klartext |
-| T11 | Link in WhatsApp einfügen | Vorschau zeigt den Anzeigename aus `settings`, nichts Personalisiertes |
-| A9 | Anzeigename ändern, Einladungsseite abrufen | Name steht in Überschrift und OpenGraph-Titel; HTML darin wird escaped — **automatisiert** |
-| A10 | Tempo und Puffer ändern, `/api/board` abrufen | Abfahrtszeit folgt der Formel aus 6.3; Werte außerhalb der Grenzen → 400 — **automatisiert** |
-| A11 | Impressum und Datenschutz hinterlegen, Seiten ohne Anmeldung abrufen | 200 mit dem Text, HTML darin wird angezeigt statt ausgewertet; leer → 404 und keine Links im Fuß — **automatisiert** |
-| A12 | Frist setzen, Cron `spieltage-sperren` auslösen | vergangener Spieltag wird gesperrt, künftiger nicht, Protokollzeile mit `system:auto-sperre`; bei 0 passiert nichts. Auslösen über `POST /api/crons/spieltage-sperren` als Superuser — **Handprüfung** |
-| T12 | Backup einspielen | Datenstand vollständig wiederhergestellt |
-| T13 | `GET /j/<gültig>` allein aufrufen (wie der Crawler, ohne JS) | keine neue Zeile in `sessions`, kein Cookie — Beleg für R10 |
+| T8c | `/admin` ohne den Weg aus R13b (fremde Adresse bzw. ohne Proxy-Anmeldung) | 404 bzw. Abweisung **vor** dem Admin-Code — eine Aussage über den Proxy, nicht über die App |
+| T8d | `/_/` von außen, in jeder Lage | 404 — R13a kennt keine Ausnahme |
+| T8e | `/manage` ohne Proxy-Anmeldung | erreichbar (R13e), aber ohne Sitzung nur das Anmeldeformular |
+| T9b | Zehn Fehlversuche für dasselbe Konto von **wechselnden** IP-Adressen | gesperrt, obwohl keine einzelne Adresse ihre Grenze reißt (R7). Ein Rechner allein läuft vorher in die IP-Sperre. Die Hälfte, die von hier aus geht — die Auskunft `gesperrt` und das Aufheben durch den Admin —, ist automatisiert |
+| T10 | Access-Log nach einem `/j/`-Aufruf durchsuchen | kein Token im Klartext. Läuft auf dem Server (R8) |
+| T11 | Den Link in WhatsApp einfügen | die Vorschau zeigt den Anzeigenamen aus `settings` und nichts Personalisiertes; der Link meldet danach noch an (R10). Braucht ein Handy |
+| T12 | Eine Sicherung zurückspielen | der Datenstand ist vollständig wiederhergestellt. Die Falle: `backup.sh` löscht den Serverstand nach dem Herunterladen, `restore` greift also erst nach einem `POST /api/backups/upload` |
+| A12 | Frist setzen, Cron `spieltage-sperren` auslösen | der vergangene Spieltag wird gesperrt, der künftige nicht, Protokollzeile mit `system:auto-sperre`; bei 0 passiert nichts. Auslösen über `POST /api/crons/spieltage-sperren` als Superuser. Der Cron läuft ohnehin stündlich — ein Handstart findet womöglich nichts mehr zu tun |
 
 ## 12. Rollen, Konto und Spieler
 
