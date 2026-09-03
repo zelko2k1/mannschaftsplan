@@ -116,6 +116,27 @@ describe('alsIcs · der Termin', () => {
   })
 })
 
+describe('alsIcs · Maskieren (RFC 5545, 3.3.11)', () => {
+  // Angestoßen von CodeQL: Der Faltungstest baute die Maskierung mit einem `replace(/,/g, …)`
+  // nach und ließ dabei den Backslash aus — dieselbe halbe Sanitisierung, die der Scanner in
+  // echtem Code zu Recht anmahnt. Statt sie im Test zu wiederholen, wird sie hier geprüft.
+  it('maskiert Backslash, Semikolon und Komma', () => {
+    const wild = 'Weg 1\\2; Haus, hinten'
+    const ics = alsIcs([spieltag({ adresse: wild })])
+    // Der Backslash zuerst, sonst verdoppelt sein Ersatz die Maskierung der übrigen Zeichen.
+    expect(entfalten(ics)).toContain('LOCATION:Weg 1\\\\2\\; Haus\\, hinten')
+  })
+
+  it('macht aus einem Zeilenumbruch im Treffpunkt kein zweites Feld', () => {
+    const ics = alsIcs([spieltag({ meeting_point: 'Vereinsheim\nHintereingang' })])
+    // Ein rohes CRLF hier zerrisse den Termin — der Kalender läse ab dort eine neue Eigenschaft.
+    expect(entfalten(ics)).toContain('Treffpunkt: Vereinsheim\\nHintereingang')
+    // Keine ZEILE darf damit beginnen — dann wäre aus dem Wert eine neue Eigenschaft geworden.
+    // (Dass `Hintereingang` vor einem CRLF steht, ist dagegen richtig: Dort endet DESCRIPTION.)
+    expect(ics.split('\r\n').some((z) => z.startsWith('Hintereingang'))).toBe(false)
+  })
+})
+
 describe('alsIcs · Wiedereinlesen', () => {
   it('gibt jedem Termin die ID seines Spieltags, damit nichts sich verdoppelt', () => {
     expect(alsIcs([spieltag({ id: 'xyz789' })])).toContain('UID:xyz789@mannschaftsplan')
@@ -140,11 +161,14 @@ describe('alsIcs · Zeilen falten (RFC 5545, 3.1)', () => {
     }
   })
 
+  // Die Anschrift hier hat bewusst KEIN Komma: Es geht ums Falten, nicht ums Maskieren. Eine
+  // Erwartung, die die Maskierung im Test nachbaut, wäre eine zweite Fassung von `maskieren()` —
+  // und mit Sicherheit eine unvollständige. Das Maskieren prüft der Block darunter.
   it('setzt die Fortsetzung mit einem Leerzeichen fort und verliert dabei nichts', () => {
-    const lang = 'Straße am Beispielweg 1, 12345 Musterstadt-Übermorgenhausen, Nebengebäude B'
+    const lang = 'Straße am Beispielweg 1 in 12345 Musterstadt-Übermorgenhausen Nebengebäude B'
     const ics = alsIcs([spieltag({ adresse: lang })])
     expect(ics).toContain('\r\n ')
-    expect(entfalten(ics)).toContain(lang.replace(/,/g, '\\,'))
+    expect(entfalten(ics)).toContain(lang)
   })
 
   // Umlaute sind in UTF-8 zwei Oktett. Ein Umbruch mitten im Zeichen macht die Datei kaputt —
