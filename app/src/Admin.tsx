@@ -1203,7 +1203,11 @@ function Mitglieder({
         </p>
       )}
 
-      {umzug && umzug.von === team && <p className="satz__quittung">{umzug.text}</p>}
+      {/* `gemeldet` kommt aus abfahrtsplan.css und steht der Kapitänsansicht offen: Die lädt
+          index.html samt Haupt-Stilblatt, nur `admin.css` hängt am nachgeladenen Teil — deshalb
+          liegt hier auch `.knopf` schon vor. Eine eigene Klasse dafür wäre dieselbe Quittung ein
+          zweites Mal, und die beiden liefen mit dem nächsten Feinschliff auseinander. */}
+      {umzug && umzug.von === team && <p className="gemeldet">{umzug.text}</p>}
 
       {items.map((m: AdminMitglied) => (
         <div key={m.id} className="satz">
@@ -1280,73 +1284,81 @@ function Mitglieder({
             >
               Löschen
             </button>
+
+            {/* Der Mannschaftswechsel — nur beim Admin, weil nur er Ziele zur Auswahl bekommt.
+                Bis hierher gab es ihn gar nicht: Wer von der Zweiten in die Erste rückte, wurde
+                neu angelegt, bekam einen neuen Einladungslink, und der alte Eintrag ließ sich
+                nicht einmal löschen, sobald eine Rückmeldung an ihm hing. Die Person stand
+                zweimal da.
+
+                Er steht als vierte Handlung in DERSELBEN Reihe wie die drei Knöpfe und nicht
+                mehr als beschriftetes Feld darunter. Der Grund ist die Liste: Bei acht Spielern
+                standen dort acht volle Auswahlfelder untereinander, jedes so hoch wie die
+                Knopfreihe darüber — und das für etwas, das einmal im Sommer vorkommt. Was selten
+                gebraucht wird, darf nicht am lautesten sein.
+
+                Die Beschriftung steckt deshalb im ersten Eintrag („Wechselt zu …") statt darüber
+                zu stehen; ein `aria-label` nennt dazu den Namen, denn vorgelesen wird die Zeile
+                ohne ihre Überschrift.
+
+                Die Auswahl löst nichts aus, sie stellt die Frage — bestätigt wird im Kasten
+                darunter, wie beim Löschen und beim neuen Token. */}
+            {andere.length > 0 && (
+              <select
+                className="satz__wechsel"
+                aria-label={`${m.name} in eine andere Mannschaft verschieben`}
+                value=""
+                disabled={laeuft === m.id}
+                onChange={(x) => {
+                  const ziel = andere.find((t) => t.id === x.target.value)
+                  if (!ziel) return
+                  setFrage({
+                    id: m.id,
+                    titel: `${m.name} wechselt zu ${ziel.name}`,
+                    text: `Was an künftigen Spieltagen von ${dieseMannschaft} an ihm hängt — Rückmeldung, Fahrt, Mitfahrt —, wird gelöscht; an bereits gespielten bleibt alles stehen. Sein Einladungslink gilt weiter, seine Geräte bleiben angemeldet.`,
+                    knopf: `Zu ${ziel.name} umziehen`,
+                    tun: () => {
+                      setFrage(null)
+                      void fangen(
+                        m.id,
+                        async () => {
+                          const d = await adminApi.mitgliedUmziehen(m.id, ziel.id)
+                          const weg: string[] = []
+                          if (d.rueckmeldungen)
+                            weg.push(anzahl(d.rueckmeldungen, 'Rückmeldung', 'Rückmeldungen'))
+                          if (d.fahrten) weg.push(anzahl(d.fahrten, 'Fahrt', 'Fahrten'))
+                          if (d.mitfahrten) weg.push(anzahl(d.mitfahrten, 'Mitfahrt', 'Mitfahrten'))
+                          setUmzug({
+                            von: team,
+                            text:
+                              `${m.name} steht jetzt bei ${ziel.name}. ` +
+                              (weg.length
+                                ? `Bei ${dieseMannschaft} gelöscht: ${weg.join(', ')} an künftigen Spieltagen.`
+                                : `Bei ${dieseMannschaft} hing an künftigen Spieltagen nichts an ihm.`) +
+                              // Der Satz, der sonst erst am Spieltag auffiele: Sein Auto ist
+                              // mitgegangen, und die Mitfahrer stehen ohne Platz da.
+                              (d.plaetze === 1
+                                ? ' Ein Mitfahrer hat dabei seinen Platz verloren — sag ihm Bescheid.'
+                                : d.plaetze > 1
+                                  ? ` ${d.plaetze} Mitfahrer haben dabei ihren Platz verloren — sag ihnen Bescheid.`
+                                  : ''),
+                          })
+                        },
+                        'Nicht umgezogen.',
+                      )
+                    },
+                  })
+                }}
+              >
+                <option value="">Wechselt zu …</option>
+                {andere.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
-
-          {/* Der Mannschaftswechsel — nur beim Admin, weil nur er Ziele zur Auswahl bekommt.
-              Bis hierher gab es ihn gar nicht: Wer von der Zweiten in die Erste rückte, wurde neu
-              angelegt, bekam einen neuen Einladungslink, und der alte Eintrag ließ sich nicht
-              einmal löschen, sobald eine Rückmeldung an ihm hing. Die Person stand zweimal da.
-
-              Die Auswahl löst nichts aus, sie stellt die Frage — bestätigt wird im Kasten
-              darunter, wie beim Löschen und beim neuen Token. */}
-          {andere.length > 0 && (
-            <div className="satz__aktionen">
-              <label className="feld feld--zeile">
-                <span>Wechselt zu</span>
-                <select
-                  value=""
-                  disabled={laeuft === m.id}
-                  onChange={(x) => {
-                    const ziel = andere.find((t) => t.id === x.target.value)
-                    if (!ziel) return
-                    setFrage({
-                      id: m.id,
-                      titel: `${m.name} wechselt zu ${ziel.name}`,
-                      text: `Was an künftigen Spieltagen von ${dieseMannschaft} an ihm hängt — Rückmeldung, Fahrt, Mitfahrt —, wird gelöscht; an bereits gespielten bleibt alles stehen. Sein Einladungslink gilt weiter, seine Geräte bleiben angemeldet.`,
-                      knopf: `Zu ${ziel.name} umziehen`,
-                      tun: () => {
-                        setFrage(null)
-                        void fangen(
-                          m.id,
-                          async () => {
-                            const d = await adminApi.mitgliedUmziehen(m.id, ziel.id)
-                            const weg: string[] = []
-                            if (d.rueckmeldungen)
-                              weg.push(anzahl(d.rueckmeldungen, 'Rückmeldung', 'Rückmeldungen'))
-                            if (d.fahrten) weg.push(anzahl(d.fahrten, 'Fahrt', 'Fahrten'))
-                            if (d.mitfahrten) weg.push(anzahl(d.mitfahrten, 'Mitfahrt', 'Mitfahrten'))
-                            setUmzug({
-                              von: team,
-                              text:
-                                `${m.name} steht jetzt bei ${ziel.name}. ` +
-                                (weg.length
-                                  ? `Bei ${dieseMannschaft} gelöscht: ${weg.join(', ')} an künftigen Spieltagen.`
-                                  : `Bei ${dieseMannschaft} hing an künftigen Spieltagen nichts an ihm.`) +
-                                // Der Satz, der sonst erst am Spieltag auffiele: Sein Auto ist
-                                // mitgegangen, und die Mitfahrer stehen ohne Platz da.
-                                (d.plaetze === 1
-                                  ? ' Ein Mitfahrer hat dabei seinen Platz verloren — sag ihm Bescheid.'
-                                  : d.plaetze > 1
-                                    ? ` ${d.plaetze} Mitfahrer haben dabei ihren Platz verloren — sag ihnen Bescheid.`
-                                    : ''),
-                            })
-                          },
-                          'Nicht umgezogen.',
-                        )
-                      },
-                    })
-                  }}
-                >
-                  <option value="">Mannschaft wählen …</option>
-                  {andere.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          )}
 
           <Nachfragekasten
             frage={frage?.id === m.id ? frage : null}

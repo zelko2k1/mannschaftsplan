@@ -183,20 +183,46 @@ span.satz__warnung {
   white-space: nowrap;
 }
 
-/* Die Quittung nach einer Handlung, die geklappt hat — heute der Mannschaftswechsel.
-   NICHT `satz__warnung`: Die trägt Rot, und Rot ist im ganzen Produkt ausschließlich Warnfarbe
-   (6.2). Eine gelungene Handlung in Rot zu melden hieße, dem Kapitän einen Schrecken für etwas
-   einzujagen, das er gerade selbst wollte.
+/* Der Mannschaftswechsel als vierte Handlung in der Knopfreihe — kein beschriftetes Feld
+   darunter. Bei acht Spielern standen dort acht volle Auswahlfelder untereinander, jedes so hoch
+   wie die Knopfreihe darüber, für etwas, das einmal im Sommer vorkommt.
 
-   Dieselbe Machart wie `.gemeldet` im Aushang: eine Kante in Tinte links, die sagt „das hier ist
-   die Antwort auf das, was du getan hast". Sie steht dort in der eigenen Datei, weil die
-   Kapitänsansicht `abfahrtsplan.css` nicht lädt. */
-.satz__quittung {
-  margin: 0.6rem 0;
-  padding: 0.3rem 0 0.3rem 0.6rem;
-  border-left: 4px solid var(--tinte); /* impeccable-disable-line side-tab -- Tinte auf Papier, wie im Aushang */
-  font-size: 0.92rem;
-  font-weight: 500;
+   Deshalb sieht die Auswahl aus wie ein Knopf und trägt keine Beschriftung über sich: Sie steht
+   in derselben Reihe, bemisst sich am Wort (`flex: 0 0 auto`, wie `.satz__aktionen .knopf`) und
+   sagt im ersten Eintrag selbst, worum es geht. Ohne `.feld` drumherum — sonst griffe
+   `.satz__aktionen:has(.feld) .knopf` und schöbe die drei Knöpfe daneben um eine Beschriftung
+   nach unten, die es gar nicht gibt. */
+.satz__wechsel {
+  flex: 0 0 auto;
+  min-height: 44px;
+  max-width: 14rem;
+  padding: 0.5rem 0.5rem;
+  background: var(--blank);
+  border: 2px solid var(--tinte);
+  border-radius: 0;
+  color: var(--tinte);
+  font-family: var(--schrift-eng);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .satz__wechsel:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--tinte) 12%, transparent);
+  }
+}
+.satz__wechsel:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+/* Safari zoomt die ganze Seite hinein, sobald ein Bedienelement mit weniger als 16 px angetippt
+   wird — dieselbe Vorsorge wie bei der Mannschaftsauswahl im Kopf. */
+@media (pointer: coarse) {
+  .satz__wechsel {
+    font-size: 16px;
+  }
 }
 /* Kein gedrehter Stempel wie im Aushang: Der Kapitän überfliegt zwanzig Zeilen, da wäre jede
    Inszenierung im Weg. Dieselbe Farbe, dieselbe Aussage, ein Wort. */
