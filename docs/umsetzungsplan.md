@@ -1506,10 +1506,12 @@ Aussage, sonst löschte ein Nachimport aus dem Verbands-Export genau die Angaben
 nachgetragen hat.
 
 **Schritt 9 — Auslieferbar für Fremde**
-Overlay, `.env`-Konfiguration und die Prüfung der Vorlagen in der CI stehen. Offen bleibt der
-zweite Faktor im Kapitäns-Login: der eigene Hook geht an PocketBases MFA vorbei, siehe R13.
-Auf einem echten Server laufen dann die Handprüfungen, die lokal und in der CI nicht möglich sind:
-T8c, T8d, T10, T11 und T12.
+Overlay, `.env`-Konfiguration und die Prüfung der Vorlagen in der CI stehen. **Der zweite Faktor
+im Kapitäns-Login ist gebaut** — ein eigener, weil PocketBases MFA Einmalcodes per E-Mail
+verschickt und diese App bewusst keinen Mailserver hat: TOTP nach RFC 6238 in `pb_hooks/totp.js`,
+Ablage in `admin_totp`, für die Rolle `admin` Pflicht. Die Einzelheiten stehen bei R13.
+Die Handprüfungen, die lokal und in der CI nicht möglich sind, **sind am 27.08.2026 auf dem
+Server durchlaufen und bestanden**: T8c, T8d, T10, T11 und T12.
 *Fertig, wenn:* ein nackter Server allein mit den Werten aus einer `.env` zum laufenden HTTPS-Dienst
 wird — und der Weg mit vorhandenem Proxy unverändert weiter funktioniert.
 
