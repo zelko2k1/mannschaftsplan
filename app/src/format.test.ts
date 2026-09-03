@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  anzahl,
   ausEingabe,
   ausISO,
   ausZeitangabe,
@@ -281,5 +282,21 @@ describe('navigationsZiel', () => {
       expect(navigationsZiel(adresse, kennung)).not.toContain(' ')
       expect(navigationsZiel(adresse, kennung)).toContain('Musterstra')
     }
+  })
+})
+
+describe('anzahl', () => {
+  it('nimmt bei eins die Einzahl', () => {
+    expect(anzahl(1, 'Fahrt', 'Fahrten')).toBe('1 Fahrt')
+  })
+
+  it('nimmt sonst die Mehrzahl', () => {
+    expect(anzahl(3, 'Fahrt', 'Fahrten')).toBe('3 Fahrten')
+  })
+
+  // Die Null ist Mehrzahl — „0 Fahrt" sagt niemand. Sie kommt in der Oberfläche zwar nicht vor,
+  // weil dort nur genannt wird, was tatsächlich wegging; falsch wäre sie trotzdem.
+  it('behandelt die Null als Mehrzahl', () => {
+    expect(anzahl(0, 'Fahrt', 'Fahrten')).toBe('0 Fahrten')
   })
 })

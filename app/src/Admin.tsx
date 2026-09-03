@@ -14,6 +14,7 @@ import {
 } from './adminApi'
 import {
   ANTWORTEN,
+  anzahl,
   ausEingabe,
   fuerEingabe,
   plaetze,
@@ -1202,7 +1203,7 @@ function Mitglieder({
         </p>
       )}
 
-      {umzug && umzug.von === team && <p className="satz__warnung">{umzug.text}</p>}
+      {umzug && umzug.von === team && <p className="satz__quittung">{umzug.text}</p>}
 
       {items.map((m: AdminMitglied) => (
         <div key={m.id} className="satz">
@@ -1310,9 +1311,10 @@ function Mitglieder({
                           async () => {
                             const d = await adminApi.mitgliedUmziehen(m.id, ziel.id)
                             const weg: string[] = []
-                            if (d.rueckmeldungen) weg.push(`${d.rueckmeldungen} Rückmeldung(en)`)
-                            if (d.fahrten) weg.push(`${d.fahrten} Fahrt(en)`)
-                            if (d.mitfahrten) weg.push(`${d.mitfahrten} Mitfahrt(en)`)
+                            if (d.rueckmeldungen)
+                              weg.push(anzahl(d.rueckmeldungen, 'Rückmeldung', 'Rückmeldungen'))
+                            if (d.fahrten) weg.push(anzahl(d.fahrten, 'Fahrt', 'Fahrten'))
+                            if (d.mitfahrten) weg.push(anzahl(d.mitfahrten, 'Mitfahrt', 'Mitfahrten'))
                             setUmzug({
                               von: team,
                               text:
@@ -1322,9 +1324,11 @@ function Mitglieder({
                                   : `Bei ${dieseMannschaft} hing an künftigen Spieltagen nichts an ihm.`) +
                                 // Der Satz, der sonst erst am Spieltag auffiele: Sein Auto ist
                                 // mitgegangen, und die Mitfahrer stehen ohne Platz da.
-                                (d.plaetze
-                                  ? ` ${d.plaetze} Mitfahrer haben dabei ihren Platz verloren — sag ihnen Bescheid.`
-                                  : ''),
+                                (d.plaetze === 1
+                                  ? ' Ein Mitfahrer hat dabei seinen Platz verloren — sag ihm Bescheid.'
+                                  : d.plaetze > 1
+                                    ? ` ${d.plaetze} Mitfahrer haben dabei ihren Platz verloren — sag ihnen Bescheid.`
+                                    : ''),
                             })
                           },
                           'Nicht umgezogen.',

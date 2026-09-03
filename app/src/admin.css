@@ -182,6 +182,22 @@
 span.satz__warnung {
   white-space: nowrap;
 }
+
+/* Die Quittung nach einer Handlung, die geklappt hat — heute der Mannschaftswechsel.
+   NICHT `satz__warnung`: Die trägt Rot, und Rot ist im ganzen Produkt ausschließlich Warnfarbe
+   (6.2). Eine gelungene Handlung in Rot zu melden hieße, dem Kapitän einen Schrecken für etwas
+   einzujagen, das er gerade selbst wollte.
+
+   Dieselbe Machart wie `.gemeldet` im Aushang: eine Kante in Tinte links, die sagt „das hier ist
+   die Antwort auf das, was du getan hast". Sie steht dort in der eigenen Datei, weil die
+   Kapitänsansicht `abfahrtsplan.css` nicht lädt. */
+.satz__quittung {
+  margin: 0.6rem 0;
+  padding: 0.3rem 0 0.3rem 0.6rem;
+  border-left: 4px solid var(--tinte); /* impeccable-disable-line side-tab -- Tinte auf Papier, wie im Aushang */
+  font-size: 0.92rem;
+  font-weight: 500;
+}
 /* Kein gedrehter Stempel wie im Aushang: Der Kapitän überfliegt zwanzig Zeilen, da wäre jede
    Inszenierung im Weg. Dieselbe Farbe, dieselbe Aussage, ein Wort. */
 .satz__voll {
