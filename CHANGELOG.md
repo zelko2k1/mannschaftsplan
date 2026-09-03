@@ -7,6 +7,27 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- **„Wechselt zu" steht jetzt in der Knopfreihe** statt als beschriftetes Feld darunter. Bei acht
+  Spielern standen dort acht volle Auswahlfelder untereinander, jedes so hoch wie die Knopfreihe
+  darüber — für eine Handlung, die einmal im Sommer vorkommt. **Was selten gebraucht wird, darf
+  nicht am lautesten sein.**
+
+  Die Auswahl sieht jetzt aus wie ein vierter Knopf, bemisst sich am Wort und trägt ihre
+  Beschriftung im ersten Eintrag („Wechselt zu …") statt über sich. Die Spielerzeile ist damit
+  wieder so hoch wie vor der Funktion. Vorgelesen wird der Name über ein `aria-label` — die Zeile
+  wird ohne ihre Überschrift gelesen, und „Wechselt zu" allein sagte nicht, wer gemeint ist.
+
+### Behoben
+
+- **Die Quittung des Mannschaftswechsels hatte eine eigene Klasse, die es nicht brauchte.** Sie
+  war mit der Begründung angelegt worden, die Kapitänsansicht lade `abfahrtsplan.css` nicht — das
+  stimmt nicht: Nur `admin.css` hängt am nachgeladenen Teil, das Haupt-Stilblatt kommt über
+  `index.html` und bringt unter anderem `.knopf` mit. Sie nimmt jetzt `.gemeldet`, dieselbe
+  Quittung wie im Aushang. Zwei Fassungen derselben Sache wären beim nächsten Feinschliff
+  auseinandergelaufen.
+
 ### Sicherheit
 
 - **Der ausgelieferte `Content-Security-Policy` war schwächer als der, den die App setzt.**
