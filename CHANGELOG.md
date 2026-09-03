@@ -7,6 +7,8 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+## [0.3.0] – 2026-09-03
+
 ### Hinzugefügt
 
 - **Ein Spieler kann die Mannschaft wechseln.** Bis hierher ging das nicht: `PATCH` auf einen
