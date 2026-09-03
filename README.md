@@ -88,6 +88,9 @@ Dritten.
   Uhr." Sonst weiß nur, wer es auswendig wusste, was sich geändert hat.
 - **Wie es ausgegangen ist**, als Stempel am gespielten Spieltag. Und was ein Spieltag nicht mehr
   ändern kann, verschwindet aus seiner Zeile.
+- **Der Spielplan im eigenen Kalender.** Ein Knopf am Ende der Liste, und die kommenden Spieltage
+  liegen im Handy-Kalender — mit Gegner, Uhrzeit, Spielort und Anschrift. Die Datei entsteht im
+  Browser; nichts davon geht an einen Server oder einen Dritten.
 
 ### 🗂️ Für den Kapitän
 

@@ -7,6 +7,29 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- **Der Spielplan im eigenen Kalender.** Am Ende des Aushangs steht ein Knopf **„In den Kalender"**
+  — ein Antippen, und die kommenden Spieltage liegen als Termine im Handy. Überschrift
+  **„Auswärtsspiel gegen DC Musterstadt"**: erst wohin, dann gegen wen, denn zwischen zwanzig
+  anderen Terminen zählt zuerst, ob man irgendwohin fahren muss. Beginn ist der **Anwurf**, Dauer
+  drei Stunden; **Abfahrt und Treffpunkt** stehen in der Beschreibung, die **Anschrift** im
+  Ortsfeld — nur damit kann die Karten-App des Kalenders etwas anfangen.
+
+  **Die Datei entsteht im Browser.** Kein Endpunkt, keine Anfrage, nichts, was den Server oder
+  einen Dritten erreicht.
+
+  **Eine Datei und kein Abo, und das ist eine Entscheidung.** Ein `webcal:`-Abo würde eine
+  Verlegung von selbst nachziehen — bräuchte dafür aber eine Adresse, die den Spieler erkennt,
+  also sein persönliches Token, dauerhaft im Kalenderkonto und über die Server von Apple oder
+  Google. Genau das verhindern R1 und R14. Der Preis dafür wird gemildert, nicht verschwiegen:
+  Jeder Termin trägt die feste Kennung seines Spieltags, wer die Datei nach einer Verlegung neu
+  holt, **aktualisiert** seine Termine, statt sie zu verdoppeln. Der Satz unter dem Knopf sagt das.
+
+  **Der Hinweis des Kapitäns bleibt draußen.** Er ändert sich, während der Termin im fremden
+  Kalender stehen bleibt, und in ein Freitextfeld schreibt jemand womöglich etwas über eine
+  einzelne Person. Was in der App steht, muss nicht auch bei Apple oder Google liegen.
+
 ## [0.3.3] – 2026-09-03
 
 ### Geändert

@@ -3,6 +3,7 @@ import { api, KeineSitzung, type Board, type Spieltag, type Status } from './api
 import Zeile from './Zeile'
 import { ANTWORTEN, wannUngefaehr } from './format'
 import './abfahrtsplan.css'
+import { alsIcs } from './kalender'
 
 /**
  * Die Kapitänsansicht wird erst geholt, wenn jemand sie aufruft.
@@ -414,6 +415,16 @@ function Abfahrtsplan() {
               setzeMitfahrt={(fahrt) => void setzeMitfahrt(spieltag, fahrt)}
             />
           ))}
+          {/* Am Ende der Liste, nicht im Kopfbalken: Hier hat man den Plan gesehen, und hier ist
+              der Gedanke „das hätte ich gern im Handy" fällig. Dieselbe Machart wie die
+              „Vorbei"-Zeile ganz oben — eine Zeile ohne Inhalt, kein Bedienelement aus einer
+              anderen Welt. Nur wenn überhaupt etwas bevorsteht: Ein Kalender aus lauter
+              vergangenen Terminen hilft niemandem. */}
+          {kommend.length > 0 && (
+            <li className="zeile zeile--kalender">
+              <KalenderKnopf spieltage={kommend} />
+            </li>
+          )}
         </ul>
       )}
       </main>
@@ -433,5 +444,57 @@ function Abfahrtsplan() {
         )}
       </footer>
     </div>
+  )
+}
+
+/**
+ * „In den Kalender" — der Spielplan als Datei fürs eigene Handy.
+ *
+ * Erzeugt wird sie erst beim Antippen und nur im Speicher; nichts davon geht an einen Server,
+ * und es gibt nichts, was man vorher laden müsste.
+ *
+ * **Warum ein `blob:`-Verweis und kein `data:`-Verweis:** Die CSP dieser App erlaubt nur
+ * `default-src 'self'` (R9). Ein `data:`-URI wäre eine fremde Quelle; ein Objektverweis auf einen
+ * Blob gilt als eigene. Der Verweis wird gleich danach wieder freigegeben — sonst hängt die
+ * Datei bis zum Neuladen im Speicher.
+ *
+ * Die Rückmeldung steht UNTER dem Knopf und bleibt stehen, wie überall sonst in dieser App: Auf
+ * einem Handy verschwindet die Datei in den Downloads, und ohne ein Wort weiß niemand, ob etwas
+ * passiert ist.
+ *
+ * Der Knopf selbst behält seine Beschriftung. „Kalenderdatei erstellt" stand einmal darin und war
+ * eine Sackgasse: Genau der Fall, für den es das Wiedereinlesen gibt — ein Spieltag wurde verlegt
+ * —, verlangt ein zweites Antippen, und ein Knopf, der von etwas Geschehenem erzählt, lädt dazu
+ * nicht ein.
+ */
+function KalenderKnopf({ spieltage }: { spieltage: Spieltag[] }) {
+  const [fertig, setFertig] = useState(false)
+
+  return (
+    <>
+      <button
+        type="button"
+        className="rueckschau"
+        onClick={() => {
+          const datei = new Blob([alsIcs(spieltage)], { type: 'text/calendar;charset=utf-8' })
+          const verweis = URL.createObjectURL(datei)
+          const a = document.createElement('a')
+          a.href = verweis
+          a.download = 'spieltage.ics'
+          a.click()
+          URL.revokeObjectURL(verweis)
+          setFertig(true)
+        }}
+      >
+        In den Kalender ({spieltage.length})
+      </button>
+      {fertig && (
+        <p className="kalender__hinweis">
+          Die Datei liegt in deinen Downloads — antippen, dann fragt dein Handy, ob es die Termine
+          übernehmen soll. Verlegt sich später ein Spieltag, hol sie dir hier neu: Deine Termine
+          werden dann aktualisiert, nicht verdoppelt.
+        </p>
+      )}
+    </>
   )
 }

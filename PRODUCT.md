@@ -86,6 +86,15 @@ Quelle sportlicher Personen, Konten davon getrennt und optional damit verknüpft
 - **Ein Hinweis je Spieltag** — Freitext des Kapitäns für alles, was kein eigenes Feld hat:
   Anfahrt, Erinnerungen, wer heute vertritt. Für alle sichtbar, höchstens 500 Zeichen. **Kein
   Diskussionsbereich:** Es schreibt nur der Kapitän.
+- **Der Spielplan im eigenen Kalender** — ein Knopf am Ende des Aushangs erzeugt eine
+  iCalendar-Datei mit den kommenden Spieltagen: Überschrift „Heimspiel/Auswärtsspiel gegen X",
+  Anwurf als Beginn, Anschrift als Ort, Abfahrt und Treffpunkt in der Beschreibung. Erzeugt wird
+  sie **im Browser**, nichts davon geht an einen Server oder einen Dritten. Bewusst eine Datei und
+  kein Abo: Ein `webcal:`-Abo bräuchte das persönliche Token in einer Adresse, die dauerhaft im
+  Kalenderkonto steht und über die Server von Apple oder Google geht — das verbietet R14. Feste
+  Termin-Kennungen sorgen dafür, dass ein erneutes Einlesen nach einer Verlegung aktualisiert
+  statt zu verdoppeln. Der **Hinweis des Kapitäns bleibt draußen**: Er ändert sich, während der
+  Termin im fremden Kalender stehen bleibt, und kann Angaben über einzelne Personen enthalten.
 - **Berechnete Abfahrtszeit** für Auswärtsspiele — im Backend gerechnet, damit alle dieselbe Zeit
   sehen. Tempo und Rüstzeit lassen sich je Spieltag überschreiben, die Abfahrt selbst von Hand
   setzen; leer heißt jeweils: der eingebaute Standard rechnet.
