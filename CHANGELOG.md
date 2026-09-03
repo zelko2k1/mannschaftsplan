@@ -7,6 +7,21 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+### Behoben
+
+- **Die Quittung nach einem Mannschaftswechsel stand in Rot** und las sich wie ein Formular vom
+  Amt: „1 Rückmeldung(en), 1 Fahrt(en)" und „1 Mitfahrer haben dabei ihren Platz verloren".
+
+  Drei Dinge, die erst auffielen, als der Satz zum ersten Mal auf einem Bildschirm stand. **Rot
+  ist in diesem Produkt ausschließlich Warnfarbe** (6.2) — eine gelungene Handlung so zu melden
+  heißt, dem Kapitän einen Schrecken für etwas einzujagen, das er gerade selbst wollte. Sie trägt
+  jetzt dieselbe Kante in Tinte wie die Quittung im Aushang. **Und sie zählt richtig:** „1 Fahrt",
+  „3 Fahrten", „Ein Mitfahrer hat dabei seinen Platz verloren". Die Klammerform stammt aus
+  Fehlermeldungen des Servers; in der Oberfläche macht der Rest des Produkts es überall richtig
+  („1 Gerät", „2 Geräte"), und diese eine Stelle fiel dahinter zurück.
+
+  Dafür gibt es `anzahl()` in `format.ts` — bisher stand die Zahlform je Stelle einzeln da.
+
 ## [0.3.0] – 2026-09-03
 
 ### Hinzugefügt

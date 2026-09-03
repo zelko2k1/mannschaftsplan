@@ -57,6 +57,18 @@ export function plaetze(frei: number): string {
 }
 
 /**
+ * Zahl plus Wort, in der richtigen Zahlform — „1 Fahrt", „3 Fahrten".
+ *
+ * Das gab es bisher nur als Sonderfall je Stelle (`plaetze`, „1 Gerät / 2 Geräte"), und beim
+ * Mannschaftswechsel standen deshalb kurz „1 Rückmeldung(en)" und „1 Fahrt(en)" auf dem
+ * Bildschirm. Die Klammerform ist eine Notlösung aus Fehlermeldungen; in der Oberfläche liest
+ * sie sich wie ein Formular vom Amt, und der Rest des Produkts macht es überall richtig.
+ */
+export function anzahl(wieviele: number, eins: string, mehrere: string): string {
+  return `${wieviele} ${wieviele === 1 ? eins : mehrere}`
+}
+
+/**
  * Die drei Wörter für eine Rückmeldung. Sie stehen hier und nicht im Aushang, weil die
  * Kapitänsansicht dieselben braucht: Wer eine Rückmeldung korrigiert, soll dieselben drei
  * Wörter sehen wie der, dessen Rückmeldung er korrigiert. Zweimal hingeschrieben wären es
