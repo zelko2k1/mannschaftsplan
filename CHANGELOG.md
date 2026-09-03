@@ -7,6 +7,8 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+## [0.3.1] – 2026-09-03
+
 ### Behoben
 
 - **Die Quittung nach einem Mannschaftswechsel stand in Rot** und las sich wie ein Formular vom
